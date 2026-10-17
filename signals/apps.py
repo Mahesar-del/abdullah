@@ -10,7 +10,7 @@ class SignalsConfig(AppConfig):
     def ready(self):
         # Start the automatic TP/SL evaluator only in the actual runserver process
         # (not in the autoreload parent, migrations, shell, tests...).
-        if 'runserver' in sys.argv and os.environ.get('RUN_MAIN') == 'true':
+        if 'runserver' in sys.argv and (os.environ.get('RUN_MAIN') == 'true' or '--noreload' in sys.argv):
             from .auto_evaluator import start_background_loop
             start_background_loop()
             from .auto_scanner import start_auto_scanner_loop

@@ -15,13 +15,69 @@ document.addEventListener('DOMContentLoaded', () => {
     startClock();
     loadDashboardData();
     updateMarketSession();
+    loadAutomationStatus();
     setInterval(updateMarketSession, 60000);
     setInterval(loadStats, 15000);   // auto-refresh scores every 15s
     setInterval(loadActiveSignals, 10000); // auto-refresh active signals every 10s (high-conviction signals appear automatically)
+    setInterval(loadAutomationStatus, 5000); // auto-refresh automated trading engine status every 5s
     setupSidebarNav();
+
+    // Restore Automated Trading console collapse state (opened if previously toggled open)
+    const savedAutoState = localStorage.getItem('ts_auto_console_open');
+    const autoSec = document.getElementById('auto-console-section');
+    const navAutoBtn = document.getElementById('nav-auto-trading-btn');
+    if (savedAutoState === 'true' && autoSec) {
+        autoSec.classList.remove('collapsed');
+        if (navAutoBtn) navAutoBtn.classList.add('active');
+    }
 });
 
-// ── Sidebar Navigation ─────────────────────────────────
+// ── Sidebar & Mobile/Tablet Navigation ─────────────────
+function toggleMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (!sidebar) return;
+    const isOpen = sidebar.classList.toggle('open');
+    if (backdrop) backdrop.classList.toggle('open', isOpen);
+}
+
+function closeMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (sidebar) sidebar.classList.remove('open');
+    if (backdrop) backdrop.classList.remove('open');
+}
+
+function mobileNavJump(targetKey, btnEl) {
+    closeMobileSidebar();
+    document.querySelectorAll('.mobile-nav-item').forEach(b => b.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+
+    if (targetKey === 'top') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+    }
+    if (targetKey === 'auto') {
+        const autoSec = document.getElementById('auto-console-section');
+        const navBtn = document.getElementById('nav-auto-trading-btn');
+        if (autoSec) {
+            autoSec.classList.remove('collapsed');
+            if (navBtn) navBtn.classList.add('active');
+            localStorage.setItem('ts_auto_console_open', 'true');
+            autoSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        return;
+    }
+    if (targetKey === 'signals') {
+        document.querySelector('.signals-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+    }
+    if (targetKey === 'pairs') {
+        document.getElementById('pair-scores-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+    }
+}
+
 function setupSidebarNav() {
     const navItems = document.querySelectorAll('.nav-item');
     
@@ -38,12 +94,15 @@ function setupSidebarNav() {
             const id = item.id;
             let target = null;
             
-            if (id === 'nav-dashboard') target = document.querySelector('.stats-grid');
-            if (id === 'nav-signals')   target = document.querySelector('.signals-section');
-            if (id === 'nav-markets')   target = document.querySelector('.engine-section');
-            if (id === 'nav-analysis')  target = document.querySelector('.direction-bar-section');
-            if (id === 'nav-news')      target = document.querySelector('.news-section');
+            if (id === 'nav-dashboard')   target = document.querySelector('.stats-grid');
+            if (id === 'nav-signals')     target = document.querySelector('.signals-section');
+            if (id === 'nav-markets')     target = document.querySelector('.engine-section');
+            if (id === 'nav-analysis')    target = document.querySelector('.direction-bar-section');
+            if (id === 'nav-news')        target = document.querySelector('.news-section');
+            if (id === 'nav-performance') target = document.querySelector('.r-multiple-section');
             
+            closeMobileSidebar();
+
             if (target) {
                 target.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
@@ -317,7 +376,7 @@ function renderSignals(signals) {
 function renderEmptySignals(msg) {
     document.getElementById('signals-tbody').innerHTML = `
         <tr>
-            <td colspan="10" class="empty-state">
+            <td colspan="11" class="empty-state">
                 <div class="empty-icon">📡</div>
                 <div>${msg}</div>
             </td>
@@ -349,6 +408,7 @@ function selectTimeframe(tf) {
     currentTimeframe = tf;
     document.querySelectorAll('.tf-btn').forEach(b =>
         b.classList.toggle('active', b.dataset.tf === tf));
+    closeMobileSidebar();
     renderSignals(allSignals);
     document.querySelector('.signals-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -819,8 +879,8 @@ function renderEvidenceGroups(groups) {
         const col = d === 'BUY' ? '#10b981' : d === 'SELL' ? '#ef4444' : '#94a3b8';
         const bg = d === 'BUY' ? 'rgba(16,185,129,0.1)' : d === 'SELL' ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)';
         const border = d === 'BUY' ? 'rgba(16,185,129,0.3)' : d === 'SELL' ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.08)';
-        return `<div style="padding:6px 8px;border-radius:6px;background:${bg};border:1px solid ${border};display:flex;flex-direction:column;gap:2px;">
-            <span style="color:var(--text-secondary);font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${name}">${name}</span>
+        return `<div style="padding:7px 10px;border-radius:6px;background:${bg};border:1px solid ${border};display:flex;flex-direction:column;gap:3px;min-width:0;">
+            <span style="color:var(--text-secondary);font-size:10.5px;font-weight:600;line-height:1.3;word-break:break-word;" title="${name}">${name}</span>
             <span style="color:${col};font-weight:700;font-size:11px;">${d}</span>
         </div>`;
     }).join('');
@@ -1053,5 +1113,497 @@ async function executeWalkForward() {
         btn.disabled = false;
     }
 }
+
+// ── Section 17 & 1-20: Persistent Automated Trading Engine Controllers ────
+let currentAutomationData = null;
+
+async function loadAutomationStatus() {
+    try {
+        const res = await fetch('/api/accounts/automation-status/');
+        if (!res.ok) return;
+        const data = await res.json();
+        currentAutomationData = data;
+
+        const badge = document.getElementById('auto-trading-badge');
+        const globalBtn = document.getElementById('btn-toggle-global-auto');
+        const accountNum = document.getElementById('auto-account-num');
+        const brokerName = document.getElementById('auto-broker-name');
+        const riskVal = document.getElementById('auto-risk-val');
+        const maxOpenRisk = document.getElementById('auto-max-open-risk');
+        const openPos = document.getElementById('auto-open-positions');
+        const todayPnl = document.getElementById('auto-today-pnl');
+        const todayR = document.getElementById('auto-today-r');
+        const dailyRisk = document.getElementById('auto-daily-risk');
+        const drawdownStat = document.getElementById('auto-drawdown-stat');
+        const nextSignal = document.getElementById('auto-next-signal');
+        const statusText = document.getElementById('auto-status-text');
+
+        const isRunning = data.is_active;
+
+        if (badge) {
+            if (isRunning) {
+                badge.style.background = 'rgba(16, 185, 129, 0.2)';
+                badge.style.color = '#10b981';
+                badge.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                badge.innerHTML = '<span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span> LIVE ACTIVE';
+            } else if (data.emergency_stop_active) {
+                badge.style.background = 'rgba(239, 68, 68, 0.25)';
+                badge.style.color = '#ef4444';
+                badge.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                badge.innerHTML = '<span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span> EMERGENCY STOPPED';
+            } else {
+                badge.style.background = 'rgba(245, 158, 11, 0.2)';
+                badge.style.color = '#f59e0b';
+                badge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+                badge.innerHTML = '<span style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;"></span> PAUSED / OFF';
+            }
+        }
+
+        if (globalBtn) {
+            if (data.global_auto_trading) {
+                globalBtn.textContent = 'Global Engine: ON';
+                globalBtn.style.background = 'rgba(16, 185, 129, 0.2)';
+                globalBtn.style.color = '#34d399';
+                globalBtn.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+            } else {
+                globalBtn.textContent = 'Global Engine: OFF';
+                globalBtn.style.background = 'rgba(239, 68, 68, 0.2)';
+                globalBtn.style.color = '#f87171';
+                globalBtn.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+            }
+        }
+
+        if (data.account) {
+            const acc = data.account;
+            if (accountNum) accountNum.textContent = acc.account_number_masked || '—';
+            if (brokerName) brokerName.textContent = `${acc.broker_name} (${acc.account_type})`;
+            if (riskVal) riskVal.textContent = `${Number(acc.risk_pct).toFixed(2)}%`;
+            if (maxOpenRisk) maxOpenRisk.textContent = `Max Open: ${Number(acc.max_open_risk_pct).toFixed(1)}%`;
+            if (openPos) openPos.textContent = `${acc.open_positions_count}`;
+            if (todayPnl) {
+                const pnl = Number(acc.today_pnl_usd);
+                todayPnl.textContent = `${pnl >= 0 ? '+' : '-'}$${Math.abs(pnl).toFixed(2)}`;
+                todayPnl.style.color = pnl >= 0 ? '#10b981' : '#ef4444';
+            }
+            if (todayR) {
+                const r = Number(acc.today_pnl_r);
+                todayR.textContent = `${r >= 0 ? '+' : ''}${r.toFixed(2)} R realized`;
+            }
+            if (dailyRisk) {
+                dailyRisk.textContent = `${Number(acc.daily_risk_used_pct).toFixed(2)}% / ${acc.daily_drawdown_limit_pct}%`;
+            }
+            if (drawdownStat) {
+                drawdownStat.textContent = `DD: ${Number(acc.current_drawdown_pct).toFixed(1)}% / Max ${acc.max_drawdown_limit_pct}%`;
+            }
+        }
+
+        if (nextSignal) {
+            nextSignal.textContent = isRunning ? 'Monitoring live...' : 'Halted (Engine Off)';
+            nextSignal.style.color = isRunning ? '#60a5fa' : '#94a3b8';
+        }
+
+        // Update Navbar Dropdown Button & Sidebar Badges
+        const navPill = document.getElementById('nav-auto-pill');
+        const sidebarBadge = document.getElementById('sidebar-auto-badge');
+        if (navPill) {
+            if (isRunning) {
+                navPill.className = 'nav-auto-pill live';
+                navPill.innerHTML = '<span class="pill-dot"></span> LIVE ACTIVE';
+            } else if (data.emergency_stop_active) {
+                navPill.className = 'nav-auto-pill stopped';
+                navPill.innerHTML = '<span class="pill-dot"></span> STOPPED';
+            } else {
+                navPill.className = 'nav-auto-pill paused';
+                navPill.innerHTML = '<span class="pill-dot"></span> PAUSED';
+            }
+        }
+        if (sidebarBadge) {
+            if (isRunning) {
+                sidebarBadge.style.background = 'rgba(16, 185, 129, 0.2)';
+                sidebarBadge.style.color = '#10b981';
+                sidebarBadge.textContent = 'LIVE';
+            } else if (data.emergency_stop_active) {
+                sidebarBadge.style.background = 'rgba(239, 68, 68, 0.2)';
+                sidebarBadge.style.color = '#ef4444';
+                sidebarBadge.textContent = 'HALT';
+            } else {
+                sidebarBadge.style.background = 'rgba(245, 158, 11, 0.2)';
+                sidebarBadge.style.color = '#f59e0b';
+                sidebarBadge.textContent = 'OFF';
+            }
+        }
+    } catch (e) {
+        console.error('Error fetching automation status:', e);
+    }
+}
+
+// Toggle Automated Trading Console via Navbar Button / Arrow
+function toggleAutoTradingConsole(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    closeMobileSidebar();
+    const section = document.getElementById('auto-console-section');
+    const navBtn = document.getElementById('nav-auto-trading-btn');
+    if (!section) return;
+
+    const isCollapsed = section.classList.contains('collapsed');
+    if (isCollapsed) {
+        section.classList.remove('collapsed');
+        if (navBtn) navBtn.classList.add('active');
+        localStorage.setItem('ts_auto_console_open', 'true');
+        section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+        section.classList.add('collapsed');
+        if (navBtn) navBtn.classList.remove('active');
+        localStorage.setItem('ts_auto_console_open', 'false');
+    }
+}
+
+// Global Switch Toggle (Section 10)
+async function toggleGlobalAutoTrading() {
+    if (!currentAutomationData) return;
+    const newState = !currentAutomationData.global_auto_trading;
+    try {
+        const res = await fetch('/api/accounts/global-switch/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+            body: JSON.stringify({ enabled: newState })
+        });
+        const data = await res.json();
+        if (data.success) {
+            loadAutomationStatus();
+        } else {
+            alert('Error updating global switch: ' + (data.error || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Failed to contact server: ' + err.message);
+    }
+}
+
+// Authorize Modal (Section 1)
+function openAuthorizeModal() {
+    const modal = document.getElementById('authorize-modal');
+    if (!modal) return;
+    
+    const select = document.getElementById('auth-account-select');
+    if (select && currentAutomationData && currentAutomationData.all_accounts) {
+        select.innerHTML = '';
+        currentAutomationData.all_accounts.forEach(acc => {
+            const opt = document.createElement('option');
+            opt.value = acc.id;
+            opt.textContent = `${acc.broker_name} (${acc.account_number_masked}) — ${acc.authorization_status}`;
+            select.appendChild(opt);
+        });
+    }
+
+    if (currentAutomationData && currentAutomationData.account) {
+        document.getElementById('auth-risk-pct').value = currentAutomationData.account.risk_pct;
+        document.getElementById('auth-max-open-risk').value = currentAutomationData.account.max_open_risk_pct;
+    }
+
+    document.getElementById('auth-explicit-confirm').checked = false;
+    modal.style.display = 'flex';
+    modal.classList.add('open');
+}
+
+function closeAuthorizeModal() {
+    const modal = document.getElementById('authorize-modal');
+    if (modal) {
+        modal.classList.remove('open');
+        modal.style.display = 'none';
+    }
+}
+
+async function submitAuthorization() {
+    const select = document.getElementById('auth-account-select');
+    const riskPct = parseFloat(document.getElementById('auth-risk-pct').value);
+    const maxOpenRiskPct = parseFloat(document.getElementById('auth-max-open-risk').value);
+    const confirmBox = document.getElementById('auth-explicit-confirm');
+
+    if (!confirmBox.checked) {
+        alert('Please check the authorization box to explicitly confirm persistent automated trading.');
+        return;
+    }
+
+    const accountId = select ? select.value : (currentAutomationData?.account?.id || 1);
+    const btn = document.getElementById('btn-submit-authorization');
+    const origText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = 'Arming Engine...';
+
+    try {
+        const res = await fetch('/api/accounts/authorize/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+            body: JSON.stringify({
+                account_id: accountId,
+                risk_pct: riskPct,
+                max_open_risk_pct: maxOpenRiskPct,
+                is_authorized: true
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            closeAuthorizeModal();
+            loadAutomationStatus();
+        } else {
+            alert('Authorization failed: ' + (data.error || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('Server communication error: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = origText;
+    }
+}
+
+// Emergency Stop Modal (Section 11)
+function openEmergencyStopModal() {
+    const modal = document.getElementById('emergency-stop-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.add('open');
+    }
+}
+
+function closeEmergencyStopModal() {
+    const modal = document.getElementById('emergency-stop-modal');
+    if (modal) {
+        modal.classList.remove('open');
+        modal.style.display = 'none';
+    }
+}
+
+async function executeEmergencyStop() {
+    const closePositions = document.getElementById('emergency-close-positions').checked;
+    try {
+        const res = await fetch('/api/accounts/emergency-stop/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+            body: JSON.stringify({
+                close_positions: closePositions,
+                reason: 'Manual Emergency Stop triggered via Dashboard Console'
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            closeEmergencyStopModal();
+            loadAutomationStatus();
+            alert(`🛑 EMERGENCY STOP ACTIVATED!\nAutomated trading has been completely halted.\nClosed positions: ${data.closed_positions || 0}`);
+        } else {
+            alert('Failed to trigger emergency stop: ' + (data.error || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+function getCsrfToken() {
+    const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
+// ── Connect Broker Account Modal (Broker Dropdown -> Server Dropdown -> Login / Password) ────
+const BROKER_SERVERS = {
+    EXNESS: [
+        'Exness-MT5Real', 'Exness-MT5Real2', 'Exness-MT5Real3', 'Exness-MT5Real4', 'Exness-MT5Real5',
+        'Exness-MT5Real6', 'Exness-MT5Real7', 'Exness-MT5Real8', 'Exness-MT5Real9', 'Exness-MT5Real10',
+        'Exness-MT5Real11', 'Exness-MT5Real12', 'Exness-MT5Real14', 'Exness-MT5Real15', 'Exness-MT5Real20',
+        'Exness-MT5Trial', 'Exness-MT5Trial2', 'Exness-MT5Trial3', 'Exness-MT5Trial4', 'Exness-MT5Trial5',
+        'Exness-MT5Trial6', 'Exness-MT5Trial7', 'Exness-MT5Trial8', 'Exness-MT5Trial9', 'Exness-MT5Trial10',
+        'Exness-MT5Trial11', 'Exness-MT5Trial12', 'Exness-MT5Trial14', 'Exness-MT5Trial15', 'Exness-MT5Trial16',
+        'Exness-MT5Trial17', 'Exness-MT5Trial18', 'Exness-Real', 'Exness-Trial'
+    ],
+    XM: [
+        'XMGlobal-MT5', 'XMGlobal-MT5 2', 'XMGlobal-MT5 3', 'XMGlobal-MT5 4', 'XMGlobal-MT5 5',
+        'XMGlobal-MT5 6', 'XMGlobal-MT5 7', 'XMGlobal-Real 1', 'XMGlobal-Real 2', 'XMGlobal-Demo 3'
+    ],
+    ICMARKETS: [
+        'ICMarketsSC-MT5', 'ICMarketsSC-MT5-2', 'ICMarketsSC-MT5-3', 'ICMarketsSC-MT5-4',
+        'ICMarketsSC-Demo', 'ICMarketsSC-Demo02', 'ICMarketsEU-MT5', 'ICMarketsGlobal-MT5'
+    ],
+    OCTAFX: [
+        'OctaFX-Real', 'OctaFX-Real2', 'OctaFX-Real3', 'OctaFX-Real4', 'OctaFX-Demo', 'OctaMarkets-Real'
+    ],
+    FBS: [
+        'FBS-Real', 'FBS-Real-2', 'FBS-Real-3', 'FBS-Demo', 'FBS-MT5-Real', 'FBS-MT5-Demo'
+    ],
+    HFM: [
+        'HFMarketsGlobal-Live1', 'HFMarketsGlobal-Live2', 'HFMarketsGlobal-Live3', 'HFMarketsGlobal-Demo', 'HFMarketsSV-LiveServer'
+    ],
+    DERIV: [
+        'Deriv-Server', 'Deriv-Server-02', 'Deriv-Server-03', 'Deriv-Demo', 'DerivSVG-Server', 'DerivBVI-Server'
+    ],
+    PEPPERSTONE: [
+        'Pepperstone-MT5-Live01', 'Pepperstone-MT5-Edge01', 'Pepperstone-MT5-Edge02', 'Pepperstone-Demo01', 'PepperstoneUK-Live01'
+    ],
+    FPMARKETS: [
+        'FPMarkets-Live', 'FPMarkets-Live2', 'FPMarkets-Demo', 'FPMarketsLLC-Live'
+    ],
+    VANTAGE: [
+        'VantageInternational-Live', 'VantageInternational-Live 2', 'VantageInternational-Live 3', 'VantageInternational-Demo'
+    ],
+    TICKMILL: [
+        'Tickmill-Live', 'Tickmill-Live02', 'Tickmill-Demo', 'TickmillUK-Live'
+    ],
+    METAQUOTES: [
+        'MetaQuotes-Demo'
+    ],
+    BINANCE: [
+        'Binance-Futures-Mainnet', 'Binance-Spot-Mainnet', 'Binance-Testnet'
+    ],
+    BYBIT: [
+        'Bybit-Mainnet-Linear', 'Bybit-Spot-Mainnet', 'Bybit-Testnet'
+    ]
+};
+
+function onBrokerSelectChange() {
+    const brokerKey = document.getElementById('broker-select-input')?.value || 'EXNESS';
+    const serverSelect = document.getElementById('broker-server-select');
+    const customInput = document.getElementById('broker-server-custom');
+    if (!serverSelect) return;
+
+    const servers = BROKER_SERVERS[brokerKey] || ['MetaQuotes-Demo'];
+    serverSelect.innerHTML = '';
+
+    servers.forEach(srv => {
+        const opt = document.createElement('option');
+        opt.value = srv;
+        opt.textContent = srv;
+        serverSelect.appendChild(opt);
+    });
+
+    const customOpt = document.createElement('option');
+    customOpt.value = '__CUSTOM__';
+    customOpt.textContent = 'Other / Custom Server...';
+    serverSelect.appendChild(customOpt);
+
+    if (customInput) customInput.style.display = 'none';
+}
+
+function onServerSelectChange() {
+    const serverSelect = document.getElementById('broker-server-select');
+    const customInput = document.getElementById('broker-server-custom');
+    if (!serverSelect || !customInput) return;
+
+    if (serverSelect.value === '__CUSTOM__') {
+        customInput.style.display = 'block';
+        customInput.focus();
+    } else {
+        customInput.style.display = 'none';
+    }
+}
+
+function openConnectBrokerModal() {
+    const modal = document.getElementById('connect-broker-modal');
+    if (!modal) return;
+
+    const testBox = document.getElementById('broker-test-result');
+    if (testBox) {
+        testBox.style.display = 'none';
+        testBox.innerHTML = '';
+    }
+
+    const serverSelect = document.getElementById('broker-server-select');
+    if (serverSelect && serverSelect.options.length === 0) {
+        onBrokerSelectChange();
+    }
+
+    modal.style.display = 'flex';
+    modal.classList.add('open');
+    setTimeout(() => document.getElementById('broker-login-input')?.focus(), 50);
+}
+
+function closeConnectBrokerModal() {
+    const modal = document.getElementById('connect-broker-modal');
+    if (modal) {
+        modal.classList.remove('open');
+        modal.style.display = 'none';
+    }
+}
+
+async function submitConnectBroker() {
+    const brokerSelected = document.getElementById('broker-select-input')?.value || 'EXNESS';
+    const serverSelectVal = document.getElementById('broker-server-select')?.value || '';
+    const customServerVal = document.getElementById('broker-server-custom')?.value.trim() || '';
+    const server = (serverSelectVal === '__CUSTOM__' ? customServerVal : serverSelectVal).trim();
+    const accountNumber = document.getElementById('broker-login-input')?.value.trim() || '';
+    const password = document.getElementById('broker-password-input')?.value.trim() || '';
+    const testBox = document.getElementById('broker-test-result');
+    const btn = document.getElementById('btn-connect-broker-submit');
+
+    if (!accountNumber || !password || !server) {
+        if (testBox) {
+            testBox.style.display = 'block';
+            testBox.style.background = 'rgba(239, 68, 68, 0.12)';
+            testBox.style.border = '1px solid rgba(239, 68, 68, 0.35)';
+            testBox.style.color = '#f87171';
+            testBox.innerHTML = '❌ Please select Broker & Server and enter Login & Password.';
+        }
+        return;
+    }
+
+    let brokerType = 'MT5';
+    if (brokerSelected === 'EXNESS' || server.toUpperCase().includes('EXNESS')) {
+        brokerType = 'EXNESS';
+    } else if (brokerSelected === 'BINANCE' || brokerSelected === 'BYBIT') {
+        brokerType = brokerSelected;
+    }
+
+    const origText = btn ? btn.innerHTML : 'Login';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = 'Connecting...';
+    }
+
+    try {
+        const res = await fetch('/api/accounts/linked/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+            body: JSON.stringify({
+                name: `${server} (${accountNumber})`,
+                broker_type: brokerType,
+                account_number: accountNumber,
+                password: password,
+                server: server,
+                balance: 10000,
+                is_paper: false,
+                auto_trade_enabled: true,
+                is_authorized: true,
+                max_risk_pct: 0.5,
+                max_open_risk_pct: 3.0
+            })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            await fetch('/api/accounts/global-switch/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+                body: JSON.stringify({ enabled: true })
+            });
+            closeConnectBrokerModal();
+            await loadAutomationStatus();
+        } else {
+            if (testBox) {
+                testBox.style.display = 'block';
+                testBox.style.background = 'rgba(239, 68, 68, 0.12)';
+                testBox.style.border = '1px solid rgba(239, 68, 68, 0.35)';
+                testBox.style.color = '#f87171';
+                testBox.innerHTML = `❌ <strong>Error:</strong> ${data.error || 'Could not login to account.'}`;
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        }
+    } catch (e) {
+        alert('Failed to connect broker account: ' + e.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = origText;
+        }
+    }
+}
+
+
+
 
 

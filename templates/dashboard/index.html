@@ -9,16 +9,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=5">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=8">
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
+
+<!-- ── MOBILE / TABLET SIDEBAR BACKDROP ────────────────── -->
+<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeMobileSidebar()"></div>
 
 <!-- ── SIDEBAR ─────────────────────────────────────────── -->
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo">
         <div class="logo-icon">📈</div>
         <span class="logo-text">TradeSense<span class="logo-pro">Pro</span></span>
+        <button class="sidebar-close-btn" id="sidebar-close-btn" onclick="closeMobileSidebar()" aria-label="Close navigation menu">✕</button>
     </div>
 
     <nav class="sidebar-nav">
@@ -82,8 +86,13 @@
     <!-- Top Bar -->
     <header class="topbar">
         <div class="topbar-left">
-            <h1 class="page-title">Dashboard</h1>
-            <span class="page-subtitle">Live Market Intelligence</span>
+            <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleMobileSidebar()" aria-label="Open navigation menu">
+                ☰
+            </button>
+            <div>
+                <h1 class="page-title">Dashboard</h1>
+                <span class="page-subtitle">Live Market Intelligence</span>
+            </div>
         </div>
         <div class="topbar-right">
             <!-- ── NAVBAR AUTOMATED TRADING TOGGLE (WITH DROPDOWN ARROW) ── -->
@@ -98,102 +107,115 @@
 
             <div class="live-clock" id="live-clock">--:--:--</div>
             <div class="timezone-badge">PKT UTC+5</div>
-            <div class="auto-scan-badge" style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:20px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);color:#10b981;font-size:12px;font-weight:600;">
-                <span class="pulse-dot" style="width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 10px #10b981;"></span>
+            <div class="auto-scan-badge" style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:20px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);color:#10b981;font-size:12px;font-weight:600;white-space:nowrap;">
+                <span class="pulse-dot" style="width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 10px #10b981;flex-shrink:0;"></span>
                 <span>Auto-Scanning Markets (≥75% Only)</span>
             </div>
             <button class="refresh-btn" id="refresh-btn" onclick="loadDashboardData()">
-                <span class="refresh-icon">↻</span> Refresh
+                <span class="refresh-icon">↻</span> <span class="refresh-btn-text">Refresh</span>
             </button>
         </div>
     </header>
 
+    <!-- ── MOBILE / TABLET QUICK TIMEFRAME PILL BAR ──────── -->
+    <div class="mobile-tf-bar" id="mobile-tf-bar">
+        <span class="mobile-tf-label">⏱ TF:</span>
+        <button class="tf-btn active" data-tf="ALL" onclick="selectTimeframe('ALL')">All</button>
+        <button class="tf-btn" data-tf="M1"  onclick="selectTimeframe('M1')">1m</button>
+        <button class="tf-btn" data-tf="M5"  onclick="selectTimeframe('M5')">5m</button>
+        <button class="tf-btn" data-tf="M15" onclick="selectTimeframe('M15')">15m</button>
+        <button class="tf-btn" data-tf="M30" onclick="selectTimeframe('M30')">30m</button>
+        <button class="tf-btn" data-tf="H1"  onclick="selectTimeframe('H1')">1H</button>
+        <button class="tf-btn" data-tf="H2"  onclick="selectTimeframe('H2')">2H</button>
+        <button class="tf-btn" data-tf="H4"  onclick="selectTimeframe('H4')">4H</button>
+    </div>
+
     <!-- ── SECTION 17: PERSISTENT AUTOMATED TRADING CONSOLE (COLLAPSIBLE FROM NAVBAR) ──── -->
-    <section id="auto-console-section" class="automation-console-section collapsed" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.92)); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 12px; padding: 20px; box-shadow: 0 12px 36px rgba(0,0,0,0.45);">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="font-size: 1.5rem;">🤖</div>
-                <div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <h2 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #f8fafc; letter-spacing: -0.01em;">AUTOMATED TRADING</h2>
-                        <span id="auto-trading-badge" class="badge" style="padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); display: flex; align-items: center; gap: 6px;">
+    <section id="auto-console-section" class="automation-console-section collapsed" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.92)); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 14px; padding: 22px; box-shadow: 0 12px 36px rgba(0,0,0,0.45);">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 18px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                <div style="font-size: 1.6rem; flex-shrink: 0;">🤖</div>
+                <div style="min-width: 0;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <h2 style="margin: 0; font-size: 1.2rem; font-weight: 700; color: #f8fafc; letter-spacing: -0.01em;">AUTOMATED TRADING</h2>
+                        <span id="auto-trading-badge" class="badge" style="padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;">
                             <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span> ACTIVE
                         </span>
                     </div>
-                    <div style="font-size: 0.82rem; color: #94a3b8; margin-top: 2px;">
+                    <div style="font-size: 0.82rem; color: #94a3b8; margin-top: 4px; line-height: 1.4;">
                         Continuous Background Engine • Zero Per-Trade Prompts • Strict 13-Gate Execution
                     </div>
                 </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div class="auto-console-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 <!-- Global Auto-Trading Switch (Section 10) -->
-                <button id="btn-toggle-global-auto" onclick="toggleGlobalAutoTrading()" style="padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);">
+                <button id="btn-toggle-global-auto" onclick="toggleGlobalAutoTrading()" style="padding: 8px 15px; border-radius: 8px; font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); white-space: nowrap;">
                     Global Engine: ON
                 </button>
                 <!-- Connect Broker Account Button (Login / Password) -->
-                <button onclick="openConnectBrokerModal()" style="padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(139, 92, 246, 0.25)); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.45); display: flex; align-items: center; gap: 6px;">
+                <button onclick="openConnectBrokerModal()" style="padding: 8px 15px; border-radius: 8px; font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(139, 92, 246, 0.25)); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.45); display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;">
                     <span>🔗</span> Connect Broker Account
                 </button>
                 <!-- Configure & Authorize Button (Section 1) -->
-                <button onclick="openAuthorizeModal()" style="padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">
+                <button onclick="openAuthorizeModal()" style="padding: 8px 15px; border-radius: 8px; font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); white-space: nowrap;">
                     ⚙️ One-Time Authorization
                 </button>
                 <!-- Emergency Stop Button (Section 11) -->
-                <button onclick="openEmergencyStopModal()" style="padding: 8px 18px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; background: #dc2626; color: #ffffff; border: 1px solid #ef4444; box-shadow: 0 0 15px rgba(220, 38, 38, 0.4);">
+                <button onclick="openEmergencyStopModal()" style="padding: 8px 16px; border-radius: 8px; font-size: 0.84rem; font-weight: 700; cursor: pointer; transition: all 0.2s; background: #dc2626; color: #ffffff; border: 1px solid #ef4444; box-shadow: 0 0 15px rgba(220, 38, 38, 0.4); white-space: nowrap;">
                     🛑 EMERGENCY STOP
                 </button>
                 <!-- Hide Button with Arrow -->
-                <button onclick="toggleAutoTradingConsole(event)" title="Hide Panel" style="padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: rgba(255,255,255,0.06); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; gap: 6px;">
+                <button onclick="toggleAutoTradingConsole(event)" title="Hide Panel" style="padding: 8px 14px; border-radius: 8px; font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: rgba(255,255,255,0.06); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.12); display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;">
                     <span>▲</span> Hide
                 </button>
             </div>
         </div>
 
         <!-- 6 Core Section 17 Metrics -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px;">
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px 14px;">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">Account & Broker</div>
-                    <button onclick="openConnectBrokerModal()" style="background: none; border: none; color: #60a5fa; font-size: 0.75rem; cursor: pointer; text-decoration: underline; padding: 0;">+ Switch / Link</button>
+        <div class="auto-console-metrics-grid">
+            <div class="auto-console-metric-card">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                    <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">Account &amp; Broker</div>
+                    <button onclick="openConnectBrokerModal()" style="background: none; border: none; color: #60a5fa; font-size: 0.75rem; font-weight: 600; cursor: pointer; text-decoration: underline; padding: 0; white-space: nowrap;">+ Switch / Link</button>
                 </div>
-                <div id="auto-account-num" style="font-size: 1.05rem; font-weight: 700; color: #f1f5f9; margin-top: 4px;">********1001</div>
-                <div id="auto-broker-name" style="font-size: 0.78rem; color: #60a5fa; margin-top: 2px;">TradeSense Paper / MT5</div>
+                <div id="auto-account-num" style="font-size: 1.08rem; font-weight: 700; color: #f1f5f9; margin-top: 6px; word-break: break-word;">********1001</div>
+                <div id="auto-broker-name" style="font-size: 0.8rem; color: #60a5fa; margin-top: 4px; line-height: 1.35; word-break: break-word;">TradeSense Paper / MT5</div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px 14px;">
+            <div class="auto-console-metric-card">
                 <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">Risk / Trade</div>
-                <div id="auto-risk-val" style="font-size: 1.05rem; font-weight: 700; color: #34d399; margin-top: 4px;">0.50%</div>
-                <div id="auto-max-open-risk" style="font-size: 0.78rem; color: #94a3b8; margin-top: 2px;">Max Open: 3.0%</div>
+                <div id="auto-risk-val" style="font-size: 1.08rem; font-weight: 700; color: #34d399; margin-top: 6px;">0.50%</div>
+                <div id="auto-max-open-risk" style="font-size: 0.8rem; color: #94a3b8; margin-top: 4px; line-height: 1.35;">Max Open: 3.0%</div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px 14px;">
+            <div class="auto-console-metric-card">
                 <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">Open Positions</div>
-                <div id="auto-open-positions" style="font-size: 1.05rem; font-weight: 700; color: #f1f5f9; margin-top: 4px;">0</div>
-                <div id="auto-open-capacity" style="font-size: 0.78rem; color: #94a3b8; margin-top: 2px;">Cap: 5 active</div>
+                <div id="auto-open-positions" style="font-size: 1.08rem; font-weight: 700; color: #f1f5f9; margin-top: 6px;">0</div>
+                <div id="auto-open-capacity" style="font-size: 0.8rem; color: #94a3b8; margin-top: 4px; line-height: 1.35;">Cap: 5 active</div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px 14px;">
+            <div class="auto-console-metric-card">
                 <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">Today's PnL</div>
-                <div id="auto-today-pnl" style="font-size: 1.05rem; font-weight: 700; color: #10b981; margin-top: 4px;">+$0.00</div>
-                <div id="auto-today-r" style="font-size: 0.78rem; color: #94a3b8; margin-top: 2px;">0.00 R realized</div>
+                <div id="auto-today-pnl" style="font-size: 1.08rem; font-weight: 700; color: #10b981; margin-top: 6px;">+$0.00</div>
+                <div id="auto-today-r" style="font-size: 0.8rem; color: #94a3b8; margin-top: 4px; line-height: 1.35;">0.00 R realized</div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px 14px;">
+            <div class="auto-console-metric-card">
                 <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">Daily Risk Used</div>
-                <div id="auto-daily-risk" style="font-size: 1.05rem; font-weight: 700; color: #f59e0b; margin-top: 4px;">0.00% / 5.0%</div>
-                <div id="auto-drawdown-stat" style="font-size: 0.78rem; color: #94a3b8; margin-top: 2px;">DD: 0.0% / Max 10%</div>
+                <div id="auto-daily-risk" style="font-size: 1.08rem; font-weight: 700; color: #f59e0b; margin-top: 6px;">0.00% / 5.0%</div>
+                <div id="auto-drawdown-stat" style="font-size: 0.8rem; color: #94a3b8; margin-top: 4px; line-height: 1.35;">DD: 0.0% / Max 10%</div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px 14px;">
+            <div class="auto-console-metric-card">
                 <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">Next Signal Status</div>
-                <div id="auto-next-signal" style="font-size: 1.05rem; font-weight: 700; color: #60a5fa; margin-top: 4px;">Monitoring...</div>
-                <div id="auto-last-eval" style="font-size: 0.78rem; color: #94a3b8; margin-top: 2px;">Scanner: 15s background daemon</div>
+                <div id="auto-next-signal" style="font-size: 1.05rem; font-weight: 700; color: #60a5fa; margin-top: 6px; word-break: break-word;">Monitoring...</div>
+                <div id="auto-last-eval" style="font-size: 0.8rem; color: #94a3b8; margin-top: 4px; line-height: 1.35;">Scanner: 15s background daemon</div>
             </div>
         </div>
 
-        <div id="auto-safety-notice" style="margin-top: 14px; padding: 10px 14px; background: rgba(59, 130, 246, 0.08); border-radius: 6px; font-size: 0.78rem; color: #93c5fd; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+        <div id="auto-safety-notice" style="margin-top: 16px; padding: 12px 16px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.18); border-radius: 8px; font-size: 0.8rem; color: #93c5fd; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; line-height: 1.45;">
             <span>🛡️ <strong>Autonomous Execution Active:</strong> No confirmation dialogue will be asked for trades. The system automatically executes when all 13 deterministic safety gates pass.</span>
-            <span id="auto-status-text" style="color: #34d399; font-weight: 600;">System Armed & Continuous</span>
+            <span id="auto-status-text" style="color: #34d399; font-weight: 600; white-space: nowrap;">System Armed &amp; Continuous</span>
         </div>
     </section>
 
@@ -251,9 +273,9 @@
 
     <!-- ── R-MULTIPLE PERFORMANCE TRACKING (PHASE 12) ──── -->
     <section class="r-multiple-section" style="margin-bottom: 24px;">
-        <div class="section-header" style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <h2 class="section-title" style="margin: 0; font-size: 1.15rem;">📐 R-Multiple Performance Tracking</h2>
+        <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <h2 class="section-title" style="margin: 0; font-size: 1.12rem;">📐 R-Multiple Performance Tracking</h2>
                 <span class="section-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">
                     Verified Profitable Edge
                 </span>
@@ -262,7 +284,7 @@
                 Realized Risk Units (1R = 1% Risk Envelope)
             </span>
         </div>
-        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
+        <div class="stats-grid" style="margin-bottom: 0;">
             <div class="stat-card green" id="stat-avg-win">
                 <div class="stat-icon" style="color: #10b981;">🎯</div>
                 <div class="stat-body">
@@ -308,9 +330,9 @@
 
     <!-- ── LOSS ANALYSIS & DIAGNOSTICS (SECTION 13 & 15.1) ──── -->
     <section class="loss-diagnosis-section" style="margin-bottom: 24px;">
-        <div class="section-header" style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <h2 class="section-title" style="margin: 0; font-size: 1.15rem;">🔍 Loss Diagnosis & Continuous Improvement</h2>
+        <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <h2 class="section-title" style="margin: 0; font-size: 1.12rem;">🔍 Loss Diagnosis &amp; Continuous Improvement</h2>
                 <span class="section-badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);">
                     Section 15.1 Audit
                 </span>
@@ -319,7 +341,7 @@
                 Classified Failure Modes for Data-Backed Optimization
             </span>
         </div>
-        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;" id="loss-reasons-grid">
+        <div class="stats-grid" style="margin-bottom: 0;" id="loss-reasons-grid">
             <div class="stat-card" style="border-left-color: #f59e0b;">
                 <div class="stat-icon" style="color: #f59e0b;">🔄</div>
                 <div class="stat-body">
@@ -464,14 +486,14 @@
     <!-- ── INSTITUTIONAL COT & INTERMARKET PANEL ────────── -->
     <section class="engine-section" id="institutional-section">
         <div class="section-header">
-            <h2 class="section-title">🏛️ Institutional COT & Intermarket Positioning</h2>
-            <span class="section-badge">CFTC & Cross-Asset Regimes</span>
+            <h2 class="section-title">🏛️ Institutional COT &amp; Intermarket Positioning</h2>
+            <span class="section-badge">CFTC &amp; Cross-Asset Regimes</span>
         </div>
-        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); margin-bottom: 20px;">
+        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); padding: 20px 24px; margin-bottom: 0;">
             <div class="stat-card gold">
                 <div class="stat-icon">🪙</div>
                 <div class="stat-body">
-                    <div class="stat-value" style="font-size: 1.25rem;">XAUUSD COT: +213.3K Net</div>
+                    <div class="stat-value" style="font-size: 1.15rem;">XAUUSD COT: +213.3K Net</div>
                     <div class="stat-label">Non-Commercial Speculators (82.5% 52W Pctl)</div>
                 </div>
                 <div class="stat-trend up" style="color: #10b981;">Bullish Bias</div>
@@ -479,7 +501,7 @@
             <div class="stat-card blue">
                 <div class="stat-icon">💶</div>
                 <div class="stat-body">
-                    <div class="stat-value" style="font-size: 1.25rem;">EURUSD COT: +46.0K Net</div>
+                    <div class="stat-value" style="font-size: 1.15rem;">EURUSD COT: +46.0K Net</div>
                     <div class="stat-label">Commercial Hedgers Net: -43.0K</div>
                 </div>
                 <div class="stat-trend">Neutral / Range</div>
@@ -487,7 +509,7 @@
             <div class="stat-card purple">
                 <div class="stat-icon">⚡</div>
                 <div class="stat-body">
-                    <div class="stat-value" style="font-size: 1.25rem;">BTCUSD OI: 28.5K Contracts</div>
+                    <div class="stat-value" style="font-size: 1.15rem;">BTCUSD OI: 28.5K Contracts</div>
                     <div class="stat-label">Funding: +0.012% | P/C: 0.74 (Contango)</div>
                 </div>
                 <div class="stat-trend up" style="color: #a855f7;">Expansion</div>
@@ -498,60 +520,62 @@
     <!-- ── BACKTESTING & HISTORICAL REPLAY (PHASE 11) ──────── -->
     <section class="engine-section" id="backtest-section">
         <div class="section-header">
-            <h2 class="section-title">🔬 Historical Replay & Backtest Engine</h2>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <select id="bt-symbol" style="background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 6px; font-family: inherit;">
-                    <option value="XAUUSD">XAUUSD (Gold)</option>
-                    <option value="EURUSD">EURUSD (Forex)</option>
-                    <option value="BTCUSD">BTCUSD (Crypto)</option>
+            <h2 class="section-title">🔬 Historical Replay &amp; Backtest Engine</h2>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <select id="bt-symbol" style="background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.12); padding: 7px 12px; border-radius: 6px; font-family: inherit; font-size: 13px;">
+                    <option value="XAUUSD" style="background:#0f172a;color:#fff;">XAUUSD (Gold)</option>
+                    <option value="EURUSD" style="background:#0f172a;color:#fff;">EURUSD (Forex)</option>
+                    <option value="BTCUSD" style="background:#0f172a;color:#fff;">BTCUSD (Crypto)</option>
                 </select>
-                <select id="bt-timeframe" style="background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 6px; font-family: inherit;">
-                    <option value="H1">H1 Timeframe</option>
-                    <option value="H4">H4 Timeframe</option>
-                    <option value="D1">D1 Timeframe</option>
+                <select id="bt-timeframe" style="background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.12); padding: 7px 12px; border-radius: 6px; font-family: inherit; font-size: 13px;">
+                    <option value="H1" style="background:#0f172a;color:#fff;">H1 Timeframe</option>
+                    <option value="H4" style="background:#0f172a;color:#fff;">H4 Timeframe</option>
+                    <option value="D1" style="background:#0f172a;color:#fff;">D1 Timeframe</option>
                 </select>
-                <button class="refresh-btn" id="run-bt-btn" onclick="executeBacktest()" style="background: linear-gradient(135deg, #6366f1, #4f46e5); color:#fff;">
+                <button class="refresh-btn" id="run-bt-btn" onclick="executeBacktest()" style="background: linear-gradient(135deg, #6366f1, #4f46e5); color:#fff; white-space: nowrap;">
                     ▶ Run Replay
                 </button>
-                <button class="refresh-btn" id="run-wf-btn" onclick="executeWalkForward()" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color:#fff;">
+                <button class="refresh-btn" id="run-wf-btn" onclick="executeWalkForward()" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color:#fff; white-space: nowrap;">
                     🧠 ML Walk-Forward
                 </button>
             </div>
         </div>
 
-        <div class="stats-grid" id="bt-metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 15px;">
-            <div class="stat-card green">
-                <div class="stat-icon">🎯</div>
-                <div class="stat-body">
-                    <div class="stat-value" id="bt-winrate">0.0%</div>
-                    <div class="stat-label">Win Rate</div>
+        <div style="padding: 20px 24px;">
+            <div class="stats-grid" id="bt-metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-bottom: 16px;">
+                <div class="stat-card green">
+                    <div class="stat-icon">🎯</div>
+                    <div class="stat-body">
+                        <div class="stat-value" id="bt-winrate">0.0%</div>
+                        <div class="stat-label">Win Rate</div>
+                    </div>
+                </div>
+                <div class="stat-card blue">
+                    <div class="stat-icon">📈</div>
+                    <div class="stat-body">
+                        <div class="stat-value" id="bt-profitfactor">0.00</div>
+                        <div class="stat-label">Profit Factor</div>
+                    </div>
+                </div>
+                <div class="stat-card purple">
+                    <div class="stat-icon">📉</div>
+                    <div class="stat-body">
+                        <div class="stat-value" id="bt-maxdrawdown">0.0%</div>
+                        <div class="stat-label">Max Drawdown</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⚖️</div>
+                    <div class="stat-body">
+                        <div class="stat-value" id="bt-expectancy">0.00 R</div>
+                        <div class="stat-label">Trade Expectancy</div>
+                    </div>
                 </div>
             </div>
-            <div class="stat-card blue">
-                <div class="stat-icon">📈</div>
-                <div class="stat-body">
-                    <div class="stat-value" id="bt-profitfactor">0.00</div>
-                    <div class="stat-label">Profit Factor</div>
-                </div>
-            </div>
-            <div class="stat-card purple">
-                <div class="stat-icon">📉</div>
-                <div class="stat-body">
-                    <div class="stat-value" id="bt-maxdrawdown">0.0%</div>
-                    <div class="stat-label">Max Drawdown</div>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon">⚖️</div>
-                <div class="stat-body">
-                    <div class="stat-value" id="bt-expectancy">0.00 R</div>
-                    <div class="stat-label">Trade Expectancy</div>
-                </div>
-            </div>
-        </div>
 
-        <div id="bt-status-box" style="margin-top: 15px; padding: 12px 16px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.85rem; color: #94a3b8;">
-            💡 <strong>Phase 11 Replay Simulator:</strong> Validates dynamic ATR trailing, spread/slippage friction, high-impact news blackout filters, and Multi-Engine confluence on historical OHLCV data.
+            <div id="bt-status-box" style="padding: 12px 16px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.85rem; color: #94a3b8; line-height: 1.45;">
+                💡 <strong>Phase 11 Replay Simulator:</strong> Validates dynamic ATR trailing, spread/slippage friction, high-impact news blackout filters, and Multi-Engine confluence on historical OHLCV data.
+            </div>
         </div>
     </section>
 
@@ -675,7 +699,94 @@
     </div>
 </div>
 
-<script src="{% static 'js/dashboard.js' %}?v=8"></script>
+<!-- ── CONNECT BROKER ACCOUNT MODAL (BROKER DROPDOWN -> SERVER DROPDOWN -> LOGIN / PASSWORD) ── -->
+<div class="modal-overlay" id="connect-broker-modal" style="display: none;" onclick="closeConnectBrokerModal()">
+    <div class="modal-box" onclick="event.stopPropagation()" style="max-width: 430px; background: #0f172a; border: 1px solid rgba(59, 130, 246, 0.45); border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.7);">
+        <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding: 16px 20px;">
+            <div>
+                <h3 class="modal-title" style="margin: 0; font-size: 1.1rem; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                    <span>🔑</span> Login to Trade Account
+                </h3>
+            </div>
+            <button class="modal-close" onclick="closeConnectBrokerModal()" style="background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer;">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <div style="margin-bottom: 14px;">
+                <label style="display: block; font-size: 0.82rem; color: #cbd5e1; margin-bottom: 6px; font-weight: 600;">Broker:</label>
+                <select id="broker-select-input" onchange="onBrokerSelectChange()" style="width: 100%; padding: 10px 12px; background: #1e293b; border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; color: #f8fafc; font-size: 0.92rem; cursor: pointer;">
+                    <option value="EXNESS">Exness</option>
+                    <option value="XM">XM Global</option>
+                    <option value="ICMARKETS">IC Markets</option>
+                    <option value="OCTAFX">OctaFX</option>
+                    <option value="FBS">FBS</option>
+                    <option value="HFM">HFM (HotForex)</option>
+                    <option value="DERIV">Deriv</option>
+                    <option value="PEPPERSTONE">Pepperstone</option>
+                    <option value="FPMARKETS">FP Markets</option>
+                    <option value="VANTAGE">Vantage</option>
+                    <option value="TICKMILL">Tickmill</option>
+                    <option value="METAQUOTES">MetaQuotes (MT5 Demo)</option>
+                    <option value="BINANCE">Binance</option>
+                    <option value="BYBIT">Bybit</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 14px;">
+                <label style="display: block; font-size: 0.82rem; color: #cbd5e1; margin-bottom: 6px; font-weight: 600;">Server:</label>
+                <select id="broker-server-select" onchange="onServerSelectChange()" style="width: 100%; padding: 10px 12px; background: #1e293b; border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; color: #f8fafc; font-size: 0.92rem; cursor: pointer;">
+                </select>
+                <input type="text" id="broker-server-custom" placeholder="Enter custom server name..." style="display: none; margin-top: 8px; width: 100%; padding: 10px 12px; background: #1e293b; border: 1px solid rgba(59, 130, 246, 0.45); border-radius: 6px; color: #f8fafc; font-size: 0.92rem;">
+            </div>
+
+            <div style="margin-bottom: 14px;">
+                <label style="display: block; font-size: 0.82rem; color: #cbd5e1; margin-bottom: 6px; font-weight: 600;">Login:</label>
+                <input type="text" id="broker-login-input" placeholder="Enter Account Login / ID" style="width: 100%; padding: 10px 12px; background: #1e293b; border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; color: #f8fafc; font-size: 0.92rem;">
+            </div>
+
+            <div style="margin-bottom: 18px;">
+                <label style="display: block; font-size: 0.82rem; color: #cbd5e1; margin-bottom: 6px; font-weight: 600;">Password:</label>
+                <input type="password" id="broker-password-input" placeholder="Enter Trading Password" style="width: 100%; padding: 10px 12px; background: #1e293b; border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; color: #f8fafc; font-size: 0.92rem;">
+            </div>
+
+            <!-- Status / Error Message -->
+            <div id="broker-test-result" style="display: none; padding: 10px 12px; border-radius: 6px; font-size: 0.82rem; margin-bottom: 14px; line-height: 1.4;"></div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button onclick="closeConnectBrokerModal()" style="padding: 10px 18px; border-radius: 6px; font-size: 0.86rem; background: #334155; color: #cbd5e1; border: none; cursor: pointer;">Cancel</button>
+                <button id="btn-connect-broker-submit" onclick="submitConnectBroker()" style="padding: 10px 24px; border-radius: 6px; font-size: 0.88rem; font-weight: 700; background: #2563eb; color: white; border: none; cursor: pointer;">
+                    Login
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── PREMIUM MOBILE BOTTOM NAVIGATION BAR ────────────── -->
+<nav class="mobile-bottom-nav" id="mobile-bottom-nav" aria-label="Mobile quick navigation">
+    <button class="mobile-nav-item active" data-target="top" onclick="mobileNavJump('top', this)">
+        <span class="mobile-nav-icon">⚡</span>
+        <span class="mobile-nav-label">Home</span>
+    </button>
+    <button class="mobile-nav-item" data-target="auto" onclick="mobileNavJump('auto', this)">
+        <span class="mobile-nav-icon">🤖</span>
+        <span class="mobile-nav-label">Auto Trade</span>
+    </button>
+    <button class="mobile-nav-item" data-target="signals" onclick="mobileNavJump('signals', this)">
+        <span class="mobile-nav-icon">🎯</span>
+        <span class="mobile-nav-label">Signals</span>
+    </button>
+    <button class="mobile-nav-item" data-target="pairs" onclick="mobileNavJump('pairs', this)">
+        <span class="mobile-nav-icon">📈</span>
+        <span class="mobile-nav-label">Pairs</span>
+    </button>
+    <button class="mobile-nav-item" data-target="menu" onclick="toggleMobileSidebar()">
+        <span class="mobile-nav-icon">☰</span>
+        <span class="mobile-nav-label">Menu</span>
+    </button>
+</nav>
+
+<script src="{% static 'js/dashboard.js' %}?v=14"></script>
 </body>
 </html>
+
 

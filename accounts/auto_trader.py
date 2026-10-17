@@ -33,21 +33,6 @@ class AutoTraderEngine:
         config = SystemTradingConfig.get_config()
         primary_acc = LinkedBrokerAccount.objects.filter(is_active=True).first()
         
-        open_trades = AutoTradeExecution.objects.filter(status='OPEN')
-        open_count = open_trades.count()
-        
-        # Calculate today's realized PnL and R-multiple
-        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_closed = AutoTradeExecution.objects.filter(status='CLOSED', closed_at__gte=today_start)
-        today_pnl = sum([float(t.pnl_amount) for t in today_closed])
-        today_pnl_r = sum([float(t.pnl_r) for t in today_closed if t.pnl_r is not None])
-        
-        # Calculate daily risk used across open trades
-        if primary_acc and float(primary_acc.balance) > 0:
-            open_risk_sum = open_count * primary_acc.max_risk_pct
-        else:
-            open_risk_sum = 0.0
-
         is_active = (
             config.global_auto_trading and 
             not config.emergency_stop_active and 
@@ -56,6 +41,32 @@ class AutoTraderEngine:
             primary_acc.authorization_status == 'ON' and
             primary_acc.connection_status == 'CONNECTED'
         )
+
+        # Ensure any currently ACTIVE high-conviction signals are executed on the active authorized account
+        if is_active and primary_acc:
+            try:
+                from signals.models import Signal
+                active_sigs = Signal.objects.filter(status='ACTIVE', confidence_score__gte=75.0)
+                for sig in active_sigs:
+                    if not AutoTradeExecution.objects.filter(account=primary_acc, signal=sig).exists():
+                        cls.execute_for_signal(sig)
+            except Exception as e:
+                logger.warning(f"[AutoTrader] Active signal sync error: {e}")
+
+        open_trades = AutoTradeExecution.objects.filter(account=primary_acc, status='OPEN') if primary_acc else AutoTradeExecution.objects.filter(status='OPEN')
+        open_count = open_trades.count()
+        
+        # Calculate today's realized PnL and R-multiple
+        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_closed = AutoTradeExecution.objects.filter(account=primary_acc, status='CLOSED', closed_at__gte=today_start) if primary_acc else AutoTradeExecution.objects.filter(status='CLOSED', closed_at__gte=today_start)
+        today_pnl = sum([float(t.pnl_amount) for t in today_closed])
+        today_pnl_r = sum([float(t.pnl_r) for t in today_closed if t.pnl_r is not None])
+        
+        # Calculate daily risk used across open trades
+        if primary_acc and float(primary_acc.balance) > 0:
+            open_risk_sum = open_count * primary_acc.max_risk_pct
+        else:
+            open_risk_sum = 0.0
 
         status_text = 'ACTIVE' if is_active else (
             'EMERGENCY_STOPPED' if config.emergency_stop_active else (
@@ -336,6 +347,26 @@ class AutoTraderEngine:
             # Generate unique order identifiers (Section 15)
             broker_order_id = f"BK-{account.broker_type}-{int(timezone.now().timestamp())}-{uuid.uuid4().hex[:6].upper()}"
             client_order_id = f"TS-{signal.id}-{account.id}"
+            executed_price = float(signal.entry_price)
+            mt5_note = ""
+
+            # Attempt live MetaTrader 5 Terminal execution if account is MT5/Exness
+            if account.broker_type in ('MT5', 'EXNESS', 'MT4') and not account.is_paper:
+                mt5_res = cls._send_mt5_order(
+                    account=account,
+                    symbol=symbol,
+                    direction=signal.direction,
+                    lots=lots,
+                    sl=float(signal.stop_loss),
+                    tp1=float(signal.take_profit_1),
+                    comment=client_order_id
+                )
+                if mt5_res.get('sent'):
+                    broker_order_id = f"MT5-{mt5_res['order_id']}"
+                    executed_price = mt5_res.get('price') or executed_price
+                    mt5_note = f" | Live MT5 Terminal Order #{mt5_res['order_id']}"
+                else:
+                    mt5_note = f" | Dashboard Auto-Execution ({mt5_res.get('reason', 'MT5 terminal bridge standby')})"
 
             # SECTION 3: AUTOMATICALLY PLACE TRADE (NO PER-TRADE CONFIRMATION)
             trade = AutoTradeExecution.objects.create(
@@ -344,23 +375,23 @@ class AutoTraderEngine:
                 symbol=symbol,
                 direction=signal.direction,
                 volume_lots=lots,
-                entry_price=signal.entry_price,
+                entry_price=executed_price,
                 stop_loss=signal.stop_loss,
                 take_profit_1=signal.take_profit_1,
                 take_profit_2=signal.take_profit_2,
                 take_profit_3=signal.take_profit_3,
-                current_price=signal.entry_price,
+                current_price=executed_price,
                 status='OPEN',
                 broker_order_id=broker_order_id,
                 client_order_id=client_order_id,
                 requested_price=signal.entry_price,
-                executed_price=signal.entry_price,
+                executed_price=executed_price,
                 spread_pips=1.2,
                 slippage_pips=0.1,
                 confluence_groups=getattr(signal, 'independent_groups', {}),
                 market_regime=getattr(signal, 'market_regime', 'TRENDING'),
                 audit_reasoning=signal.analysis_summary or 'Unified Engine high-conviction setup passed all 13 gates',
-                notes=f"Auto-executed on {signal.timeframe} signal (Confidence {signal.confidence_score}%, R:R {signal.risk_reward})"
+                notes=f"Auto-executed on {signal.timeframe} signal (Confidence {signal.confidence_score}%, R:R {signal.risk_reward}){mt5_note}"
             )
             opened_trades.append(trade)
 
@@ -373,6 +404,90 @@ class AutoTraderEngine:
             cls._notify_trade_opened(trade, account, signal)
 
         return opened_trades
+
+    @classmethod
+    def _send_mt5_order(cls, account, symbol: str, direction: str, lots: float, sl: float, tp1: float, comment: str = '') -> dict:
+        """
+        Bridges trade execution directly to the local MetaTrader 5 Desktop Terminal if installed and running.
+        Automatically resolves broker symbol suffixes (e.g. XAUUSDm / EURUSDm on Exness) and filling modes.
+        """
+        try:
+            import MetaTrader5 as mt5
+            raw_login = str(account.account_number or '').strip()
+            login_id = int(raw_login) if raw_login.isdigit() else 0
+            password = str(account.api_secret or '').strip()
+            server = str(account.server or '').strip()
+
+            init_ok = False
+            if login_id and password and server:
+                init_ok = mt5.initialize(login=login_id, password=password, server=server)
+            if not init_ok:
+                init_ok = mt5.initialize()
+                if init_ok and login_id and password and server:
+                    mt5.login(login=login_id, password=password, server=server)
+
+            if not init_ok:
+                err = mt5.last_error()
+                return {'sent': False, 'reason': f'MT5 Desktop Terminal standby ({err})'}
+
+            acc_info = mt5.account_info()
+            if acc_info:
+                account.balance = Decimal(str(round(float(acc_info.balance), 2)))
+                account.equity = Decimal(str(round(float(acc_info.equity), 2)))
+                account.save(update_fields=['balance', 'equity'])
+
+            # Resolve symbol (e.g. XAUUSD -> XAUUSDm on Exness)
+            resolved_sym = symbol
+            sym_info = mt5.symbol_info(resolved_sym)
+            if not sym_info:
+                for suffix in ('m', 'c', '.a', '.i', 'pro', '_i', '.raw', 'e'):
+                    cand = f"{symbol}{suffix}"
+                    sym_info = mt5.symbol_info(cand)
+                    if sym_info:
+                        resolved_sym = cand
+                        break
+
+            mt5.symbol_select(resolved_sym, True)
+            sym_info = mt5.symbol_info(resolved_sym)
+            tick = mt5.symbol_info_tick(resolved_sym)
+            if not tick:
+                return {'sent': False, 'reason': f'Symbol {resolved_sym} tick unavailable in MT5'}
+
+            digits = int(getattr(sym_info, 'digits', 5) or 5)
+            vol_min = float(getattr(sym_info, 'volume_min', 0.01) or 0.01)
+            vol_max = float(getattr(sym_info, 'volume_max', 100.0) or 100.0)
+            vol_step = float(getattr(sym_info, 'volume_step', 0.01) or 0.01)
+
+            norm_lots = max(vol_min, min(vol_max, round(round(float(lots) / vol_step) * vol_step, 2)))
+            order_type = mt5.ORDER_TYPE_BUY if direction == 'BUY' else mt5.ORDER_TYPE_SELL
+            price = round(float(tick.ask if direction == 'BUY' else tick.bid), digits)
+            norm_sl = round(float(sl), digits) if sl else 0.0
+            norm_tp = round(float(tp1), digits) if tp1 else 0.0
+
+            last_retcode = None
+            for fill_mode in (mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_RETURN):
+                request = {
+                    "action": mt5.TRADE_ACTION_DEAL,
+                    "symbol": resolved_sym,
+                    "volume": float(norm_lots),
+                    "type": order_type,
+                    "price": price,
+                    "sl": norm_sl,
+                    "tp": norm_tp,
+                    "deviation": 30,
+                    "magic": 778899,
+                    "comment": comment[:31],
+                    "type_time": mt5.ORDER_TIME_GTC,
+                    "type_filling": fill_mode,
+                }
+                result = mt5.order_send(request)
+                if result and result.retcode == mt5.TRADE_RETCODE_DONE:
+                    return {'sent': True, 'order_id': result.order, 'price': float(result.price or price)}
+                last_retcode = getattr(result, "retcode", None)
+
+            return {'sent': False, 'reason': f'MT5 retcode={last_retcode}'}
+        except Exception as e:
+            return {'sent': False, 'reason': str(e)}
 
     @classmethod
     def evaluate_and_close_open_trades(cls):

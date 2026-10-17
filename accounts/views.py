@@ -99,6 +99,17 @@ class LinkedAccountsView(views.APIView):
             last_sync_at=timezone.now()
         )
 
+        if auto_trade_enabled and is_authorized:
+            from .models import SystemTradingConfig
+            cfg = SystemTradingConfig.get_config()
+            cfg.global_auto_trading = True
+            cfg.emergency_stop_active = False
+            cfg.save()
+            try:
+                AutoTraderEngine.get_automation_status()
+            except Exception:
+                pass
+
         masked = f"********{account.account_number[-4:]}" if len(account.account_number) >= 4 else account.account_number
 
         return Response({
@@ -324,7 +335,7 @@ class AuthorizeAccountView(views.APIView):
         if not account_id:
             return Response({'error': 'No active broker account found to authorize'}, status=status.HTTP_400_BAD_REQUEST)
 
-        max_risk = float(request.data.get('max_risk_pct', 0.5))
+        max_risk = float(request.data.get('max_risk_pct', request.data.get('risk_pct', 0.5)))
         max_open = float(request.data.get('max_open_risk_pct', 3.0))
 
         acc = AutoTraderEngine.authorize_account(account_id, max_risk_pct=max_risk, max_open_risk_pct=max_open)
@@ -359,6 +370,7 @@ class ToggleGlobalSwitchView(views.APIView):
 
         cfg = AutoTraderEngine.set_global_auto_trading(bool(enabled))
         return Response({
+            'success': True,
             'global_auto_trading': cfg.global_auto_trading,
             'emergency_stop_active': cfg.emergency_stop_active,
             'message': f"Global automated trading is now {'ON' if cfg.global_auto_trading else 'OFF'}."
@@ -380,8 +392,10 @@ class EmergencyStopView(views.APIView):
 
         closed_count = AutoTraderEngine.emergency_stop(close_positions=close_positions, reason=reason)
         return Response({
+            'success': True,
             'emergency_stop_active': True,
             'global_auto_trading': False,
+            'closed_positions': closed_count,
             'closed_positions_count': closed_count,
             'message': f"EMERGENCY STOP ACTIVATED: Halted all new trades. Closed {closed_count} open positions. Auto-trading set to OFF."
         })
@@ -394,6 +408,7 @@ class EmergencyKillSwitchView(views.APIView):
     def post(self, request):
         count = AutoTraderEngine.emergency_stop(close_positions=True)
         return Response({
+            'success': True,
             'kill_switch_activated': True,
             'closed_positions_count': count,
             'message': f"EMERGENCY KILL SWITCH: Closed {count} positions. Auto-trading paused on all accounts."
