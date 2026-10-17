@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<title>TradeSense Live — Real-Time Trading Signals</title>
+<meta name="description" content="Live trading signals for crypto, gold and forex pairs across 1m to 4H timeframes. Runs in your browser, no server needed.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b1020; --card:#131a2e; --card2:#18213a; --line:rgba(255,255,255,.07);
+  --txt:#e8ecf7; --mut:#8591b0; --buy:#22c55e; --sell:#ef4444; --wait:#f59e0b;
+  --acc:#7c83ff; --acc2:#a78bfa;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:Inter,system-ui,sans-serif;background:radial-gradient(1200px 600px at 80% -10%,#1d2450 0%,transparent 60%),var(--bg);color:var(--txt);min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
+header{position:sticky;top:0;z-index:10;backdrop-filter:blur(14px);background:rgba(11,16,32,.8);border-bottom:1px solid var(--line);padding:12px 16px 10px;padding-top:calc(12px + env(safe-area-inset-top))}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.logo{font-weight:800;font-size:18px;letter-spacing:-.3px;display:flex;align-items:center;gap:8px}
+.logo i{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--acc),var(--acc2));font-style:normal;font-size:16px}
+.logo small{font-size:10px;color:var(--acc);font-weight:700;vertical-align:super}
+.live{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--mut);font-family:'JetBrains Mono',monospace}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--buy);box-shadow:0 0 0 0 rgba(34,197,94,.7);animation:pulse 1.6s infinite}
+.dot.off{background:var(--sell);animation:none}
+@keyframes pulse{70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+.tfs{display:flex;gap:8px;overflow-x:auto;padding:12px 0 2px;scrollbar-width:none}
+.tfs::-webkit-scrollbar{display:none}
+.tf{flex:0 0 auto;min-width:52px;padding:9px 14px;border-radius:11px;border:1px solid var(--line);background:var(--card);color:var(--mut);font:600 13px 'JetBrains Mono',monospace;cursor:pointer;transition:.2s}
+.tf:active{transform:scale(.95)}
+.tf.on{color:#fff;border-color:transparent;background:linear-gradient(135deg,var(--acc),var(--acc2));box-shadow:0 6px 18px rgba(124,131,255,.4)}
+main{max-width:980px;margin:0 auto;padding:16px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center}
+.stat b{display:block;font:700 22px 'JetBrains Mono',monospace}
+.stat span{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
+.buy{color:var(--buy)}.sell{color:var(--sell)}.wait{color:var(--wait)}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
+.card{background:linear-gradient(160deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:16px;padding:16px;position:relative;overflow:hidden;animation:in .4s ease both}
+.card::before{content:"";position:absolute;left:0;top:0;right:0;height:3px;background:var(--wait)}
+.card.BUY::before{background:var(--buy)}.card.SELL::before{background:var(--sell)}
+@keyframes in{from{opacity:0;transform:translateY(8px)}}
+.row{display:flex;justify-content:space-between;align-items:center}
+.sym{font-weight:700;font-size:16px}.nm{font-size:11px;color:var(--mut)}
+.badge{padding:5px 12px;border-radius:999px;font-weight:800;font-size:12px;letter-spacing:.5px}
+.badge.BUY{background:rgba(34,197,94,.15);color:var(--buy)}
+.badge.SELL{background:rgba(239,68,68,.15);color:var(--sell)}
+.badge.WAIT{background:rgba(245,158,11,.15);color:var(--wait)}
+.price{font:700 26px 'JetBrains Mono',monospace;margin:12px 0 4px;transition:color .3s}
+.price.up{color:var(--buy)}.price.down{color:var(--sell)}
+.chg{font:500 12px 'JetBrains Mono',monospace;color:var(--mut)}
+.bar{height:6px;background:rgba(255,255,255,.07);border-radius:9px;margin:12px 0 4px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:9px;background:var(--wait);transition:width .6s}
+.card.BUY .bar i{background:var(--buy)}.card.SELL .bar i{background:var(--sell)}
+.conf{font-size:11px;color:var(--mut);display:flex;justify-content:space-between}
+.lv{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
+.lv div{background:rgba(255,255,255,.04);border-radius:10px;padding:8px 4px;text-align:center}
+.lv small{display:block;font-size:10px;color:var(--mut);margin-bottom:2px}
+.lv b{font:600 11px 'JetBrains Mono',monospace}
+.ind{margin-top:10px;font-size:11px;color:var(--mut);display:flex;gap:10px;flex-wrap:wrap;font-family:'JetBrains Mono',monospace}
+h2{font-size:15px;margin:24px 0 10px;display:flex;align-items:center;justify-content:space-between}
+h2 button{background:none;border:1px solid var(--line);color:var(--mut);font:600 11px Inter;padding:5px 10px;border-radius:8px;cursor:pointer}
+.log{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--line);font-size:13px}
+.li:last-child{border:0}
+.li time{font:500 11px 'JetBrains Mono',monospace;color:var(--mut)}
+.li .d{font:500 11px 'JetBrains Mono',monospace;color:var(--mut);text-align:right}
+.empty{padding:22px;text-align:center;color:var(--mut);font-size:13px}
+.note{font-size:11px;color:var(--mut);text-align:center;margin:22px 0 10px;line-height:1.6}
+.err{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#fecaca;padding:10px 14px;border-radius:12px;font-size:12px;margin-bottom:12px;display:none}
+@media(min-width:700px){main{padding:24px}.price{font-size:28px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="logo"><i>📈</i><span>TradeSense<small>LIVE</small></span></div>
+    <div class="live"><span class="dot" id="dot"></span><span id="status">connecting…</span></div>
+  </div>
+  <div class="tfs" id="tfs" role="tablist" aria-label="Timeframe"></div>
+</header>
+
+<main>
+  <div class="err" id="err"></div>
+  <section class="stats" aria-label="Summary">
+    <div class="stat"><b class="buy" id="sBuy">0</b><span>Buy</span></div>
+    <div class="stat"><b class="wait" id="sWait">0</b><span>Wait</span></div>
+    <div class="stat"><b class="sell" id="sSell">0</b><span>Sell</span></div>
+  </section>
+
+  <h1 style="font-size:15px;margin-bottom:10px">Live Signals · <span id="tfLabel" style="color:var(--acc)">1H</span></h1>
+  <section class="grid" id="grid"></section>
+
+  <h2>🔔 Signal History <button id="clr">Clear</button></h2>
+  <section class="log" id="log"></section>
+
+  <p class="note">Live data: Binance public market feed · Auto-refresh every 15s.<br>
+  Signals use EMA 9/21/50, RSI, MACD &amp; ATR confluence. Educational only — not financial advice.</p>
+</main>
+
+<script>
+const TFS = [['1m','1m'],['5m','5m'],['15m','15m'],['30m','30m'],['1h','1H'],['2h','2H'],['4h','4H']];
+const SYMBOLS = [
+  ['BTCUSDT','BTC/USD','Bitcoin'],['ETHUSDT','ETH/USD','Ethereum'],['PAXGUSDT','XAU/USD','Gold (PAXG)'],
+  ['EURUSDT','EUR/USD','Euro'],['GBPUSDT','GBP/USD','British Pound'],['SOLUSDT','SOL/USD','Solana'],
+  ['BNBUSDT','BNB/USD','BNB'],['XRPUSDT','XRP/USD','XRP']
+];
+const HOSTS = ['https://data-api.binance.vision','https://api.binance.com'];
+const REFRESH_MS = 15000;
+
+let tf = localStorage.getItem('tf') || '15m';
+let prevPrice = {}, lastDir = JSON.parse(localStorage.getItem('lastDir')||'{}');
+let history = JSON.parse(localStorage.getItem('hist')||'[]');
+let busy = false, firstLoad = true;
+
+const $ = id => document.getElementById(id);
+
+/* ── Indicators ─────────────────────────────── */
+const ema = (a,n)=>{const k=2/(n+1);const o=[a[0]];for(let i=1;i<a.length;i++)o.push(a[i]*k+o[i-1]*(1-k));return o};
+function rsi(c,n=14){let g=0,l=0;for(let i=1;i<=n;i++){const d=c[i]-c[i-1];d>=0?g+=d:l-=d}g/=n;l/=n;
+  for(let i=n+1;i<c.length;i++){const d=c[i]-c[i-1];g=(g*(n-1)+Math.max(d,0))/n;l=(l*(n-1)+Math.max(-d,0))/n}
+  return l===0?100:100-100/(1+g/l)}
+function atr(k,n=14){const tr=[];for(let i=1;i<k.length;i++){const h=k[i].h,l=k[i].l,p=k[i-1].c;tr.push(Math.max(h-l,Math.abs(h-p),Math.abs(l-p)))}
+  let a=tr.slice(0,n).reduce((x,y)=>x+y,0)/n;for(let i=n;i<tr.length;i++)a=(a*(n-1)+tr[i])/n;return a}
+
+function analyze(k){
+  const c=k.map(x=>x.c), last=c[c.length-1];
+  const e9=ema(c,9),e21=ema(c,21),e50=ema(c,50);
+  const m12=ema(c,12),m26=ema(c,26),macd=m12.map((v,i)=>v-m26[i]),sig=ema(macd,9);
+  const hist=macd.map((v,i)=>v-sig[i]), h=hist[hist.length-1], hp=hist[hist.length-2];
+  const r=rsi(c), a=atr(k);
+  let s=0;
+  s+= e9.at(-1)>e21.at(-1)?1:-1;
+  s+= last>e50.at(-1)?1:-1;
+  s+= h>0?1:-1;
+  s+= h>hp?.5:-.5;
+  if(r>55)s+=.5; else if(r<45)s-=.5;
+  if(r>78)s-=1.5; else if(r<22)s+=1.5;
+  const dir = s>=2.5?'BUY':s<=-2.5?'SELL':'WAIT';
+  const conf = Math.min(96,Math.round(Math.abs(s)/4.5*100));
+  const risk=a*1.5, sgn=dir==='SELL'?-1:1;
+  return {dir,conf,price:last,rsi:r,atr:a,
+    sl:last-sgn*risk, tp1:last+sgn*risk, tp2:last+sgn*risk*2, tp3:last+sgn*risk*3,
+    trend:e9.at(-1)>e21.at(-1)?'Bullish':'Bearish'};
+}
+
+/* ── Data ──────────────────────────────────── */
+async function klines(sym,interval){
+  let lastErr;
+  for(const h of HOSTS){
+    try{
+      const r=await fetch(`${h}/api/v3/klines?symbol=${sym}&interval=${interval}&limit=200`);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const j=await r.json();
+      return j.map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]}));
+    }catch(e){lastErr=e}
+  }
+  throw lastErr;
+}
+const fmt=p=>p>=1000?p.toFixed(2):p>=10?p.toFixed(3):p>=1?p.toFixed(4):p.toFixed(5);
+
+/* ── Render ────────────────────────────────── */
+function card(sym,label,name,r,chgPct){
+  const dirCls = prevPrice[sym]==null?'':(r.price>prevPrice[sym]?'up':r.price<prevPrice[sym]?'down':'');
+  const showLv = r.dir!=='WAIT';
+  return `<article class="card ${r.dir}">
+    <div class="row"><div><div class="sym">${label}</div><div class="nm">${name}</div></div><span class="badge ${r.dir}">${r.dir}</span></div>
+    <div class="price ${dirCls}">${fmt(r.price)}</div>
+    <div class="chg">${chgPct>=0?'▲':'▼'} ${Math.abs(chgPct).toFixed(2)}% · ${r.trend}</div>
+    <div class="bar"><i style="width:${r.conf}%"></i></div>
+    <div class="conf"><span>Confidence</span><b>${r.conf}%</b></div>
+    ${showLv?`<div class="lv">
+      <div><small>SL</small><b class="sell">${fmt(r.sl)}</b></div>
+      <div><small>TP1</small><b class="buy">${fmt(r.tp1)}</b></div>
+      <div><small>TP2</small><b class="buy">${fmt(r.tp2)}</b></div>
+      <div><small>TP3</small><b class="buy">${fmt(r.tp3)}</b></div></div>`:''}
+    <div class="ind"><span>RSI ${r.rsi.toFixed(0)}</span><span>ATR ${fmt(r.atr)}</span></div>
+  </article>`;
+}
+
+function renderLog(){
+  $('log').innerHTML = history.length ? history.map(h=>
+    `<div class="li"><span class="badge ${h.dir}">${h.dir}</span>
+      <div><b>${h.label}</b> <span style="color:var(--mut)">${h.tf}</span>
+      <div class="d" style="text-align:left">@ ${fmt(h.price)} · SL ${fmt(h.sl)} · TP ${fmt(h.tp1)}</div></div>
+      <time>${new Date(h.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</time></div>`).join('')
+    : '<div class="empty">New BUY/SELL signals will appear here live.</div>';
+}
+
+function pushHistory(label,r){
+  history.unshift({label,tf:TFS.find(t=>t[0]===tf)[1],dir:r.dir,price:r.price,sl:r.sl,tp1:r.tp1,ts:Date.now()});
+  history = history.slice(0,60);
+  localStorage.setItem('hist',JSON.stringify(history));
+  if(navigator.vibrate) navigator.vibrate(120);
+}
+
+async function refresh(){
+  if(busy) return; busy=true;
+  const myTf=tf;
+  $('status').textContent='updating…';
+  try{
+    const res = await Promise.allSettled(SYMBOLS.map(([id])=>klines(id,myTf)));
+    if(myTf!==tf) return;
+    let html='',cnt={BUY:0,SELL:0,WAIT:0},ok=0;
+    res.forEach((x,i)=>{
+      const [id,label,name]=SYMBOLS[i];
+      if(x.status!=='fulfilled') return;
+      ok++;
+      const k=x.value, r=analyze(k), open=k[Math.max(0,k.length-24)].c;
+      const chg=(r.price-open)/open*100;
+      html+=card(id,label,name,r,chg);
+      cnt[r.dir]++;
+      prevPrice[id]=r.price;
+      const key=id+'_'+myTf;
+      if(!firstLoad && r.dir!=='WAIT' && lastDir[key]!==r.dir) pushHistory(label,r);
+      if(firstLoad && r.dir!=='WAIT' && lastDir[key]===undefined) pushHistory(label,r);
+      lastDir[key]=r.dir;
+    });
+    localStorage.setItem('lastDir',JSON.stringify(lastDir));
+    if(!ok) throw new Error('No data received');
+    $('grid').innerHTML=html;
+    $('sBuy').textContent=cnt.BUY;$('sSell').textContent=cnt.SELL;$('sWait').textContent=cnt.WAIT;
+    renderLog();
+    $('err').style.display='none';
+    $('dot').classList.remove('off');
+    $('status').textContent='LIVE · '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    firstLoad=false;
+  }catch(e){
+    $('dot').classList.add('off');
+    $('status').textContent='offline';
+    $('err').textContent='Could not load live data ('+e.message+'). Check your internet; retrying…';
+    $('err').style.display='block';
+  }finally{busy=false}
+}
+
+function setTf(v){
+  tf=v;localStorage.setItem('tf',v);
+  $('tfLabel').textContent=TFS.find(t=>t[0]===v)[1];
+  document.querySelectorAll('.tf').forEach(b=>b.classList.toggle('on',b.dataset.tf===v));
+  $('grid').innerHTML='<div class="empty" style="grid-column:1/-1">Scanning '+$('tfLabel').textContent+'…</div>';
+  firstLoad=true; busy=false; refresh();
+}
+
+$('tfs').innerHTML=TFS.map(([v,l])=>`<button class="tf" role="tab" data-tf="${v}" id="tf-${v}">${l}</button>`).join('');
+$('tfs').addEventListener('click',e=>{const b=e.target.closest('.tf');if(b)setTf(b.dataset.tf)});
+$('clr').onclick=()=>{history=[];localStorage.removeItem('hist');renderLog()};
+
+setTf(tf);
+setInterval(refresh,REFRESH_MS);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
+</script>
+</body>
+</html>

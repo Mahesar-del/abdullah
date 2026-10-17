@@ -1,0 +1,681 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeSense Pro — AI Market Intelligence Platform</title>
+    <meta name="description" content="Professional trading signal platform with multi-engine AI analysis for Forex, Gold, Crypto and more.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=5">
+    <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+
+<!-- ── SIDEBAR ─────────────────────────────────────────── -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+        <div class="logo-icon">📈</div>
+        <span class="logo-text">TradeSense<span class="logo-pro">Pro</span></span>
+    </div>
+
+    <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" id="nav-dashboard">
+            <span class="nav-icon">⚡</span>
+            <span>Dashboard</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-autotrading" onclick="toggleAutoTradingConsole(event)">
+            <span class="nav-icon">🤖</span>
+            <span>Auto Trading</span>
+            <span id="sidebar-auto-badge" style="margin-left:auto; font-size:10px; padding:2px 7px; border-radius:10px; background:rgba(16,185,129,0.2); color:#10b981; font-weight:700;">LIVE</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-signals">
+            <span class="nav-icon">🎯</span>
+            <span>Signals</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-markets">
+            <span class="nav-icon">🌐</span>
+            <span>Markets</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-analysis">
+            <span class="nav-icon">🧠</span>
+            <span>AI Analysis</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-news">
+            <span class="nav-icon">📰</span>
+            <span>News Events</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-performance">
+            <span class="nav-icon">📊</span>
+            <span>Performance</span>
+        </a>
+    </nav>
+
+    <div class="tf-nav" id="tf-nav">
+        <div class="tf-nav-title">⏱ Timeframe</div>
+        <div class="tf-nav-grid">
+            <button class="tf-btn active" data-tf="ALL" onclick="selectTimeframe('ALL')">All</button>
+            <button class="tf-btn" data-tf="M1"  onclick="selectTimeframe('M1')">1m</button>
+            <button class="tf-btn" data-tf="M5"  onclick="selectTimeframe('M5')">5m</button>
+            <button class="tf-btn" data-tf="M15" onclick="selectTimeframe('M15')">15m</button>
+            <button class="tf-btn" data-tf="M30" onclick="selectTimeframe('M30')">30m</button>
+            <button class="tf-btn" data-tf="H1"  onclick="selectTimeframe('H1')">1H</button>
+            <button class="tf-btn" data-tf="H2"  onclick="selectTimeframe('H2')">2H</button>
+            <button class="tf-btn" data-tf="H4"  onclick="selectTimeframe('H4')">4H</button>
+        </div>
+    </div>
+
+    <div class="sidebar-footer">
+        <div class="market-status" id="market-status">
+            <div class="status-dot active"></div>
+            <span>Market Open</span>
+        </div>
+        <div class="session-info" id="session-info">London Session</div>
+    </div>
+</aside>
+
+<!-- ── MAIN CONTENT ────────────────────────────────────── -->
+<main class="main-content">
+
+    <!-- Top Bar -->
+    <header class="topbar">
+        <div class="topbar-left">
+            <h1 class="page-title">Dashboard</h1>
+            <span class="page-subtitle">Live Market Intelligence</span>
+        </div>
+        <div class="topbar-right">
+            <!-- ── NAVBAR AUTOMATED TRADING TOGGLE (WITH DROPDOWN ARROW) ── -->
+            <button id="nav-auto-trading-btn" class="nav-auto-btn" onclick="toggleAutoTradingConsole(event)" title="Toggle Automated Trading Console">
+                <span class="nav-auto-icon">🤖</span>
+                <span class="nav-auto-text">Automated Trading</span>
+                <span id="nav-auto-pill" class="nav-auto-pill live">
+                    <span class="pill-dot"></span> LIVE ACTIVE
+                </span>
+                <span id="nav-auto-arrow" class="nav-auto-arrow">▼</span>
+            </button>
+
+            <div class="live-clock" id="live-clock">--:--:--</div>
+            <div class="timezone-badge">PKT UTC+5</div>
+            <div class="auto-scan-badge" style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:20px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);color:#10b981;font-size:12px;font-weight:600;">
+                <span class="pulse-dot" style="width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 10px #10b981;"></span>
+                <span>Auto-Scanning Markets (≥75% Only)</span>
+            </div>
+            <button class="refresh-btn" id="refresh-btn" onclick="loadDashboardData()">
+                <span class="refresh-icon">↻</span> Refresh
+            </button>
+        </div>
+    </header>
+
+    <!-- ── SECTION 17: PERSISTENT AUTOMATED TRADING CONSOLE (COLLAPSIBLE FROM NAVBAR) ──── -->
+    <section id="auto-console-section" class="automation-console-section collapsed" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.92)); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 12px; padding: 20px; box-shadow: 0 12px 36px rgba(0,0,0,0.45);">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="font-size: 1.5rem;">🤖</div>
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <h2 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #f8fafc; letter-spacing: -0.01em;">AUTOMATED TRADING</h2>
+                        <span id="auto-trading-badge" class="badge" style="padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); display: flex; align-items: center; gap: 6px;">
+                            <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span> ACTIVE
+                        </span>
+                    </div>
+                    <div style="font-size: 0.82rem; color: #94a3b8; margin-top: 2px;">
+                        Continuous Background Engine • Zero Per-Trade Prompts • Strict 13-Gate Execution
+                    </div>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <!-- Global Auto-Trading Switch (Section 10) -->
+                <button id="btn-toggle-global-auto" onclick="toggleGlobalAutoTrading()" style="padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);">
+                    Global Engine: ON
+                </button>
+                <!-- Connect Broker Account Button (Login / Password) -->
+                <button onclick="openConnectBrokerModal()" style="padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(139, 92, 246, 0.25)); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.45); display: flex; align-items: center; gap: 6px;">
+                    <span>🔗</span> Connect Broker Account
+                </button>
+                <!-- Configure & Authorize Button (Section 1) -->
+                <button onclick="openAuthorizeModal()" style="padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">
+                    ⚙️ One-Time Authorization
+                </button>
+                <!-- Emergency Stop Button (Section 11) -->
+                <button onclick="openEmergencyStopModal()" style="padding: 8px 18px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; background: #dc2626; color: #ffffff; border: 1px solid #ef4444; box-shadow: 0 0 15px rgba(220, 38, 38, 0.4);">
+                    🛑 EMERGENCY STOP
+                </button>
+                <!-- Hide Button with Arrow -->
+                <button onclick="toggleAutoTradingConsole(event)" title="Hide Panel" style="padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: rgba(255,255,255,0.06); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; gap: 6px;">
+                    <span>▲</span> Hide
+                </button>
+            </div>
+        </div>
+
+        <!-- 6 Core Section 17 Metrics -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px;">
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px 14px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">Account & Broker</div>
+                    <button onclick="openConnectBrokerModal()" style="background: none; border: none; color: #60a5fa; font-size: 0.75rem; cursor: pointer; text-decoration: underline; padding: 0;">+ Switch / Link</button>
+                </div>
+                <div id="auto-account-num" style="font-size: 1.05rem; font-weight: 700; color: #f1f5f9; margin-top: 4px;">********1001</div>
+                <div id="auto-broker-name" style="font-size: 0.78rem; color: #60a5fa; margin-top: 2px;">TradeSense Paper / MT5</div>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px 14px;">
+                <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">Risk / Trade</div>
+                <div id="auto-risk-val" style="font-size: 1.05rem; font-weight: 700; color: #34d399; margin-top: 4px;">0.50%</div>
+                <div id="auto-max-open-risk" style="font-size: 0.78rem; color: #94a3b8; margin-top: 2px;">Max Open: 3.0%</div>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px 14px;">
+                <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">Open Positions</div>
+                <div id="auto-open-positions" style="font-size: 1.05rem; font-weight: 700; color: #f1f5f9; margin-top: 4px;">0</div>
+                <div id="auto-open-capacity" style="font-size: 0.78rem; color: #94a3b8; margin-top: 2px;">Cap: 5 active</div>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px 14px;">
+                <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">Today's PnL</div>
+                <div id="auto-today-pnl" style="font-size: 1.05rem; font-weight: 700; color: #10b981; margin-top: 4px;">+$0.00</div>
+                <div id="auto-today-r" style="font-size: 0.78rem; color: #94a3b8; margin-top: 2px;">0.00 R realized</div>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px 14px;">
+                <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">Daily Risk Used</div>
+                <div id="auto-daily-risk" style="font-size: 1.05rem; font-weight: 700; color: #f59e0b; margin-top: 4px;">0.00% / 5.0%</div>
+                <div id="auto-drawdown-stat" style="font-size: 0.78rem; color: #94a3b8; margin-top: 2px;">DD: 0.0% / Max 10%</div>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px 14px;">
+                <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">Next Signal Status</div>
+                <div id="auto-next-signal" style="font-size: 1.05rem; font-weight: 700; color: #60a5fa; margin-top: 4px;">Monitoring...</div>
+                <div id="auto-last-eval" style="font-size: 0.78rem; color: #94a3b8; margin-top: 2px;">Scanner: 15s background daemon</div>
+            </div>
+        </div>
+
+        <div id="auto-safety-notice" style="margin-top: 14px; padding: 10px 14px; background: rgba(59, 130, 246, 0.08); border-radius: 6px; font-size: 0.78rem; color: #93c5fd; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <span>🛡️ <strong>Autonomous Execution Active:</strong> No confirmation dialogue will be asked for trades. The system automatically executes when all 13 deterministic safety gates pass.</span>
+            <span id="auto-status-text" style="color: #34d399; font-weight: 600;">System Armed & Continuous</span>
+        </div>
+    </section>
+
+    <!-- ── STATS CARDS ─────────────────────────────────── -->
+    <section class="stats-grid">
+        <div class="stat-card" id="stat-total">
+            <div class="stat-icon">📊</div>
+            <div class="stat-body">
+                <div class="stat-value" id="stat-total-val">—</div>
+                <div class="stat-label">Total Signals</div>
+            </div>
+            <div class="stat-trend up">↑ Today</div>
+        </div>
+        <div class="stat-card green" id="stat-active">
+            <div class="stat-icon">🟢</div>
+            <div class="stat-body">
+                <div class="stat-value" id="stat-active-val">—</div>
+                <div class="stat-label">Active Signals</div>
+            </div>
+            <div class="stat-trend up">Live Now</div>
+        </div>
+        <div class="stat-card blue" id="stat-winrate">
+            <div class="stat-icon">🏆</div>
+            <div class="stat-body">
+                <div class="stat-value" id="stat-winrate-val">—%</div>
+                <div class="stat-label" id="winrate-label">Win Rate</div>
+            </div>
+            <div class="stat-trend up" id="winrate-trend">Overall</div>
+        </div>
+        <div class="stat-card purple" id="stat-confidence">
+            <div class="stat-icon">🧠</div>
+            <div class="stat-body">
+                <div class="stat-value" id="stat-confidence-val">—</div>
+                <div class="stat-label">Avg Confidence</div>
+            </div>
+            <div class="stat-trend">Score</div>
+        </div>
+        <div class="stat-card green" id="stat-won">
+            <div class="stat-icon" style="color: #10b981;">✅</div>
+            <div class="stat-body">
+                <div class="stat-value" id="stat-won-val">—</div>
+                <div class="stat-label">Won Trades</div>
+            </div>
+            <div class="stat-trend up" style="color: #10b981;">Real Time</div>
+        </div>
+        <div class="stat-card" id="stat-lost" style="border-left-color: #ef4444;">
+            <div class="stat-icon" style="color: #ef4444;">❌</div>
+            <div class="stat-body">
+                <div class="stat-value" id="stat-lost-val">—</div>
+                <div class="stat-label">Lost Trades</div>
+            </div>
+            <div class="stat-trend" style="color: #ef4444;">Real Time</div>
+        </div>
+    </section>
+
+    <!-- ── R-MULTIPLE PERFORMANCE TRACKING (PHASE 12) ──── -->
+    <section class="r-multiple-section" style="margin-bottom: 24px;">
+        <div class="section-header" style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <h2 class="section-title" style="margin: 0; font-size: 1.15rem;">📐 R-Multiple Performance Tracking</h2>
+                <span class="section-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">
+                    Verified Profitable Edge
+                </span>
+            </div>
+            <span style="font-size: 0.8rem; color: #94a3b8;">
+                Realized Risk Units (1R = 1% Risk Envelope)
+            </span>
+        </div>
+        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
+            <div class="stat-card green" id="stat-avg-win">
+                <div class="stat-icon" style="color: #10b981;">🎯</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="stat-avg-win-val" style="color: #10b981;">+0.00 R</div>
+                    <div class="stat-label">Average Win</div>
+                </div>
+                <div class="stat-trend up" style="color: #10b981;">Avg Reward</div>
+            </div>
+            <div class="stat-card" id="stat-avg-loss" style="border-left-color: #ef4444;">
+                <div class="stat-icon" style="color: #ef4444;">🛡️</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="stat-avg-loss-val" style="color: #ef4444;">0.00 R</div>
+                    <div class="stat-label">Average Loss</div>
+                </div>
+                <div class="stat-trend" style="color: #ef4444;">Fixed 1R Risk</div>
+            </div>
+            <div class="stat-card blue" id="stat-profit-factor">
+                <div class="stat-icon" style="color: #3b82f6;">⚖️</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="stat-profit-factor-val">0.00</div>
+                    <div class="stat-label">Profit Factor</div>
+                </div>
+                <div class="stat-trend up" style="color: #3b82f6;">Win R / Loss R</div>
+            </div>
+            <div class="stat-card purple" id="stat-expectancy">
+                <div class="stat-icon" style="color: #a855f7;">🎲</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="stat-expectancy-val" style="color: #a855f7;">+0.00 R</div>
+                    <div class="stat-label">Expectancy / Trade</div>
+                </div>
+                <div class="stat-trend up" style="color: #a855f7;">Positive Edge</div>
+            </div>
+            <div class="stat-card" id="stat-max-drawdown" style="border-left-color: #f59e0b;">
+                <div class="stat-icon" style="color: #f59e0b;">📉</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="stat-max-drawdown-val" style="color: #f59e0b;">0.0%</div>
+                    <div class="stat-label">Max Drawdown</div>
+                </div>
+                <div class="stat-trend" style="color: #f59e0b;">Peak-to-Trough</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── LOSS ANALYSIS & DIAGNOSTICS (SECTION 13 & 15.1) ──── -->
+    <section class="loss-diagnosis-section" style="margin-bottom: 24px;">
+        <div class="section-header" style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <h2 class="section-title" style="margin: 0; font-size: 1.15rem;">🔍 Loss Diagnosis & Continuous Improvement</h2>
+                <span class="section-badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);">
+                    Section 15.1 Audit
+                </span>
+            </div>
+            <span style="font-size: 0.8rem; color: #94a3b8;">
+                Classified Failure Modes for Data-Backed Optimization
+            </span>
+        </div>
+        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;" id="loss-reasons-grid">
+            <div class="stat-card" style="border-left-color: #f59e0b;">
+                <div class="stat-icon" style="color: #f59e0b;">🔄</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="loss-wrong-regime" style="color: #f59e0b;">0</div>
+                    <div class="stat-label">Wrong Market Regime</div>
+                </div>
+                <div class="stat-trend" style="color: #f59e0b;">Ranging / Chop</div>
+            </div>
+            <div class="stat-card" style="border-left-color: #ef4444;">
+                <div class="stat-icon" style="color: #ef4444;">🪤</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="loss-false-breakout" style="color: #ef4444;">0</div>
+                    <div class="stat-label">False Breakout / Trap</div>
+                </div>
+                <div class="stat-trend" style="color: #ef4444;">Liquidity Hunt</div>
+            </div>
+            <div class="stat-card" style="border-left-color: #8b5cf6;">
+                <div class="stat-icon" style="color: #8b5cf6;">⚡</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="loss-news-shock" style="color: #8b5cf6;">0</div>
+                    <div class="stat-label">News Shock</div>
+                </div>
+                <div class="stat-trend" style="color: #8b5cf6;">High Impact Vol</div>
+            </div>
+            <div class="stat-card" style="border-left-color: #64748b;">
+                <div class="stat-icon" style="color: #64748b;">📐</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="loss-poor-invalidation" style="color: #64748b;">0</div>
+                    <div class="stat-label">Structural Invalidation</div>
+                </div>
+                <div class="stat-trend" style="color: #64748b;">Tight Stop Filter</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── SIGNAL DIRECTION SPLIT ──────────────────────── -->
+    <section class="direction-bar-section">
+        <div class="direction-bar-wrap">
+            <div class="direction-label buy-label">BUY <span id="buy-count">0</span></div>
+            <div class="direction-bar">
+                <div class="bar-buy"   id="bar-buy"  style="width:33%"></div>
+                <div class="bar-wait"  id="bar-wait" style="width:0%;display:none"></div>
+                <div class="bar-sell"  id="bar-sell" style="width:33%"></div>
+            </div>
+            <div class="direction-label sell-label">SELL <span id="sell-count">0</span></div>
+        </div>
+        <div class="wait-label-center" style="display:none">WAIT <span id="wait-count">0</span></div>
+    </section>
+
+    <!-- ── PER-PAIR RUNNING SCORES ──────────────────────── -->
+    <section class="pair-scores-section" id="pair-scores-section">
+        <div class="section-header">
+            <h2 class="section-title">📈 Per-Pair Running Scores</h2>
+            <span class="section-badge" id="pair-scores-source-badge">Confidence Based</span>
+        </div>
+        <div class="pair-scores-grid" id="pair-scores-grid">
+            <div class="pair-score-loading">Loading scores...</div>
+        </div>
+    </section>
+
+    <!-- ── ACTIVE SIGNALS TABLE ────────────────────────── -->
+    <section class="signals-section">
+        <div class="section-header">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <h2 class="section-title">🎯 Active Signals</h2>
+                <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:4px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);">⚡ Auto-Filtered: ≥75% Confidence</span>
+            </div>
+            <div class="filter-group">
+                <button class="filter-btn active" onclick="filterSignals('ALL')">All</button>
+                <button class="filter-btn buy-btn"  onclick="filterSignals('BUY')">BUY</button>
+                <button class="filter-btn sell-btn" onclick="filterSignals('SELL')">SELL</button>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="signals-table" id="signals-table">
+                <thead>
+                    <tr>
+                        <th>Instrument</th>
+                        <th>Direction</th>
+                        <th>Decision Class</th>
+                        <th>Regime</th>
+                        <th>Timeframe</th>
+                        <th>Entry</th>
+                        <th>Stop Loss</th>
+                        <th>Take Profit (1.5R)</th>
+                        <th>R:R</th>
+                        <th>Confidence</th>
+                        <th>Generated</th>
+                    </tr>
+                </thead>
+                <tbody id="signals-tbody">
+                    <tr>
+                        <td colspan="11" class="empty-state">
+                            <div class="empty-icon">📡</div>
+                            <div>Loading signals...</div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ── ENGINE WEIGHTS ──────────────────────────────── -->
+    <section class="engine-section">
+        <div class="section-header">
+            <h2 class="section-title">⚙️ Signal Engine Weights</h2>
+            <span class="section-badge">Per SRS v2.0</span>
+        </div>
+        <div class="engine-grid">
+            <div class="engine-card">
+                <div class="engine-name">📐 Technical</div>
+                <div class="engine-bar"><div class="engine-fill" style="width:15%">15%</div></div>
+            </div>
+            <div class="engine-card">
+                <div class="engine-name">💡 SMC / ICT</div>
+                <div class="engine-bar"><div class="engine-fill smc" style="width:20%">20%</div></div>
+            </div>
+            <div class="engine-card">
+                <div class="engine-name">🕯️ Price Action</div>
+                <div class="engine-bar"><div class="engine-fill pa" style="width:15%">15%</div></div>
+            </div>
+            <div class="engine-card">
+                <div class="engine-name">🌍 Macro</div>
+                <div class="engine-bar"><div class="engine-fill macro" style="width:15%">15%</div></div>
+            </div>
+            <div class="engine-card">
+                <div class="engine-name">📰 News Sentiment</div>
+                <div class="engine-bar"><div class="engine-fill news" style="width:15%">15%</div></div>
+            </div>
+            <div class="engine-card">
+                <div class="engine-name">🏦 Institutional</div>
+                <div class="engine-bar"><div class="engine-fill inst" style="width:10%">10%</div></div>
+            </div>
+            <div class="engine-card">
+                <div class="engine-name">🤖 AI / ML</div>
+                <div class="engine-bar"><div class="engine-fill ai" style="width:10%">10%</div></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── INSTITUTIONAL COT & INTERMARKET PANEL ────────── -->
+    <section class="engine-section" id="institutional-section">
+        <div class="section-header">
+            <h2 class="section-title">🏛️ Institutional COT & Intermarket Positioning</h2>
+            <span class="section-badge">CFTC & Cross-Asset Regimes</span>
+        </div>
+        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); margin-bottom: 20px;">
+            <div class="stat-card gold">
+                <div class="stat-icon">🪙</div>
+                <div class="stat-body">
+                    <div class="stat-value" style="font-size: 1.25rem;">XAUUSD COT: +213.3K Net</div>
+                    <div class="stat-label">Non-Commercial Speculators (82.5% 52W Pctl)</div>
+                </div>
+                <div class="stat-trend up" style="color: #10b981;">Bullish Bias</div>
+            </div>
+            <div class="stat-card blue">
+                <div class="stat-icon">💶</div>
+                <div class="stat-body">
+                    <div class="stat-value" style="font-size: 1.25rem;">EURUSD COT: +46.0K Net</div>
+                    <div class="stat-label">Commercial Hedgers Net: -43.0K</div>
+                </div>
+                <div class="stat-trend">Neutral / Range</div>
+            </div>
+            <div class="stat-card purple">
+                <div class="stat-icon">⚡</div>
+                <div class="stat-body">
+                    <div class="stat-value" style="font-size: 1.25rem;">BTCUSD OI: 28.5K Contracts</div>
+                    <div class="stat-label">Funding: +0.012% | P/C: 0.74 (Contango)</div>
+                </div>
+                <div class="stat-trend up" style="color: #a855f7;">Expansion</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── BACKTESTING & HISTORICAL REPLAY (PHASE 11) ──────── -->
+    <section class="engine-section" id="backtest-section">
+        <div class="section-header">
+            <h2 class="section-title">🔬 Historical Replay & Backtest Engine</h2>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <select id="bt-symbol" style="background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 6px; font-family: inherit;">
+                    <option value="XAUUSD">XAUUSD (Gold)</option>
+                    <option value="EURUSD">EURUSD (Forex)</option>
+                    <option value="BTCUSD">BTCUSD (Crypto)</option>
+                </select>
+                <select id="bt-timeframe" style="background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 6px; font-family: inherit;">
+                    <option value="H1">H1 Timeframe</option>
+                    <option value="H4">H4 Timeframe</option>
+                    <option value="D1">D1 Timeframe</option>
+                </select>
+                <button class="refresh-btn" id="run-bt-btn" onclick="executeBacktest()" style="background: linear-gradient(135deg, #6366f1, #4f46e5); color:#fff;">
+                    ▶ Run Replay
+                </button>
+                <button class="refresh-btn" id="run-wf-btn" onclick="executeWalkForward()" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color:#fff;">
+                    🧠 ML Walk-Forward
+                </button>
+            </div>
+        </div>
+
+        <div class="stats-grid" id="bt-metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 15px;">
+            <div class="stat-card green">
+                <div class="stat-icon">🎯</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="bt-winrate">0.0%</div>
+                    <div class="stat-label">Win Rate</div>
+                </div>
+            </div>
+            <div class="stat-card blue">
+                <div class="stat-icon">📈</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="bt-profitfactor">0.00</div>
+                    <div class="stat-label">Profit Factor</div>
+                </div>
+            </div>
+            <div class="stat-card purple">
+                <div class="stat-icon">📉</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="bt-maxdrawdown">0.0%</div>
+                    <div class="stat-label">Max Drawdown</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⚖️</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="bt-expectancy">0.00 R</div>
+                    <div class="stat-label">Trade Expectancy</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="bt-status-box" style="margin-top: 15px; padding: 12px 16px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.85rem; color: #94a3b8;">
+            💡 <strong>Phase 11 Replay Simulator:</strong> Validates dynamic ATR trailing, spread/slippage friction, high-impact news blackout filters, and Multi-Engine confluence on historical OHLCV data.
+        </div>
+    </section>
+
+    <!-- ── NEWS EVENTS ─────────────────────────────────── -->
+    <section class="news-section">
+        <div class="section-header">
+            <h2 class="section-title">📰 Upcoming News Events</h2>
+            <span class="section-badge warning">⚠️ Signals paused during HIGH impact</span>
+        </div>
+        <div class="news-list" id="news-list">
+            <div class="news-loading">Loading news events...</div>
+        </div>
+    </section>
+</main>
+
+<!-- ── SIGNAL DETAIL MODAL ─────────────────────────────── -->
+<div class="modal-overlay" id="signal-modal" onclick="closeModal()">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modal-title">Signal Detail</h3>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body" id="modal-body">
+            <!-- Filled by JS -->
+        </div>
+    </div>
+</div>
+
+<!-- ── ONE-TIME AUTHORIZATION MODAL (SECTION 1) ────────── -->
+<div class="modal-overlay" id="authorize-modal" style="display: none;" onclick="closeAuthorizeModal()">
+    <div class="modal-box" onclick="event.stopPropagation()" style="max-width: 520px; background: #0f172a; border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
+        <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding: 16px 20px;">
+            <div>
+                <h3 class="modal-title" style="margin: 0; font-size: 1.15rem; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                    <span>🛡️</span> One-Time Automated Trading Authorization
+                </h3>
+                <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 4px;">
+                    TradeSense Pro will execute qualified signals continuously without manual confirmation.
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeAuthorizeModal()" style="background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer;">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <div style="margin-bottom: 14px;">
+                <label style="display: block; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 6px; font-weight: 600;">Selected Trading Account</label>
+                <select id="auth-account-select" style="width: 100%; padding: 10px; background: #1e293b; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #f8fafc; font-size: 0.9rem;">
+                    <!-- Filled dynamically -->
+                </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                <div>
+                    <label style="display: block; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 6px; font-weight: 600;">Risk Per Trade (%)</label>
+                    <input type="number" id="auth-risk-pct" step="0.1" min="0.1" max="5.0" value="0.5" style="width: 100%; padding: 10px; background: #1e293b; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #f8fafc; font-size: 0.9rem;">
+                    <div style="font-size: 0.72rem; color: #64748b; margin-top: 3px;">Recommended: 0.5% - 1.0%</div>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 6px; font-weight: 600;">Max Open Risk (%)</label>
+                    <input type="number" id="auth-max-open-risk" step="0.5" min="1.0" max="10.0" value="3.0" style="width: 100%; padding: 10px; background: #1e293b; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #f8fafc; font-size: 0.9rem;">
+                    <div style="font-size: 0.72rem; color: #64748b; margin-top: 3px;">Safety Gate Section 13 (Cap 3.0%)</div>
+                </div>
+            </div>
+
+            <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" id="auth-explicit-confirm" style="margin-top: 3px; accent-color: #10b981; width: 16px; height: 16px;">
+                    <span style="font-size: 0.82rem; color: #e2e8f0; line-height: 1.4;">
+                        <strong>I explicitly authorize TradeSense Pro ONCE</strong> for this account. I understand qualified trades passing all 13 safety gates will execute automatically in the background <u>without asking for individual confirmation</u>.
+                    </span>
+                </label>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button onclick="closeAuthorizeModal()" style="padding: 10px 18px; border-radius: 6px; font-size: 0.85rem; background: #334155; color: #cbd5e1; border: none; cursor: pointer;">Cancel</button>
+                <button id="btn-submit-authorization" onclick="submitAuthorization()" style="padding: 10px 20px; border-radius: 6px; font-size: 0.85rem; font-weight: 700; background: #10b981; color: white; border: none; cursor: pointer;">
+                    Confirm Authorization & Arm Engine
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── EMERGENCY STOP MODAL (SECTION 11) ──────────────── -->
+<div class="modal-overlay" id="emergency-stop-modal" style="display: none;" onclick="closeEmergencyStopModal()">
+    <div class="modal-box" onclick="event.stopPropagation()" style="max-width: 500px; background: #180909; border: 2px solid #ef4444; border-radius: 12px; box-shadow: 0 0 40px rgba(239, 68, 68, 0.4);">
+        <div class="modal-header" style="border-bottom: 1px solid rgba(239,68,68,0.3); padding: 16px 20px;">
+            <div>
+                <h3 class="modal-title" style="margin: 0; font-size: 1.2rem; color: #f87171; display: flex; align-items: center; gap: 8px;">
+                    <span>🛑</span> EMERGENCY STOP PROTOCOL
+                </h3>
+                <div style="font-size: 0.8rem; color: #fca5a5; margin-top: 4px;">
+                    Immediate shutdown of live automated trading
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeEmergencyStopModal()" style="background: none; border: none; color: #f87171; font-size: 1.2rem; cursor: pointer;">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <p style="font-size: 0.88rem; color: #fecaca; line-height: 1.5; margin-bottom: 16px;">
+                Activating Emergency Stop will <strong>immediately halt all new trade generation</strong> and set <strong>AUTOMATED TRADING = OFF</strong>. TradeSense Pro will NEVER automatically reactivate it without explicit user manual reset.
+            </p>
+
+            <div style="background: rgba(220, 38, 38, 0.2); border: 1px solid rgba(220, 38, 38, 0.4); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" id="emergency-close-positions" style="accent-color: #ef4444; width: 18px; height: 18px;">
+                    <span style="font-size: 0.85rem; color: #ffffff; font-weight: 700;">
+                        ALSO IMMEDIATELY CLOSE ALL OPEN POSITIONS
+                    </span>
+                </label>
+                <div style="font-size: 0.75rem; color: #fca5a5; margin-left: 28px; margin-top: 4px;">
+                    Sends market emergency close orders to the broker for every open position.
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button onclick="closeEmergencyStopModal()" style="padding: 10px 18px; border-radius: 6px; font-size: 0.85rem; background: #334155; color: #cbd5e1; border: none; cursor: pointer;">Cancel</button>
+                <button onclick="executeEmergencyStop()" style="padding: 10px 22px; border-radius: 6px; font-size: 0.88rem; font-weight: 700; background: #dc2626; color: white; border: none; cursor: pointer; box-shadow: 0 0 15px rgba(220,38,38,0.5);">
+                    CONFIRM EMERGENCY STOP
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/dashboard.js' %}?v=8"></script>
+</body>
+</html>
+

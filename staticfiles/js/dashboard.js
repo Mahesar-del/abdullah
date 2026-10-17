@@ -1,0 +1,1057 @@
+/**
+ * TradeSense Pro — Dashboard JavaScript
+ * Fetches live data from Django API and updates UI
+ */
+
+// ── State ──────────────────────────────────────────────
+let allSignals = [];
+let currentFilter = 'ALL';
+let currentTimeframe = 'ALL';
+
+const TF_LABELS = { M1: '1m', M5: '5m', M15: '15m', M30: '30m', H1: '1H', H2: '2H', H4: '4H' };
+
+// ── On Load ────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    startClock();
+    loadDashboardData();
+    updateMarketSession();
+    setInterval(updateMarketSession, 60000);
+    setInterval(loadStats, 15000);   // auto-refresh scores every 15s
+    setInterval(loadActiveSignals, 10000); // auto-refresh active signals every 10s (high-conviction signals appear automatically)
+    setupSidebarNav();
+});
+
+// ── Sidebar Navigation ─────────────────────────────────
+function setupSidebarNav() {
+    const navItems = document.querySelectorAll('.nav-item');
+    
+    navItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            // Remove active class from all
+            navItems.forEach(nav => nav.classList.remove('active'));
+            // Add active class to clicked
+            item.classList.add('active');
+            
+            // Scroll to section based on ID
+            const id = item.id;
+            let target = null;
+            
+            if (id === 'nav-dashboard') target = document.querySelector('.stats-grid');
+            if (id === 'nav-signals')   target = document.querySelector('.signals-section');
+            if (id === 'nav-markets')   target = document.querySelector('.engine-section');
+            if (id === 'nav-analysis')  target = document.querySelector('.direction-bar-section');
+            if (id === 'nav-news')      target = document.querySelector('.news-section');
+            
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+    });
+}
+
+
+// ── Live Clock ─────────────────────────────────────────
+function startClock() {
+    function tick() {
+        const now = new Date();
+        document.getElementById('live-clock').textContent =
+            now.toLocaleTimeString('en-US', { hour12: false, timeZone: 'Asia/Karachi' });
+    }
+    tick();
+    setInterval(tick, 1000);
+}
+
+// ── Market Session ─────────────────────────────────────
+function updateMarketSession() {
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+
+    let session = 'Closed';
+    let isOpen  = false;
+
+    if (utcHour >= 22 || utcHour < 7)  { session = '🇦🇺 Sydney Session';     isOpen = true; }
+    if (utcHour >= 0  && utcHour < 9)  { session = '🇯🇵 Tokyo Session';      isOpen = true; }
+    if (utcHour >= 7  && utcHour < 16) { session = '🇬🇧 London Session';     isOpen = true; }
+    if (utcHour >= 12 && utcHour < 21) { session = '🇺🇸 New York Session';   isOpen = true; }
+    if (utcHour >= 12 && utcHour < 16) { session = '⚡ London-NY Overlap';   isOpen = true; }
+
+    const dot = document.querySelector('.status-dot');
+    const statusEl = document.getElementById('market-status');
+    const sessionEl = document.getElementById('session-info');
+
+    if (isOpen) {
+        dot.classList.add('active');
+        statusEl.querySelector('span').textContent = 'Market Open';
+        statusEl.style.color = 'var(--buy-color)';
+    } else {
+        dot.classList.remove('active');
+        statusEl.querySelector('span').textContent = 'Market Closed';
+        statusEl.style.color = 'var(--text-muted)';
+    }
+
+    sessionEl.textContent = session;
+}
+
+// ── Load All Data ──────────────────────────────────────
+async function loadDashboardData() {
+    const btn = document.getElementById('refresh-btn');
+    btn.innerHTML = '<span class="refresh-icon" style="animation:spin 1s linear infinite">↻</span> Loading...';
+    btn.disabled = true;
+
+    try {
+        await Promise.all([
+            loadStats(),
+            loadActiveSignals(),
+            loadNewsEvents(),
+        ]);
+    } catch (err) {
+        console.error('Error loading dashboard:', err);
+    }
+
+    btn.innerHTML = '<span class="refresh-icon">↻</span> Refresh';
+    btn.disabled = false;
+}
+
+// ── Load Stats ─────────────────────────────────────────
+async function loadStats() {
+    try {
+        const res  = await fetch('/api/signals/stats/');
+        const data = await res.json();
+
+        animateValue('stat-total-val',  data.total_signals,  0);
+        animateValue('stat-active-val', data.active_signals, 0);
+        document.getElementById('stat-winrate-val').textContent    = data.win_rate_percent + '%';
+        document.getElementById('stat-confidence-val').textContent = data.avg_confidence;
+        
+        animateValue('stat-won-val', data.take_profit_hits || 0, 0);
+        animateValue('stat-lost-val', data.stop_loss_hits || 0, 0);
+
+        // ── R-Multiple Performance Tracking (Phase 12) ─────
+        const avgWinEl = document.getElementById('stat-avg-win-val');
+        if (avgWinEl) {
+            const winR = data.avg_win_r !== undefined ? Number(data.avg_win_r).toFixed(2) : '0.00';
+            avgWinEl.textContent = `+${winR} R`;
+        }
+
+        const avgLossEl = document.getElementById('stat-avg-loss-val');
+        if (avgLossEl) {
+            const lossR = data.avg_loss_r !== undefined ? Number(data.avg_loss_r).toFixed(2) : '0.00';
+            avgLossEl.textContent = `${lossR} R`;
+        }
+
+        const pfEl = document.getElementById('stat-profit-factor-val');
+        if (pfEl) {
+            const pf = data.profit_factor !== undefined ? Number(data.profit_factor).toFixed(2) : '0.00';
+            pfEl.textContent = pf;
+        }
+
+        const expEl = document.getElementById('stat-expectancy-val');
+        if (expEl) {
+            const exp = data.expectancy_r !== undefined ? Number(data.expectancy_r) : 0.0;
+            expEl.textContent = `${exp >= 0 ? '+' : ''}${exp.toFixed(2)} R`;
+        }
+
+        const ddEl = document.getElementById('stat-max-drawdown-val');
+        if (ddEl) {
+            const dd = data.max_drawdown_pct !== undefined ? Number(data.max_drawdown_pct).toFixed(1) : '0.0';
+            ddEl.textContent = `${dd}%`;
+        }
+
+        // ── Section 15.1 Loss Breakdown Diagnostics ─────────
+        const lb = data.loss_breakdown || {};
+        const elWrongRegime = document.getElementById('loss-wrong-regime');
+        if (elWrongRegime) elWrongRegime.textContent = lb.WRONG_REGIME || 0;
+        const elFalseBreak = document.getElementById('loss-false-breakout');
+        if (elFalseBreak) elFalseBreak.textContent = lb.FALSE_BREAKOUT_TRAP || 0;
+        const elNewsShock = document.getElementById('loss-news-shock');
+        if (elNewsShock) elNewsShock.textContent = lb.NEWS_SHOCK || 0;
+        const elPoorInval = document.getElementById('loss-poor-invalidation');
+        if (elPoorInval) elPoorInval.textContent = lb.POOR_STRUCTURAL_INVALIDATION || 0;
+
+        // Adaptive win rate label
+        const isActual = data.win_rate_source === 'actual';
+        document.getElementById('winrate-label').textContent = isActual ? 'Win Rate'      : 'Running Score';
+        const ratioText = isActual ? `Actual Trades (${data.take_profit_hits}W / ${data.stop_loss_hits}L)` : 'Avg Confidence';
+        document.getElementById('winrate-trend').textContent = ratioText;
+
+        // Direction bar
+        const total   = data.by_direction.BUY + data.by_direction.SELL + data.by_direction.WAIT || 1;
+        const buyPct  = (data.by_direction.BUY  / total * 100).toFixed(1);
+        const sellPct = (data.by_direction.SELL / total * 100).toFixed(1);
+        const waitPct = (data.by_direction.WAIT / total * 100).toFixed(1);
+
+        document.getElementById('bar-buy').style.width  = buyPct  + '%';
+        document.getElementById('bar-sell').style.width = sellPct + '%';
+        document.getElementById('bar-wait').style.width = waitPct + '%';
+
+        document.getElementById('buy-count').textContent  = data.by_direction.BUY;
+        document.getElementById('sell-count').textContent = data.by_direction.SELL;
+        document.getElementById('wait-count').textContent = data.by_direction.WAIT;
+
+        // Per-pair running score cards
+        renderPairScores(data.instrument_scores || [], data.win_rate_source);
+
+    } catch (err) {
+        console.log('Stats not available:', err.message);
+        document.getElementById('stat-total-val').textContent      = '0';
+        document.getElementById('stat-active-val').textContent     = '0';
+        document.getElementById('stat-won-val').textContent        = '0';
+        document.getElementById('stat-lost-val').textContent       = '0';
+        document.getElementById('stat-winrate-val').textContent    = '0%';
+        document.getElementById('stat-confidence-val').textContent = '0';
+    }
+}
+
+// ── Render Per-Pair Score Cards ────────────────────────
+function renderPairScores(scores, source) {
+    const grid  = document.getElementById('pair-scores-grid');
+    const badge = document.getElementById('pair-scores-source-badge');
+
+    if (badge) {
+        badge.textContent = source === 'actual' ? '✅ Actual Win Rate' : '📊 Avg Confidence Score';
+        badge.style.background = source === 'actual'
+            ? 'rgba(34,197,94,0.15)' : 'rgba(59,130,246,0.15)';
+        badge.style.color = source === 'actual' ? 'var(--buy-color)' : 'var(--accent-blue)';
+    }
+
+    if (!scores || scores.length === 0) {
+        grid.innerHTML = '<div class="pair-score-loading">No instrument data available.</div>';
+        return;
+    }
+
+    grid.innerHTML = scores.map(p => {
+        const dirClass = p.direction.toLowerCase();
+        const icon = p.direction === 'BUY' ? '🟢' : p.direction === 'SELL' ? '🔴' : '🟡';
+        const metaText = p.closed > 0
+            ? `${p.tp}W / ${p.sl}L (${p.closed} closed)`
+            : `${p.closed === 0 ? 'No closed trades' : p.closed + ' closed'}`;
+
+        return `
+        <div class="pair-score-card dir-${dirClass}" style="cursor:pointer" title="Click to view trade history" onclick="openPairHistory('${p.symbol}')">
+            <div class="pair-score-header">
+                <div>
+                    <div class="pair-score-symbol">${p.symbol}</div>
+                    <div class="pair-score-name">${p.name || ''}</div>
+                </div>
+                <span class="pair-score-dir ${dirClass}">${icon} ${p.direction}</span>
+            </div>
+            <div class="pair-score-pct">${p.score.toFixed(1)}<span>%</span></div>
+            <div class="pair-score-bar">
+                <div class="pair-score-bar-fill" style="width:0%" data-target="${Math.min(p.score, 100)}"></div>
+            </div>
+            <div class="pair-score-meta">
+                <span>${metaText}</span>
+                <span>Conf: ${p.confidence.toFixed(0)}%</span>
+            </div>
+        </div>`;
+    }).join('');
+
+    // Animate progress bars after render
+    requestAnimationFrame(() => {
+        document.querySelectorAll('.pair-score-bar-fill').forEach(bar => {
+            bar.style.width = bar.dataset.target + '%';
+        });
+    });
+}
+
+// ── Load Active Signals ────────────────────────────────
+async function loadActiveSignals() {
+    try {
+        const res  = await fetch('/api/signals/active/');
+        const data = await res.json();
+        allSignals = data.results || data || [];
+        renderSignals(allSignals);
+    } catch (err) {
+        console.log('Signals not available:', err.message);
+        renderEmptySignals('No signals yet. Database setup pending.');
+    }
+}
+
+// ── Render Signals Table ───────────────────────────────
+function renderSignals(signals) {
+    const tbody = document.getElementById('signals-tbody');
+
+    const filtered = signals.filter(s =>
+        (currentFilter === 'ALL' || s.direction === currentFilter) &&
+        (currentTimeframe === 'ALL' || s.timeframe === currentTimeframe)
+    );
+
+    if (filtered.length === 0) {
+        const tfText = currentTimeframe === 'ALL' ? '' : ` on ${TF_LABELS[currentTimeframe]}`;
+        renderEmptySignals(currentFilter === 'ALL'
+            ? `Continuous auto-scanner is actively monitoring live markets${tfText}... Only high-probability setups (≥75% confidence) appear automatically.`
+            : `No high-conviction ${currentFilter} signals${tfText} (filtered for ≥75% confidence).`);
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(s => {
+        const dClass = s.decision_class || s.strength || 'STRONG';
+        const regime = s.market_regime || 'TRENDING';
+        return `
+        <tr onclick="openSignalModal(${s.id})" title="Click for details">
+            <td>
+                <div style="font-weight:600">${s.instrument_symbol}</div>
+                <div style="font-size:11px;color:var(--text-muted)">${s.instrument_name || ''}</div>
+            </td>
+            <td><span class="badge badge-${s.direction.toLowerCase()}">${directionIcon(s.direction)} ${s.direction}</span></td>
+            <td><span class="badge badge-${dClass.toLowerCase()}" style="font-size:11px">${dClass}</span></td>
+            <td><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent-cyan);background:rgba(56,189,248,0.1);padding:2px 6px;border-radius:4px">${regime}</span></td>
+            <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-secondary)">${s.timeframe}</span></td>
+            <td><span class="price-val">${s.entry_price}</span></td>
+            <td><span class="price-val sl-val">${s.stop_loss}</span></td>
+            <td><span class="price-val tp-val">${s.take_profit_1}</span></td>
+            <td><span class="rr-val" style="color:#10b981;font-weight:700">${s.risk_reward}:1</span></td>
+            <td>
+                <div class="conf-bar-wrap">
+                    <div class="conf-bar"><div class="conf-fill" style="width:${s.confidence_score}%"></div></div>
+                    <span class="conf-text">${s.confidence_score}%</span>
+                </div>
+            </td>
+            <td style="color:var(--text-muted);font-size:12px">${formatTime(s.generated_at)}</td>
+        </tr>
+    `;}).join('');
+}
+
+function renderEmptySignals(msg) {
+    document.getElementById('signals-tbody').innerHTML = `
+        <tr>
+            <td colspan="10" class="empty-state">
+                <div class="empty-icon">📡</div>
+                <div>${msg}</div>
+            </td>
+        </tr>`;
+}
+
+// ── Filter Signals ─────────────────────────────────────
+function filterSignals(direction) {
+    currentFilter = direction;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+
+    const map = { ALL: 0, BUY: 1, SELL: 2, WAIT: 3 };
+    document.querySelectorAll('.filter-btn')[map[direction]]?.classList.add('active');
+
+    renderSignals(allSignals);
+}
+
+// ── Timeframe Selector ─────────────────────────────────
+// Auto-scan interval per timeframe (= one candle length)
+const TF_SCAN_MS = {
+    M1: 60e3, M5: 300e3, M15: 900e3, M30: 1800e3,
+    H1: 3600e3, H2: 7200e3, H4: 14400e3,
+};
+let autoScanTimer = null;
+
+function selectTimeframe(tf) {
+    clearInterval(autoScanTimer);
+    autoScanTimer = null;
+    currentTimeframe = tf;
+    document.querySelectorAll('.tf-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.tf === tf));
+    renderSignals(allSignals);
+    document.querySelector('.signals-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    if (tf !== 'ALL') {
+        scanWhenIdle();  // scan right away (waits if a previous scan is still running)
+        autoScanTimer = setInterval(() => scanMarkets(true), TF_SCAN_MS[tf]);
+    }
+}
+
+// Run a silent scan for the current timeframe once any running scan finishes
+function scanWhenIdle() {
+    const tfAtClick = currentTimeframe;
+    const tryScan = () => {
+        if (tfAtClick !== currentTimeframe) return;  // user switched again
+        if (isScanning) { setTimeout(tryScan, 1000); return; }
+        scanMarkets(true);
+    };
+    tryScan();
+}
+
+// ── Load News Events ───────────────────────────────────
+async function loadNewsEvents() {
+    const el = document.getElementById('news-list');
+    try {
+        const res  = await fetch('/api/signals/news-events/');
+        const data = await res.json();
+        const events = data.results || data || [];
+
+        if (events.length === 0) {
+            el.innerHTML = '<div class="news-no-data">📅 No upcoming high-impact news events found.</div>';
+            return;
+        }
+
+        el.innerHTML = events.map(e => `
+            <div class="news-item">
+                <span class="news-impact impact-${e.impact.toLowerCase()}">${e.impact}</span>
+                <span class="news-time">${formatTime(e.event_time)}</span>
+                <span class="news-currency">${e.currency}</span>
+                <span class="news-title">${e.title}</span>
+                ${e.forecast ? `<span style="font-size:11px;color:var(--text-muted)">F: ${e.forecast}</span>` : ''}
+            </div>
+        `).join('');
+    } catch (err) {
+        el.innerHTML = '<div class="news-no-data">News events will load once database is connected.</div>';
+    }
+}
+
+// ── Signal Modal ───────────────────────────────────────
+// ── Signal Chart & Modal ────────────────────────────────
+let currentChartInstance = null;
+
+async function openSignalModal(id) {
+    const modal = document.getElementById('signal-modal');
+    const modalBox = modal.querySelector('.modal-box');
+    const body  = document.getElementById('modal-body');
+    
+    modalBox.classList.add('modal-large');
+    document.getElementById('modal-title').textContent = 'Loading Chart & Signal Details…';
+    body.innerHTML = '<div class="empty-state" style="padding:40px;text-align:center"><div class="empty-icon" style="animation:spin 1s linear infinite">⏳</div><div>Loading live chart data…</div></div>';
+    modal.classList.add('open');
+
+    try {
+        const res  = await fetch(`/api/signals/${id}/chart/`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const s    = await res.json();
+
+        const dirColor = s.direction === 'BUY' ? 'var(--buy-color)' : 'var(--sell-color)';
+        const dirBadge = s.direction.toLowerCase();
+        
+        document.getElementById('modal-title').innerHTML = `
+            <span>${directionIcon(s.direction)} ${s.symbol} <span style="color:var(--text-muted);font-weight:400">·</span> ${s.timeframe}</span>
+            <span class="badge badge-${dirBadge}" style="margin-left:10px">${s.direction}</span>
+            <span class="badge badge-${(s.status||'').toLowerCase()}" style="margin-left:6px">${s.status}</span>
+        `;
+
+        body.innerHTML = `
+            <!-- Trade Levels Banner -->
+            <div class="modal-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 14px;">
+                <div class="modal-field"><label>Entry Price</label><span class="price-val" style="color:#60a5fa;font-size:16px;">${s.entry_price}</span></div>
+                <div class="modal-field"><label>Stop Loss (SL)</label><span class="price-val sl-val" style="font-size:16px;">${s.stop_loss}</span></div>
+                <div class="modal-field"><label>Take Profit 1 (TP1)</label><span class="price-val tp-val" style="font-size:16px;">${s.take_profit_1} (1.5R)</span></div>
+                ${s.take_profit_2 ? `<div class="modal-field"><label>Take Profit 2</label><span class="price-val tp-val">${s.take_profit_2} (2.5R)</span></div>` : ''}
+                <div class="modal-field"><label>Risk : Reward</label><span class="rr-val" style="color:#10b981;font-weight:700">${s.risk_reward}:1</span></div>
+                <div class="modal-field"><label>Confidence</label><span style="color:var(--accent-cyan)">${s.confidence_score}%</span></div>
+            </div>
+
+            <!-- Version 2.0 Architectural Gates & Regime Bar -->
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.08);align-items:center;justify-content:space-between;">
+                <div style="display:flex;gap:12px;align-items:center;">
+                    <span style="font-size:12px;color:var(--text-muted)">Decision Class:</span>
+                    <span class="badge badge-${(s.decision_class||'strong').toLowerCase()}" style="font-size:11px">${s.decision_class || 'STRONG'}</span>
+                    <span style="font-size:12px;color:var(--text-muted)">Regime:</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent-cyan);background:rgba(56,189,248,0.1);padding:2px 8px;border-radius:4px">${s.market_regime || 'TRENDING'}</span>
+                </div>
+                <div style="display:flex;gap:12px;align-items:center;">
+                    <span style="font-size:12px;color:var(--text-muted)">Execution Gate:</span>
+                    <span style="font-size:12px;font-weight:600;color:${s.is_trade_allowed ? '#10b981' : '#ef4444'}">${s.is_trade_allowed ? '✅ Eligible' : '❌ Rejection Filtered'}</span>
+                    <span style="font-size:12px;color:var(--text-muted)">Position:</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#fff">${s.recommended_lots || '0.10'} Lots</span>
+                </div>
+            </div>
+
+            <!-- Section 5: Independent Evidence Groups Matrix -->
+            <div style="margin-bottom:14px;padding:12px 14px;background:var(--bg-surface);border:1px solid rgba(255,255,255,0.06);border-radius:8px;">
+                <div style="font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:700;margin-bottom:8px">
+                    🏛️ Section 5 Independent Evidence Groups (3+ Required)
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));gap:6px;">
+                    ${renderEvidenceGroups(s.independent_groups || {})}
+                </div>
+            </div>
+
+            <!-- Candlestick Chart with Trade Points -->
+            <div class="chart-card-wrap">
+                <div class="chart-card-header">
+                    <div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;">
+                        <span>📊 Live Price Action &amp; Trade Placement</span>
+                    </div>
+                    <div class="chart-levels-legend">
+                        <span class="chart-lvl-tag entry">🔵 Entry: ${s.entry_price}</span>
+                        <span class="chart-lvl-tag sl">🔴 SL: ${s.stop_loss}</span>
+                        <span class="chart-lvl-tag tp">🟢 TP1: ${s.take_profit_1}</span>
+                        ${s.take_profit_2 ? `<span class="chart-lvl-tag tp">🟢 TP2: ${s.take_profit_2}</span>` : ''}
+                    </div>
+                </div>
+                <div id="signal-chart-viewport" class="chart-viewport"></div>
+            </div>
+
+            ${s.analysis_summary ? `<div style="padding:14px;background:var(--bg-surface);border:1px solid rgba(255,255,255,0.06);border-radius:10px;font-size:13px;color:var(--text-secondary);margin-bottom:16px;line-height:1.5;"><strong>Engine Confluence Analysis:</strong><br>${s.analysis_summary}</div>` : ''}
+            ${s.warnings?.length ? `<div style="padding:10px 14px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;font-size:12px;color:var(--wait-color);margin-bottom:16px">⚠️ ${s.warnings.join(' | ')}</div>` : ''}
+            
+            <div class="engine-scores" style="margin-top:14px">
+                <h4 style="font-size:12px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Engine Confidence Scores</h4>
+                ${scoreRow('📐 Technical Engine',     s.technical_score,     15)}
+                ${scoreRow('💡 SMC / ICT Engine',     s.smc_score,           20)}
+                ${scoreRow('🕯️ Price Action Engine', s.price_action_score,  15)}
+                ${scoreRow('🌍 Macro Environment',    s.macro_score,         15)}
+                ${scoreRow('📰 News Sentiment',       s.news_score,          15)}
+                ${scoreRow('🏦 Institutional Flow',   s.institutional_score, 10)}
+                ${scoreRow('🤖 AI / ML Prediction',   s.ai_ml_score,         10)}
+            </div>
+        `;
+
+        // Render candlestick chart with points marked
+        renderSignalCandleChart(s);
+
+    } catch (err) {
+        console.error('Modal error:', err);
+        body.innerHTML = `<div style="padding:30px;text-align:center;color:var(--sell-color)">Failed to load chart: ${err.message}</div>`;
+    }
+}
+
+// ── Render Chart with Trade Points ─────────────────────
+function renderSignalCandleChart(s) {
+    const container = document.getElementById('signal-chart-viewport');
+    if (!container) return;
+
+    if (currentChartInstance) {
+        try { currentChartInstance.remove(); } catch(e) {}
+        currentChartInstance = null;
+    }
+
+    const rawCandles = s.candles || [];
+    if (rawCandles.length === 0) {
+        container.innerHTML = '<div style="display:grid;place-items:center;height:100%;color:var(--text-muted);font-size:13px;">No historical candles available for this symbol.</div>';
+        return;
+    }
+
+    // Sort ascending by time & deduplicate
+    const sorted = [...rawCandles].sort((a, b) => a.time - b.time);
+    const seen = new Set();
+    const candleData = [];
+    for (const c of sorted) {
+        if (!seen.has(c.time)) {
+            seen.add(c.time);
+            candleData.push({
+                time: c.time,
+                open: c.open,
+                high: c.high,
+                low: c.low,
+                close: c.close
+            });
+        }
+    }
+
+    // If Lightweight Charts is available
+    if (window.LightweightCharts) {
+        try {
+            const chart = LightweightCharts.createChart(container, {
+                width: container.clientWidth,
+                height: 380,
+                layout: {
+                    background: { color: '#070c18' },
+                    textColor: '#94a3b8',
+                },
+                grid: {
+                    vertLines: { color: 'rgba(255, 255, 255, 0.04)' },
+                    horzLines: { color: 'rgba(255, 255, 255, 0.04)' },
+                },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                },
+                rightPriceScale: {
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    scaleMargins: { top: 0.12, bottom: 0.12 },
+                },
+                timeScale: {
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    timeVisible: true,
+                    secondsVisible: false,
+                },
+            });
+
+            const candleSeries = chart.addCandlestickSeries({
+                upColor: '#10b981',
+                downColor: '#ef4444',
+                borderVisible: false,
+                wickUpColor: '#10b981',
+                wickDownColor: '#ef4444',
+            });
+
+            candleSeries.setData(candleData);
+
+            // ── Trade Points & Levels ──────────────────────
+            // 1. Entry Price Line
+            candleSeries.createPriceLine({
+                price: s.entry_price,
+                color: '#38bdf8',
+                lineWidth: 2,
+                lineStyle: LightweightCharts.LineStyle.Solid,
+                axisLabelVisible: true,
+                title: `ENTRY: ${s.entry_price}`,
+            });
+
+            // 2. Stop Loss Line
+            candleSeries.createPriceLine({
+                price: s.stop_loss,
+                color: '#ef4444',
+                lineWidth: 2,
+                lineStyle: LightweightCharts.LineStyle.Dashed,
+                axisLabelVisible: true,
+                title: `SL: ${s.stop_loss}`,
+            });
+
+            // 3. Take Profit 1 Line
+            candleSeries.createPriceLine({
+                price: s.take_profit_1,
+                color: '#10b981',
+                lineWidth: 2,
+                lineStyle: LightweightCharts.LineStyle.Dashed,
+                axisLabelVisible: true,
+                title: `TP1: ${s.take_profit_1}`,
+            });
+
+            // 4. TP2 (if exists)
+            if (s.take_profit_2) {
+                candleSeries.createPriceLine({
+                    price: s.take_profit_2,
+                    color: '#059669',
+                    lineWidth: 1,
+                    lineStyle: LightweightCharts.LineStyle.Dotted,
+                    axisLabelVisible: true,
+                    title: `TP2: ${s.take_profit_2}`,
+                });
+            }
+
+            // ── Trade Marker at Signal Point ────────────────
+            const signalTs = s.generated_ts || candleData[candleData.length - 1].time;
+            let markerCandle = candleData[candleData.length - 1];
+            for (let i = candleData.length - 1; i >= 0; i--) {
+                if (candleData[i].time <= signalTs) {
+                    markerCandle = candleData[i];
+                    break;
+                }
+            }
+
+            candleSeries.setMarkers([
+                {
+                    time: markerCandle.time,
+                    position: s.direction === 'BUY' ? 'belowBar' : 'aboveBar',
+                    color: s.direction === 'BUY' ? '#10b981' : '#ef4444',
+                    shape: s.direction === 'BUY' ? 'arrowUp' : 'arrowDown',
+                    text: `${s.direction} @ ${s.entry_price}`,
+                }
+            ]);
+
+            chart.timeScale().fitContent();
+            currentChartInstance = chart;
+
+            // Handle resize
+            const ro = new ResizeObserver(() => {
+                if (currentChartInstance && container) {
+                    currentChartInstance.applyOptions({ width: container.clientWidth });
+                }
+            });
+            ro.observe(container);
+
+            return;
+        } catch (e) {
+            console.warn('LightweightCharts error, falling back to canvas:', e);
+        }
+    }
+
+    // ── Self-Contained Canvas Fallback (Works 100% offline) ──
+    renderCanvasCandlestickChart(container, candleData, s);
+}
+
+// ── Built-in Canvas Candlestick Chart ───────────────────
+function renderCanvasCandlestickChart(container, candles, s) {
+    container.innerHTML = '';
+    const canvas = document.createElement('canvas');
+    container.appendChild(canvas);
+
+    const dpr = window.devicePixelRatio || 1;
+    const w = container.clientWidth || 800;
+    const h = container.clientHeight || 380;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    const padLeft = 10, padRight = 80, padTop = 30, padBottom = 30;
+    const plotW = w - padLeft - padRight;
+    const plotH = h - padTop - padBottom;
+
+    // Determine min/max price including entry, SL, TP
+    let minP = Math.min(...candles.map(c => c.low), s.stop_loss, s.entry_price, s.take_profit_1);
+    let maxP = Math.max(...candles.map(c => c.high), s.stop_loss, s.entry_price, s.take_profit_1);
+    const range = (maxP - minP) || 1;
+    minP -= range * 0.05;
+    maxP += range * 0.05;
+
+    const priceToY = (p) => padTop + (maxP - p) / (maxP - minP) * plotH;
+
+    // Draw background
+    ctx.fillStyle = '#070c18';
+    ctx.fillRect(0, 0, w, h);
+
+    // Draw price grid lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.fillStyle = '#64748b';
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'left';
+
+    const steps = 6;
+    for (let i = 0; i <= steps; i++) {
+        const p = minP + (maxP - minP) * (i / steps);
+        const y = priceToY(p);
+        ctx.beginPath();
+        ctx.moveTo(padLeft, y);
+        ctx.lineTo(w - padRight, y);
+        ctx.stroke();
+        ctx.fillText(p >= 100 ? p.toFixed(2) : p.toFixed(4), w - padRight + 6, y + 3);
+    }
+
+    // Draw candlesticks
+    const count = candles.length;
+    const candleW = Math.max(2, Math.min(14, (plotW / count) * 0.7));
+    const stepX = plotW / count;
+
+    candles.forEach((c, i) => {
+        const x = padLeft + i * stepX + stepX / 2;
+        const openY = priceToY(c.open);
+        const closeY = priceToY(c.close);
+        const highY = priceToY(c.high);
+        const lowY = priceToY(c.low);
+        const isUp = c.close >= c.open;
+
+        ctx.strokeStyle = isUp ? '#10b981' : '#ef4444';
+        ctx.fillStyle = isUp ? '#10b981' : '#ef4444';
+
+        // Wick
+        ctx.beginPath();
+        ctx.moveTo(x, highY);
+        ctx.lineTo(x, lowY);
+        ctx.stroke();
+
+        // Body
+        const topY = Math.min(openY, closeY);
+        const bodyH = Math.max(1, Math.abs(closeY - openY));
+        ctx.fillRect(x - candleW / 2, topY, candleW, bodyH);
+    });
+
+    // ── Helper to draw level line ─────────────────────────
+    function drawLevel(price, label, color, dashed = true) {
+        if (!price) return;
+        const y = priceToY(price);
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        if (dashed) ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.moveTo(padLeft, y);
+        ctx.lineTo(w - padRight, y);
+        ctx.stroke();
+
+        // Pill badge on right
+        ctx.setLineDash([]);
+        ctx.fillStyle = color;
+        const tagText = `${label}: ${price}`;
+        ctx.font = 'bold 10px JetBrains Mono, monospace';
+        const tagW = ctx.measureText(tagText).width + 8;
+        ctx.fillRect(w - padRight, y - 9, tagW, 18);
+        ctx.fillStyle = '#000';
+        ctx.fillText(tagText, w - padRight + 4, y + 4);
+        ctx.restore();
+    }
+
+    // Draw Entry, SL, TP levels
+    drawLevel(s.entry_price, 'ENTRY', '#38bdf8', false);
+    drawLevel(s.stop_loss, 'SL', '#ef4444', true);
+    drawLevel(s.take_profit_1, 'TP1', '#10b981', true);
+    if (s.take_profit_2) drawLevel(s.take_profit_2, 'TP2', '#059669', true);
+
+    // ── Draw Trade Execution Marker ───────────────────────
+    const lastX = padLeft + (count - 1) * stepX + stepX / 2;
+    const entryY = priceToY(s.entry_price);
+    const isBuy = s.direction === 'BUY';
+
+    ctx.save();
+    ctx.fillStyle = isBuy ? '#10b981' : '#ef4444';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+
+    // Arrow pointer
+    const arrowY = isBuy ? entryY + 12 : entryY - 12;
+    ctx.beginPath();
+    ctx.moveTo(lastX, entryY);
+    ctx.lineTo(lastX - 6, arrowY);
+    ctx.lineTo(lastX + 6, arrowY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Marker text box
+    const markerText = `${s.direction} @ ${s.entry_price}`;
+    ctx.font = 'bold 11px JetBrains Mono, monospace';
+    const mw = ctx.measureText(markerText).width + 10;
+    const boxX = Math.min(w - padRight - mw - 5, Math.max(padLeft, lastX - mw / 2));
+    const boxY = isBuy ? arrowY + 4 : arrowY - 20;
+
+    ctx.fillStyle = isBuy ? '#10b981' : '#ef4444';
+    ctx.fillRect(boxX, boxY, mw, 18);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(markerText, boxX + 5, boxY + 13);
+    ctx.restore();
+}
+
+function scoreRow(label, score, weight) {
+    const pct = Math.min(100, parseFloat(score) || 0);
+    return `
+        <div class="score-row">
+            <span class="score-label">${label} (${weight}%)</span>
+            <div class="score-bar"><div class="score-bar-fill" style="width:${pct}%"></div></div>
+            <span class="score-num">${pct.toFixed(0)}</span>
+        </div>`;
+}
+
+function renderEvidenceGroups(groups) {
+    if (!groups || Object.keys(groups).length === 0) {
+        return '<span style="color:var(--text-muted);font-size:12px;grid-column:1/-1;">No independent group data</span>';
+    }
+    return Object.entries(groups).map(([name, dir]) => {
+        const d = (dir || 'NEUTRAL').toUpperCase();
+        const col = d === 'BUY' ? '#10b981' : d === 'SELL' ? '#ef4444' : '#94a3b8';
+        const bg = d === 'BUY' ? 'rgba(16,185,129,0.1)' : d === 'SELL' ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)';
+        const border = d === 'BUY' ? 'rgba(16,185,129,0.3)' : d === 'SELL' ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.08)';
+        return `<div style="padding:6px 8px;border-radius:6px;background:${bg};border:1px solid ${border};display:flex;flex-direction:column;gap:2px;">
+            <span style="color:var(--text-secondary);font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${name}">${name}</span>
+            <span style="color:${col};font-weight:700;font-size:11px;">${d}</span>
+        </div>`;
+    }).join('');
+}
+
+function closeModal() {
+    const modal = document.getElementById('signal-modal');
+    modal.classList.remove('open');
+    modal.querySelector('.modal-box')?.classList.remove('modal-large');
+    if (currentChartInstance) {
+        try { currentChartInstance.remove(); } catch(e) {}
+        currentChartInstance = null;
+    }
+}
+
+// ── Pair Trade History (click on a pair score card) ────
+async function openPairHistory(symbol) {
+    const modal = document.getElementById('signal-modal');
+    const body  = document.getElementById('modal-body');
+    document.getElementById('modal-title').textContent = `📜 ${symbol} — Trade History`;
+    body.innerHTML = '<div class="empty-state" style="padding:30px;text-align:center">Loading history…</div>';
+    modal.classList.add('open');
+
+    try {
+        const res  = await fetch(`/api/signals/?instrument=${encodeURIComponent(symbol)}`);
+        const data = await res.json();
+        const all  = (data.results || data || []).filter(s => s.instrument_symbol === symbol);
+        const trades = all
+            .filter(s => s.direction === 'BUY' || s.direction === 'SELL')
+            .sort((a, b) => new Date(b.generated_at) - new Date(a.generated_at));
+
+        const wins   = trades.filter(s => s.status === 'HIT_TP').length;
+        const losses = trades.filter(s => s.status === 'HIT_SL').length;
+        const open   = trades.filter(s => s.status === 'ACTIVE').length;
+        const closed = wins + losses;
+        const winRate = closed ? (wins / closed * 100).toFixed(1) + '%' : '—';
+
+        const outcome = {
+            HIT_TP:  ['🎯 TP Hit',   'var(--buy-color)'],
+            HIT_SL:  ['🛑 SL Hit',   'var(--sell-color)'],
+            ACTIVE:  ['⏳ Running',  'var(--accent-cyan)'],
+            EXPIRED: ['⌛ Expired',  'var(--text-muted)'],
+        };
+
+        const rows = trades.map(s => {
+            const [label, color] = outcome[s.status] || [s.status, 'var(--text-muted)'];
+            return `<tr onclick="openSignalModal(${s.id})" style="cursor:pointer">
+                <td><span class="badge badge-${s.direction.toLowerCase()}">${s.direction}</span></td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:12px">${s.timeframe}</td>
+                <td><span class="price-val">${s.entry_price}</span></td>
+                <td><span class="price-val sl-val">${s.stop_loss}</span></td>
+                <td><span class="price-val tp-val">${s.take_profit_1}</span></td>
+                <td style="color:${color};font-weight:600;white-space:nowrap">${label}</td>
+                <td style="color:var(--text-muted);font-size:12px;white-space:nowrap">${formatTime(s.generated_at)}</td>
+            </tr>`;
+        }).join('');
+
+        body.innerHTML = `
+            <div class="modal-grid">
+                <div class="modal-field"><label>Total Trades</label><span>${trades.length}</span></div>
+                <div class="modal-field"><label>Win Rate</label><span style="color:var(--accent-cyan)">${winRate}</span></div>
+                <div class="modal-field"><label>Wins (TP)</label><span style="color:var(--buy-color)">${wins}</span></div>
+                <div class="modal-field"><label>Losses (SL)</label><span style="color:var(--sell-color)">${losses}</span></div>
+                <div class="modal-field"><label>Running</label><span>${open}</span></div>
+            </div>
+            ${trades.length ? `
+            <div style="overflow-x:auto;max-height:50vh;overflow-y:auto">
+                <table class="signals-table" style="width:100%">
+                    <thead><tr><th>Side</th><th>TF</th><th>Entry</th><th>SL</th><th>TP1</th><th>Result</th><th>Time</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>` : '<div style="padding:24px;text-align:center;color:var(--text-muted)">No trades yet for this pair.</div>'}
+        `;
+    } catch (err) {
+        console.error('History error:', err);
+        body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--sell-color)">Could not load trade history.</div>';
+    }
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ── Helpers ────────────────────────────────────────────
+function directionIcon(dir) {
+    return dir === 'BUY' ? '🟢' : dir === 'SELL' ? '🔴' : '🟡';
+}
+
+function formatTime(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString('en-US', {
+        month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+        timeZone: 'Asia/Karachi'
+    });
+}
+
+function animateValue(elId, target, start) {
+    const el       = document.getElementById(elId);
+    const duration = 800;
+    const startTime = performance.now();
+
+    function update(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        el.textContent = Math.round(start + (target - start) * eased);
+        if (progress < 1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+}
+
+// CSS spin animation injection
+const style = document.createElement('style');
+style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+document.head.appendChild(style);
+
+// ── Scan Markets (Run Engines) ─────────────────────────
+let isScanning = false;
+async function scanMarkets(silent = true) {
+    if (isScanning) return;
+    isScanning = true;
+    const scanTf = currentTimeframe === 'ALL' ? 'H1' : currentTimeframe;
+    const btn = document.getElementById('scan-btn');
+    const originalText = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.innerHTML = '<span class="refresh-icon" style="animation:spin 1s linear infinite">⚡</span> Scanning...';
+        btn.disabled = true;
+    }
+
+    try {
+        const res = await fetch('/api/signals/bulk-generate/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                symbols: ['EURUSD', 'GBPUSD', 'XAUUSD', 'BTCUSD', 'US30'],
+                timeframe: scanTf
+            })
+        });
+        
+        if (!res.ok) {
+            throw new Error(`Server returned HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        console.log('Auto-scan results:', data);
+
+        // Reload dashboard to show any new >=75% signals
+        await loadDashboardData();
+        
+    } catch (err) {
+        console.error('Scan error:', err);
+    } finally {
+        isScanning = false;
+        if (btn) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+}
+
+// ── Execute Backtest (Phase 11 Replay) ──────────────────
+async function executeBacktest() {
+    const symbol = document.getElementById('bt-symbol').value;
+    const timeframe = document.getElementById('bt-timeframe').value;
+    const btn = document.getElementById('run-bt-btn');
+    const statusBox = document.getElementById('bt-status-box');
+
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Simulating...';
+    btn.disabled = true;
+    statusBox.innerHTML = `Running historical bar replay simulation for <strong>${symbol} ${timeframe}</strong> (accounting for spread, slippage, and news blackout)...`;
+
+    try {
+        const res = await fetch('/api/signals/backtest/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ symbol, timeframe, initial_capital: 10000, spread_pips: 1.5 })
+        });
+        const data = await res.json();
+
+        if (data.error) {
+            statusBox.innerHTML = `⚠️ <span style="color:#ef4444">${data.error}</span>`;
+            return;
+        }
+
+        document.getElementById('bt-winrate').textContent = `${data.win_rate_pct}%`;
+        document.getElementById('bt-profitfactor').textContent = `${data.profit_factor}`;
+        document.getElementById('bt-maxdrawdown').textContent = `${data.max_drawdown_pct}%`;
+        document.getElementById('bt-expectancy').textContent = `${data.expectancy_r > 0 ? '+' : ''}${data.expectancy_r} R`;
+
+        statusBox.innerHTML = `✅ <strong>Run Complete (${data.run_id}):</strong> ${data.total_trades} trades simulated. Wins: ${data.winning_trades}, Losses: ${data.losing_trades}. Final Capital: <strong>$${data.final_capital.toLocaleString()}</strong>.`;
+    } catch (err) {
+        statusBox.innerHTML = `❌ Backtest error: ${err.message}`;
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+// ── Execute Walk-Forward Validation (Phase 10 ML) ──────
+async function executeWalkForward() {
+    const symbol = document.getElementById('bt-symbol').value;
+    const timeframe = document.getElementById('bt-timeframe').value;
+    const btn = document.getElementById('run-wf-btn');
+    const statusBox = document.getElementById('bt-status-box');
+
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '🧠 Validating...';
+    btn.disabled = true;
+    statusBox.innerHTML = `Running rolling time-series walk-forward out-of-sample validation for <strong>${symbol}</strong> (anti-leakage strict check)...`;
+
+    try {
+        const res = await fetch('/api/signals/walk-forward/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ symbol, timeframe, splits: 3 })
+        });
+        const data = await res.json();
+
+        if (data.error) {
+            statusBox.innerHTML = `⚠️ <span style="color:#ef4444">${data.error}</span>`;
+            return;
+        }
+
+        statusBox.innerHTML = `🧠 <strong>Walk-Forward Result:</strong> Out-of-Sample Accuracy: <strong>${data.out_of_sample_accuracy_pct}%</strong> vs Naive Baseline: <strong>${data.baseline_accuracy_pct}%</strong> (Alpha: <strong>${data.alpha_over_baseline_pct > 0 ? '+' : ''}${data.alpha_over_baseline_pct}%</strong>). Strictly leakage-free.`;
+    } catch (err) {
+        statusBox.innerHTML = `❌ Walk-Forward error: ${err.message}`;
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+
