@@ -327,8 +327,14 @@ class AutoTraderEngine:
 
             # Gate 10: Position Sizing Calculation
             balance = float(account.balance)
-            risk_amount = balance * (account.max_risk_pct / 100.0)
-            sl_distance = abs(signal.entry_price - signal.stop_loss)
+            risk_amount = balance * (float(account.max_risk_pct) / 100.0)
+            entry_f = float(signal.entry_price)
+            sl_f = float(signal.stop_loss)
+            tp1_f = float(signal.take_profit_1)
+            tp2_f = float(signal.take_profit_2) if signal.take_profit_2 is not None else None
+            tp3_f = float(signal.take_profit_3) if signal.take_profit_3 is not None else None
+
+            sl_distance = abs(entry_f - sl_f)
             if sl_distance <= 0:
                 continue
 
@@ -347,7 +353,7 @@ class AutoTraderEngine:
             # Generate unique order identifiers (Section 15)
             broker_order_id = f"BK-{account.broker_type}-{int(timezone.now().timestamp())}-{uuid.uuid4().hex[:6].upper()}"
             client_order_id = f"TS-{signal.id}-{account.id}"
-            executed_price = float(signal.entry_price)
+            executed_price = entry_f
             mt5_note = ""
 
             # Attempt live MetaTrader 5 Terminal execution if account is MT5/Exness
@@ -357,13 +363,13 @@ class AutoTraderEngine:
                     symbol=symbol,
                     direction=signal.direction,
                     lots=lots,
-                    sl=float(signal.stop_loss),
-                    tp1=float(signal.take_profit_1),
+                    sl=sl_f,
+                    tp1=tp1_f,
                     comment=client_order_id
                 )
                 if mt5_res.get('sent'):
                     broker_order_id = f"MT5-{mt5_res['order_id']}"
-                    executed_price = mt5_res.get('price') or executed_price
+                    executed_price = float(mt5_res.get('price') or executed_price)
                     mt5_note = f" | Live MT5 Terminal Order #{mt5_res['order_id']}"
                 else:
                     mt5_note = f" | Dashboard Auto-Execution ({mt5_res.get('reason', 'MT5 terminal bridge standby')})"
@@ -376,15 +382,15 @@ class AutoTraderEngine:
                 direction=signal.direction,
                 volume_lots=lots,
                 entry_price=executed_price,
-                stop_loss=signal.stop_loss,
-                take_profit_1=signal.take_profit_1,
-                take_profit_2=signal.take_profit_2,
-                take_profit_3=signal.take_profit_3,
+                stop_loss=sl_f,
+                take_profit_1=tp1_f,
+                take_profit_2=tp2_f,
+                take_profit_3=tp3_f,
                 current_price=executed_price,
                 status='OPEN',
                 broker_order_id=broker_order_id,
                 client_order_id=client_order_id,
-                requested_price=signal.entry_price,
+                requested_price=entry_f,
                 executed_price=executed_price,
                 spread_pips=1.2,
                 slippage_pips=0.1,
@@ -530,28 +536,32 @@ class AutoTraderEngine:
             outcome = None
             exit_price = None
 
+            sl_val = float(trade.stop_loss)
+            tp1_val = float(trade.take_profit_1)
+            entry_val = float(trade.entry_price)
+
             if trade.direction == 'BUY':
-                if recent_low <= trade.stop_loss:
+                if recent_low <= sl_val:
                     outcome = 'SL_HIT'
-                    exit_price = trade.stop_loss
-                elif recent_high >= trade.take_profit_1:
+                    exit_price = sl_val
+                elif recent_high >= tp1_val:
                     outcome = 'TP_HIT'
-                    exit_price = trade.take_profit_1
+                    exit_price = tp1_val
             elif trade.direction == 'SELL':
-                if recent_high >= trade.stop_loss:
+                if recent_high >= sl_val:
                     outcome = 'SL_HIT'
-                    exit_price = trade.stop_loss
-                elif recent_low <= trade.take_profit_1:
+                    exit_price = sl_val
+                elif recent_low <= tp1_val:
                     outcome = 'TP_HIT'
-                    exit_price = trade.take_profit_1
+                    exit_price = tp1_val
 
             if outcome:
                 account = trade.account
-                risk_amt = float(account.balance) * (account.max_risk_pct / 100.0)
+                risk_amt = float(account.balance) * (float(account.max_risk_pct) / 100.0)
 
                 if outcome == 'TP_HIT':
-                    sl_dist = abs(trade.entry_price - trade.stop_loss)
-                    tp_dist = abs(trade.take_profit_1 - trade.entry_price)
+                    sl_dist = abs(entry_val - sl_val)
+                    tp_dist = abs(tp1_val - entry_val)
                     r_mult = round(tp_dist / max(1e-5, sl_dist), 2)
                     pnl_amount = round(risk_amt * r_mult, 2)
                     pnl_r = r_mult
@@ -577,6 +587,50 @@ class AutoTraderEngine:
                 cls._notify_trade_closed(trade, account)
 
         return resolved_trades
+
+    @classmethod
+    def close_trade_manually(cls, pk: int):
+        """
+        Manually closes an open trade position at current market price and updates PnL/balance.
+        """
+        try:
+            trade = AutoTradeExecution.objects.select_related('account').get(pk=pk, status='OPEN')
+        except AutoTradeExecution.DoesNotExist:
+            return None
+
+        exit_price = float(trade.current_price or trade.entry_price)
+        try:
+            df = DataFetcher().fetch(trade.symbol, timeframe='M5', limit=5)
+            if df is not None and len(df) > 0:
+                exit_price = float(df['close'].iloc[-1])
+        except Exception:
+            pass
+
+        entry_val = float(trade.entry_price)
+        sl_val = float(trade.stop_loss)
+        sl_dist = max(1e-5, abs(entry_val - sl_val))
+        price_diff = (exit_price - entry_val) if trade.direction == 'BUY' else (entry_val - exit_price)
+        pnl_r = round(price_diff / sl_dist, 2)
+
+        account = trade.account
+        risk_amt = float(account.balance) * (float(account.max_risk_pct) / 100.0)
+        pnl_amount = round(risk_amt * pnl_r, 2)
+
+        trade.status = 'CLOSED'
+        trade.exit_price = exit_price
+        trade.exit_reason = 'MANUAL'
+        trade.pnl_amount = Decimal(str(pnl_amount))
+        trade.pnl_r = pnl_r
+        trade.closed_at = timezone.now()
+        trade.save()
+
+        new_balance = max(0.0, float(account.balance) + pnl_amount)
+        account.balance = Decimal(str(round(new_balance, 2)))
+        account.equity = account.balance
+        account.save(update_fields=['balance', 'equity', 'updated_at'])
+
+        cls._notify_trade_closed(trade, account)
+        return trade
 
     @classmethod
     def restart_recovery(cls):
