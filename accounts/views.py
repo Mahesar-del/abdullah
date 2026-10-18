@@ -59,8 +59,23 @@ class LinkedAccountsView(views.APIView):
         server = request.data.get('server', '').strip()
         api_key = request.data.get('api_key', account_number).strip()
         api_secret = request.data.get('api_secret', password).strip()
-        is_paper = bool(request.data.get('is_paper', broker_type == 'PAPER'))
-        balance = float(request.data.get('balance', 10000.0))
+        # Auto-detect is_paper / Live vs Demo automatically from server name
+        if server:
+            s_up = server.upper()
+            if 'REAL' in s_up or 'LIVE' in s_up:
+                is_paper = False
+            elif 'TRIAL' in s_up or 'DEMO' in s_up:
+                is_paper = True
+            else:
+                is_paper = bool(request.data.get('is_paper', broker_type == 'PAPER'))
+        else:
+            is_paper = bool(request.data.get('is_paper', broker_type == 'PAPER'))
+
+        raw_balance = request.data.get('balance')
+        try:
+            balance = float(raw_balance) if (raw_balance is not None and str(raw_balance).strip() != '') else 10000.0
+        except (ValueError, TypeError):
+            balance = 10000.0
         auto_trade_enabled = bool(request.data.get('auto_trade_enabled', True))
         max_risk_pct = float(request.data.get('max_risk_pct', 0.5))
         max_open_risk_pct = float(request.data.get('max_open_risk_pct', 3.0))
@@ -78,6 +93,27 @@ class LinkedAccountsView(views.APIView):
         # Deactivate previous active accounts so new one becomes primary
         LinkedBrokerAccount.objects.all().update(is_active=False)
 
+        # Auto-fetch live balance from broker if MT5 is available
+        live_equity = balance
+        if broker_type in ('EXNESS', 'MT5', 'MT4') and not is_paper:
+            try:
+                import MetaTrader5 as mt5
+                raw_login = str(account_number).strip()
+                login_id = int(raw_login) if raw_login.isdigit() else 0
+                if login_id and password and server:
+                    init_ok = mt5.initialize(login=login_id, password=password, server=server, timeout=500)
+                    if not init_ok:
+                        init_ok = mt5.initialize(timeout=500)
+                        if init_ok:
+                            mt5.login(login=login_id, password=password, server=server, timeout=1000)
+                    if init_ok:
+                        acc_info = mt5.account_info()
+                        if acc_info and getattr(acc_info, 'balance', None) is not None:
+                            balance = round(float(acc_info.balance), 2)
+                            live_equity = round(float(acc_info.equity), 2)
+            except Exception as e:
+                logger.warning(f"[LinkedAccountsView] MT5 live balance auto-fetch note: {e}")
+
         account = LinkedBrokerAccount.objects.create(
             name=name,
             broker_type=broker_type,
@@ -87,7 +123,7 @@ class LinkedAccountsView(views.APIView):
             api_secret=api_secret,  # Protected/stored for trading execution
             is_paper=is_paper,
             balance=Decimal(str(balance)),
-            equity=Decimal(str(balance)),
+            equity=Decimal(str(live_equity)),
             is_active=True,
             auto_trade_enabled=auto_trade_enabled,
             is_authorized=is_authorized,
@@ -412,4 +448,38 @@ class EmergencyKillSwitchView(views.APIView):
             'kill_switch_activated': True,
             'closed_positions_count': count,
             'message': f"EMERGENCY KILL SWITCH: Closed {count} positions. Auto-trading paused on all accounts."
+        })
+
+
+class UpdateBalanceView(views.APIView):
+    """
+    POST /api/accounts/update-balance/
+    Allows setting the exact account balance/equity directly (e.g. from broker login or live balance edit).
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        balance_val = request.data.get('balance')
+        if balance_val is None:
+            return Response({'success': False, 'error': 'Balance amount is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            balance_float = float(balance_val)
+            if balance_float < 0:
+                return Response({'success': False, 'error': 'Balance cannot be negative.'}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, TypeError):
+            return Response({'success': False, 'error': 'Invalid balance amount.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        acc = LinkedBrokerAccount.objects.filter(is_active=True).first()
+        if not acc:
+            return Response({'success': False, 'error': 'No active account found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        acc.balance = Decimal(str(round(balance_float, 2)))
+        acc.equity = acc.balance
+        acc.save(update_fields=['balance', 'equity', 'updated_at'])
+
+        return Response({
+            'success': True,
+            'balance': float(acc.balance),
+            'equity': float(acc.equity),
+            'message': f'Account balance updated to ${acc.balance:,.2f}'
         })

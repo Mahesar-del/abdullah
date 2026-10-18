@@ -21,6 +21,7 @@ from .institutional import InstitutionalEngine
 from .intermarket  import IntermarketEngine
 from .risk         import RiskEngine, RiskEvaluation
 from .ai_ml        import AIEngine
+from .godzilla     import GodzillaEngine, godzilla_lot_size
 
 
 @dataclass
@@ -48,6 +49,10 @@ class UnifiedSignal:
     institutional_score: float = 0.0
     intermarket_score:   float = 0.0
     ai_ml_score:         float = 0.0
+    godzilla_score:      float = 0.0   # Godzilla Order Imbalance + Volatility engine
+    godzilla_sigma:      float = 0.0   # σ_t (ARCH volatility)
+    godzilla_max_lev:    float = 10.0  # Max leverage from Godzilla formula
+    godzilla_phi:        float = 0.0   # Relative spread (friction)
     data_quality_score:  float = 100.0
     recommended_lots:    float = 0.10
     is_trade_allowed:    bool  = True
@@ -89,6 +94,12 @@ class UnifiedSignal:
                 'institutional': self.institutional_score,
                 'intermarket':   self.intermarket_score,
                 'ai_ml':         self.ai_ml_score,
+                'godzilla':      self.godzilla_score,
+            },
+            'godzilla_meta': {
+                'sigma_t':   round(self.godzilla_sigma, 6),
+                'max_lev':   round(self.godzilla_max_lev, 2),
+                'phi_t':     round(self.godzilla_phi, 6),
             }
         }
 
@@ -101,25 +112,33 @@ class UnifiedSignalEngine:
 
     # Dynamic weights by asset class per Master Architecture Section 17
     ASSET_WEIGHTS = {
+        # Godzilla engine is added with 10% weight.
+        # Other engine weights scaled down proportionally to keep sum = 1.0
         'FOREX': {
-            'technical': 0.15, 'smc_ict': 0.20, 'price_action': 0.15, 'macro': 0.15,
-            'news': 0.15, 'institutional': 0.10, 'intermarket': 0.05, 'ai_ml': 0.05
+            'technical': 0.13, 'smc_ict': 0.18, 'price_action': 0.13, 'macro': 0.13,
+            'news': 0.13, 'institutional': 0.10, 'intermarket': 0.05, 'ai_ml': 0.05,
+            'godzilla': 0.10
         },
         'CRYPTO': {
-            'smc_ict': 0.25, 'technical': 0.20, 'price_action': 0.15, 'institutional': 0.15,
-            'news': 0.15, 'intermarket': 0.05, 'macro': 0.05, 'ai_ml': 0.00
+            # Godzilla gets highest weight in crypto (order flow + volatility most relevant)
+            'smc_ict': 0.20, 'technical': 0.17, 'price_action': 0.13, 'institutional': 0.13,
+            'news': 0.12, 'intermarket': 0.05, 'macro': 0.05, 'ai_ml': 0.00,
+            'godzilla': 0.15
         },
         'METALS': {
-            'macro': 0.25, 'smc_ict': 0.20, 'price_action': 0.15, 'technical': 0.15,
-            'institutional': 0.10, 'intermarket': 0.10, 'news': 0.05, 'ai_ml': 0.00
+            'macro': 0.22, 'smc_ict': 0.18, 'price_action': 0.14, 'technical': 0.13,
+            'institutional': 0.10, 'intermarket': 0.10, 'news': 0.05, 'ai_ml': 0.00,
+            'godzilla': 0.08
         },
         'INDICES': {
-            'macro': 0.20, 'technical': 0.20, 'price_action': 0.15, 'smc_ict': 0.15,
-            'institutional': 0.15, 'intermarket': 0.10, 'news': 0.05, 'ai_ml': 0.00
+            'macro': 0.18, 'technical': 0.18, 'price_action': 0.13, 'smc_ict': 0.13,
+            'institutional': 0.13, 'intermarket': 0.10, 'news': 0.05, 'ai_ml': 0.00,
+            'godzilla': 0.10
         },
         'COMMODITIES': {
-            'macro': 0.25, 'technical': 0.15, 'smc_ict': 0.15, 'price_action': 0.15,
-            'institutional': 0.15, 'intermarket': 0.10, 'news': 0.05, 'ai_ml': 0.00
+            'macro': 0.22, 'technical': 0.13, 'smc_ict': 0.13, 'price_action': 0.14,
+            'institutional': 0.13, 'intermarket': 0.10, 'news': 0.05, 'ai_ml': 0.00,
+            'godzilla': 0.10
         }
     }
 
@@ -207,6 +226,10 @@ class UnifiedSignalEngine:
         ai_result = self._run_engine(AIEngine, 'ai_ml')
         if ai_result: engine_results['ai_ml'] = ai_result
 
+        # 9. Godzilla Engine (Order Imbalance + ARCH Volatility + Leverage Cap)
+        godzilla_result = self._run_engine(GodzillaEngine, 'godzilla')
+        if godzilla_result: engine_results['godzilla'] = godzilla_result
+
         # ── Calculate Weighted Score using Dynamic Asset Weights ──
         weighted_buy  = 0.0
         weighted_sell = 0.0
@@ -238,6 +261,7 @@ class UnifiedSignalEngine:
             'News':            news_result.direction if news_result else 'NEUTRAL',
             'Intermarket':     inter_result.direction if inter_result else 'NEUTRAL',
             'ML':              ai_result.direction if ai_result else 'NEUTRAL',
+            'OrderFlow':       godzilla_result.direction if godzilla_result else 'NEUTRAL',
         }
 
         # Market Regime Detection
@@ -348,6 +372,15 @@ class UnifiedSignalEngine:
         )
 
         # ── Deterministic Risk Management Gating ──────────
+        # Extract Godzilla volatility metadata for leverage-aware sizing
+        godzilla_sigma   = 0.0
+        godzilla_max_lev = 10.0
+        godzilla_phi     = 0.0
+        if godzilla_result and godzilla_result.entry_zone is not None:
+            godzilla_sigma   = float(godzilla_result.entry_zone or 0.0)   # σ_t
+            godzilla_phi     = float(godzilla_result.sl_zone or 0.0)      # φ_t
+            godzilla_max_lev = float(godzilla_result.tp_zone or 10.0)     # Max_Lev
+
         risk_eval = RiskEngine.evaluate(
             symbol=self.symbol,
             direction=direction,
@@ -357,7 +390,9 @@ class UnifiedSignalEngine:
             confidence=confidence,
             account_balance=10000.0,
             risk_percentage=1.0,
-            is_in_blackout=is_blackout
+            is_in_blackout=is_blackout,
+            godzilla_sigma=godzilla_sigma,
+            godzilla_max_lev=godzilla_max_lev,
         )
 
         if not risk_eval.is_allowed and direction != 'WAIT':
@@ -393,6 +428,10 @@ class UnifiedSignalEngine:
             institutional_score    = round(engine_results.get('institutional', self._stub_result('x')).score, 2),
             intermarket_score      = round(engine_results.get('intermarket', self._stub_result('x')).score, 2),
             ai_ml_score            = round(engine_results.get('ai_ml', self._stub_result('x')).score, 2),
+            godzilla_score         = round(engine_results.get('godzilla', self._stub_result('x')).score, 2),
+            godzilla_sigma         = godzilla_sigma,
+            godzilla_max_lev       = godzilla_max_lev,
+            godzilla_phi           = godzilla_phi,
             data_quality_score     = round(quality_report.quality_score, 2),
             recommended_lots       = risk_eval.recommended_lots,
             is_trade_allowed       = risk_eval.is_allowed and direction in ('BUY', 'SELL'),
@@ -450,23 +489,20 @@ class UnifiedSignalEngine:
     def _calculate_levels(self, direction, entry, atr, results):
         sl_dist  = atr * self.ATR_SL_MULTIPLIER
         tp1_dist = atr * self.ATR_TP1_MULTIPLIER
-        tp2_dist = atr * self.ATR_TP2_MULTIPLIER
-        tp3_dist = atr * self.ATR_TP3_MULTIPLIER
 
         if direction == 'BUY':
             sl  = entry - sl_dist
             tp1 = entry + tp1_dist
-            tp2 = entry + tp2_dist
-            tp3 = entry + tp3_dist
         elif direction == 'SELL':
             sl  = entry + sl_dist
             tp1 = entry - tp1_dist
-            tp2 = entry - tp2_dist
-            tp3 = entry - tp3_dist
         else:
             sl  = entry - sl_dist
             tp1 = entry + tp1_dist
-            tp2 = tp3 = None
+
+        # Single full-position Take Profit at TP1 (100% auto-close on TP1 hit, no TP2/TP3 wait)
+        tp2 = None
+        tp3 = None
 
         rr = abs(tp1 - entry) / abs(sl - entry) if abs(sl - entry) > 0 else 0
         rr = min(rr, self.MAX_RISK_REWARD)

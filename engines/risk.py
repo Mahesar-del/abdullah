@@ -46,7 +46,9 @@ class RiskEngine:
                  account_balance: float = 10000.0,
                  risk_percentage: float = 1.0,
                  is_in_blackout: bool = False,
-                 ignore_daily_limit: bool = False) -> RiskEvaluation:
+                 ignore_daily_limit: bool = False,
+                 godzilla_sigma: float = 0.0,
+                 godzilla_max_lev: float = 10.0) -> RiskEvaluation:
         """
         Evaluate whether the trade passes all deterministic risk criteria and calculate lot size.
         """
@@ -148,6 +150,31 @@ class RiskEngine:
         sl_cost_per_lot = max(sl_pips * pip_val_per_lot, 1.0)
         recommended_lots = round(risk_amount / sl_cost_per_lot, 2)
         recommended_lots = max(0.01, min(recommended_lots, 50.0)) # Clamp between 0.01 and 50.0 lots
+
+        # ── Godzilla Leverage Cap Integration ─────────────────────────────────
+        # Apply the Godzilla volatility-adjusted leverage cap:
+        #   Max_Leverage = L_0 / (1 + σ_t)  → limits max dollar exposure
+        # Max exposure in lots = (account_balance × max_leverage) / (entry × 1000)
+        if godzilla_sigma > 0 and entry > 0:
+            from .godzilla import godzilla_leverage_cap
+            effective_max_lev = godzilla_max_lev if godzilla_max_lev > 0 else \
+                godzilla_leverage_cap(godzilla_sigma, base_leverage=10.0)
+            max_dollar_exposure = account_balance * effective_max_lev
+            godzilla_max_lots = max_dollar_exposure / (entry * 1000.0)
+            godzilla_max_lots = max(godzilla_max_lots, 0.01)
+            if recommended_lots > godzilla_max_lots:
+                recommended_lots = round(godzilla_max_lots, 4)
+                rejection_reasons_info = (
+                    f"σ_t={godzilla_sigma:.4f} | MaxLev={effective_max_lev:.1f}x | "
+                    f"Godzilla cap applied: lots reduced to {recommended_lots}"
+                )
+                # Not a rejection — just an informational sizing cap
+                # Add to reasoning as a note (not a hard block)
+                if effective_max_lev < 2.0:
+                    rejection_reasons.append(
+                        f"Godzilla EXTREME VOL: σ_t={godzilla_sigma:.4f}, MaxLev={effective_max_lev:.1f}x — "
+                        f"position micro-capped to {recommended_lots:.4f} lots"
+                    )
 
         # 5. Low confidence check
         if confidence < 50.0:

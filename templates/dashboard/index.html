@@ -9,8 +9,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=8">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=10">
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://s3.tradingview.com/tv.js" async></script>
 </head>
 <body>
 
@@ -178,8 +179,12 @@
                     <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em;">Account &amp; Broker</div>
                     <button onclick="openConnectBrokerModal()" style="background: none; border: none; color: #60a5fa; font-size: 0.75rem; font-weight: 600; cursor: pointer; text-decoration: underline; padding: 0; white-space: nowrap;">+ Switch / Link</button>
                 </div>
-                <div id="auto-account-num" style="font-size: 1.08rem; font-weight: 700; color: #f1f5f9; margin-top: 6px; word-break: break-word;">********1001</div>
+                <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+                    <div id="auto-account-num" style="font-size: 1.08rem; font-weight: 700; color: #f1f5f9; word-break: break-word;">********1001</div>
+                    <span id="auto-account-type-badge" style="font-size: 0.68rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: rgba(59,130,246,0.2); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); white-space: nowrap;">DEMO</span>
+                </div>
                 <div id="auto-broker-name" style="font-size: 0.8rem; color: #60a5fa; margin-top: 4px; line-height: 1.35; word-break: break-word;">TradeSense Paper / MT5</div>
+                <div id="auto-balance-display" style="font-size: 0.82rem; font-weight: 700; color: #34d399; margin-top: 3px;">Balance: $0.00</div>
             </div>
 
             <div class="auto-console-metric-card">
@@ -449,35 +454,35 @@
     <section class="engine-section">
         <div class="section-header">
             <h2 class="section-title">⚙️ Signal Engine Weights</h2>
-            <span class="section-badge">Per SRS v2.0</span>
+            <span class="section-badge" style="cursor:pointer;" onclick="openDashboardEngineDetail('technical')">👆 Click any engine for live trade details · Per SRS v2.0</span>
         </div>
         <div class="engine-grid">
-            <div class="engine-card">
-                <div class="engine-name">📐 Technical</div>
+            <div class="engine-card clickable-engine-card" onclick="openDashboardEngineDetail('technical')" title="Click to open Technical Engine trade &amp; indicator details">
+                <div class="engine-name">📐 Technical <span style="font-size:10px;color:#60a5fa;margin-left:4px;">🔍</span></div>
                 <div class="engine-bar"><div class="engine-fill" style="width:15%">15%</div></div>
             </div>
-            <div class="engine-card">
-                <div class="engine-name">💡 SMC / ICT</div>
+            <div class="engine-card clickable-engine-card" onclick="openDashboardEngineDetail('smc_ict')" title="Click to open SMC / ICT Engine trade &amp; structure details">
+                <div class="engine-name">💡 SMC / ICT <span style="font-size:10px;color:#60a5fa;margin-left:4px;">🔍</span></div>
                 <div class="engine-bar"><div class="engine-fill smc" style="width:20%">20%</div></div>
             </div>
-            <div class="engine-card">
-                <div class="engine-name">🕯️ Price Action</div>
+            <div class="engine-card clickable-engine-card" onclick="openDashboardEngineDetail('price_action')" title="Click to open Price Action Engine trade &amp; S/R details">
+                <div class="engine-name">🕯️ Price Action <span style="font-size:10px;color:#60a5fa;margin-left:4px;">🔍</span></div>
                 <div class="engine-bar"><div class="engine-fill pa" style="width:15%">15%</div></div>
             </div>
-            <div class="engine-card">
-                <div class="engine-name">🌍 Macro</div>
+            <div class="engine-card clickable-engine-card" onclick="openDashboardEngineDetail('macro')" title="Click to open Macro Environment trade details">
+                <div class="engine-name">🌍 Macro <span style="font-size:10px;color:#60a5fa;margin-left:4px;">🔍</span></div>
                 <div class="engine-bar"><div class="engine-fill macro" style="width:15%">15%</div></div>
             </div>
-            <div class="engine-card">
-                <div class="engine-name">📰 News Sentiment</div>
+            <div class="engine-card clickable-engine-card" onclick="openDashboardEngineDetail('news')" title="Click to open News Sentiment trade details">
+                <div class="engine-name">📰 News Sentiment <span style="font-size:10px;color:#60a5fa;margin-left:4px;">🔍</span></div>
                 <div class="engine-bar"><div class="engine-fill news" style="width:15%">15%</div></div>
             </div>
-            <div class="engine-card">
-                <div class="engine-name">🏦 Institutional</div>
+            <div class="engine-card clickable-engine-card" onclick="openDashboardEngineDetail('institutional')" title="Click to open Institutional Flow COT trade details">
+                <div class="engine-name">🏦 Institutional <span style="font-size:10px;color:#60a5fa;margin-left:4px;">🔍</span></div>
                 <div class="engine-bar"><div class="engine-fill inst" style="width:10%">10%</div></div>
             </div>
-            <div class="engine-card">
-                <div class="engine-name">🤖 AI / ML</div>
+            <div class="engine-card clickable-engine-card" onclick="openDashboardEngineDetail('ai_ml')" title="Click to open AI / ML Prediction trade details">
+                <div class="engine-name">🤖 AI / ML <span style="font-size:10px;color:#60a5fa;margin-left:4px;">🔍</span></div>
                 <div class="engine-bar"><div class="engine-fill ai" style="width:10%">10%</div></div>
             </div>
         </div>
@@ -743,7 +748,7 @@
                 <input type="text" id="broker-login-input" placeholder="Enter Account Login / ID" style="width: 100%; padding: 10px 12px; background: #1e293b; border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; color: #f8fafc; font-size: 0.92rem;">
             </div>
 
-            <div style="margin-bottom: 18px;">
+            <div style="margin-bottom: 14px;">
                 <label style="display: block; font-size: 0.82rem; color: #cbd5e1; margin-bottom: 6px; font-weight: 600;">Password:</label>
                 <input type="password" id="broker-password-input" placeholder="Enter Trading Password" style="width: 100%; padding: 10px 12px; background: #1e293b; border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; color: #f8fafc; font-size: 0.92rem;">
             </div>
@@ -760,6 +765,9 @@
         </div>
     </div>
 </div>
+
+
+
 
 <!-- ── PREMIUM MOBILE BOTTOM NAVIGATION BAR ────────────── -->
 <nav class="mobile-bottom-nav" id="mobile-bottom-nav" aria-label="Mobile quick navigation">
@@ -785,7 +793,7 @@
     </button>
 </nav>
 
-<script src="{% static 'js/dashboard.js' %}?v=14"></script>
+<script src="{% static 'js/dashboard.js' %}?v=18"></script>
 </body>
 </html>
 

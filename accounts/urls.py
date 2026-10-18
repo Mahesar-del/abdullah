@@ -23,4 +23,5 @@ urlpatterns = [
     path('close-trade/<int:pk>/', views.CloseTradeManualView.as_view(), name='close-trade'),
     path('evaluate-trades/', views.EvaluateTradesView.as_view(), name='evaluate-trades'),
     path('kill-switch/', views.EmergencyKillSwitchView.as_view(), name='kill-switch'),
+    path('update-balance/', views.UpdateBalanceView.as_view(), name='update-balance'),
 ]

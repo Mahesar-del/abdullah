@@ -9,7 +9,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-EVAL_INTERVAL_SEC = 60
+EVAL_INTERVAL_SEC = 3
 _lock = threading.Lock()
 _last_run = 0.0
 _running = False
@@ -20,6 +20,7 @@ def _run_once():
     try:
         from django.core.management import call_command
         from django.db import close_old_connections
+        close_old_connections()
         call_command('evaluate_signals', verbosity=0)
     except Exception as e:  # never break the server because of evaluation
         logger.warning("Auto evaluation failed: %s", e)
@@ -47,7 +48,7 @@ def maybe_evaluate():
 def start_background_loop():
     """Evaluate every EVAL_INTERVAL_SEC even when no browser is open."""
     def loop():
-        time.sleep(10)
+        time.sleep(3)
         while True:
             maybe_evaluate()
             time.sleep(EVAL_INTERVAL_SEC)

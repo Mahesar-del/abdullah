@@ -12,6 +12,7 @@ Implements all 20 sections of the Persistent Automated Trading Architecture:
 """
 import logging
 import uuid
+import threading
 from decimal import Decimal
 from django.utils import timezone
 from .models import LinkedBrokerAccount, AutoTradeExecution, SystemTradingConfig
@@ -42,16 +43,39 @@ class AutoTraderEngine:
             primary_acc.connection_status == 'CONNECTED'
         )
 
-        # Ensure any currently ACTIVE high-conviction signals are executed on the active authorized account
-        if is_active and primary_acc:
+        # Real-time balance & equity sync from MT5 broker terminal if available (non-blocking 200ms max)
+        if primary_acc and primary_acc.broker_type in ('EXNESS', 'MT5', 'MT4') and not primary_acc.is_paper:
             try:
-                from signals.models import Signal
-                active_sigs = Signal.objects.filter(status='ACTIVE', confidence_score__gte=75.0)
-                for sig in active_sigs:
-                    if not AutoTradeExecution.objects.filter(account=primary_acc, signal=sig).exists():
-                        cls.execute_for_signal(sig)
+                import MetaTrader5 as mt5
+                if mt5.initialize(timeout=200):
+                    acc_info = mt5.account_info()
+                    if acc_info and getattr(acc_info, 'balance', None) is not None:
+                        b = round(float(acc_info.balance), 2)
+                        e = round(float(acc_info.equity), 2)
+                        if float(primary_acc.balance) != b or float(primary_acc.equity) != e:
+                            primary_acc.balance = Decimal(str(b))
+                            primary_acc.equity = Decimal(str(e))
+                            primary_acc.save(update_fields=['balance', 'equity', 'updated_at'])
+            except Exception:
+                pass
+
+        # Trigger background evaluation in a detached thread so HTTP requests NEVER block or freeze
+        def _bg_eval_and_sync():
+            try:
+                from signals.auto_evaluator import maybe_evaluate
+                maybe_evaluate()
+                cls.evaluate_and_close_open_trades()
+
+                if is_active and primary_acc:
+                    from signals.models import Signal
+                    active_sigs = Signal.objects.filter(status='ACTIVE', confidence_score__gte=75.0)
+                    for sig in active_sigs:
+                        if not AutoTradeExecution.objects.filter(account=primary_acc, signal=sig).exists():
+                            cls.execute_for_signal(sig)
             except Exception as e:
-                logger.warning(f"[AutoTrader] Active signal sync error: {e}")
+                logger.debug(f"[AutoTrader] Background eval note: {e}")
+
+        threading.Thread(target=_bg_eval_and_sync, daemon=True).start()
 
         open_trades = AutoTradeExecution.objects.filter(account=primary_acc, status='OPEN') if primary_acc else AutoTradeExecution.objects.filter(status='OPEN')
         open_count = open_trades.count()
@@ -325,14 +349,14 @@ class AutoTraderEngine:
                 logger.info(f"[AutoTrader Gate 9 FAIL] Account {account.name}: Already has an active open position on {symbol}.")
                 continue
 
-            # Gate 10: Position Sizing Calculation
+            # Gate 10: Position Sizing Calculation (Single Full-Close Target at TP1)
             balance = float(account.balance)
             risk_amount = balance * (float(account.max_risk_pct) / 100.0)
             entry_f = float(signal.entry_price)
             sl_f = float(signal.stop_loss)
             tp1_f = float(signal.take_profit_1)
-            tp2_f = float(signal.take_profit_2) if signal.take_profit_2 is not None else None
-            tp3_f = float(signal.take_profit_3) if signal.take_profit_3 is not None else None
+            tp2_f = None
+            tp3_f = None
 
             sl_distance = abs(entry_f - sl_f)
             if sl_distance <= 0:
@@ -397,13 +421,13 @@ class AutoTraderEngine:
                 confluence_groups=getattr(signal, 'independent_groups', {}),
                 market_regime=getattr(signal, 'market_regime', 'TRENDING'),
                 audit_reasoning=signal.analysis_summary or 'Unified Engine high-conviction setup passed all 13 gates',
-                notes=f"Auto-executed on {signal.timeframe} signal (Confidence {signal.confidence_score}%, R:R {signal.risk_reward}){mt5_note}"
+                notes=f"Auto-executed on {signal.timeframe} signal (Confidence {signal.confidence_score}%, R:R {signal.risk_reward}, 100% Auto-Close @ TP1){mt5_note}"
             )
             opened_trades.append(trade)
 
             logger.info(
                 f"[AutoTrader] AUTOMATIC ORDER PLACED: {trade.direction} {trade.symbol} "
-                f"[{lots} lots] @ {trade.entry_price} (Order #{broker_order_id}) on account {account.name}"
+                f"[{lots} lots] @ {trade.entry_price} (TP1 Auto-Close @ {tp1_f}, Order #{broker_order_id}) on account {account.name}"
             )
 
             # Dispatch notification
@@ -496,13 +520,151 @@ class AutoTraderEngine:
             return {'sent': False, 'reason': str(e)}
 
     @classmethod
+    def _close_mt5_position(cls, account, trade) -> bool:
+        """
+        If a trade was placed on MT5 Desktop Terminal and is still open when TP1/SL is reached,
+        closes 100% of the MT5 position immediately.
+        """
+        try:
+            order_str = str(trade.broker_order_id or '')
+            if not order_str.startswith('MT5-'):
+                return False
+            ticket_raw = order_str.replace('MT5-', '').strip()
+            if not ticket_raw.isdigit():
+                return False
+            ticket = int(ticket_raw)
+
+            import MetaTrader5 as mt5
+            if not mt5.initialize():
+                return False
+            positions = mt5.positions_get(ticket=ticket)
+            if not positions:
+                return True  # Already closed by MT5's native TP1/SL server trigger
+
+            pos = positions[0]
+            tick = mt5.symbol_info_tick(pos.symbol)
+            if not tick:
+                return False
+            close_type = mt5.ORDER_TYPE_SELL if pos.type == mt5.ORDER_TYPE_BUY else mt5.ORDER_TYPE_BUY
+            close_price = float(tick.bid if close_type == mt5.ORDER_TYPE_SELL else tick.ask)
+
+            for fill_mode in (mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_RETURN):
+                req = {
+                    "action": mt5.TRADE_ACTION_DEAL,
+                    "symbol": pos.symbol,
+                    "volume": float(pos.volume),
+                    "type": close_type,
+                    "position": pos.ticket,
+                    "price": close_price,
+                    "deviation": 30,
+                    "magic": 778899,
+                    "comment": "AutoClose-TP1",
+                    "type_time": mt5.ORDER_TIME_GTC,
+                    "type_filling": fill_mode,
+                }
+                res = mt5.order_send(req)
+                if res and res.retcode == mt5.TRADE_RETCODE_DONE:
+                    return True
+            return False
+        except Exception:
+            return False
+
+    @classmethod
+    def _finalize_trade_closure(cls, trade, outcome: str, exit_price: float, sync_signal: bool = True):
+        """
+        Closes 100% of an open AutoTradeExecution at TP1 or SL, updates account balance/equity,
+        synchronizes the linked Signal status, and dispatches closure alerts.
+        """
+        if trade.status != 'OPEN':
+            return trade
+
+        account = trade.account
+        entry_val = float(trade.entry_price)
+        sl_val = float(trade.stop_loss)
+        tp1_val = float(trade.take_profit_1)
+        risk_amt = float(account.balance) * (float(account.max_risk_pct) / 100.0)
+
+        if outcome == 'TP_HIT':
+            sl_dist = abs(entry_val - sl_val)
+            tp_dist = abs(tp1_val - entry_val)
+            r_mult = round(tp_dist / max(1e-5, sl_dist), 2)
+            pnl_amount = round(risk_amt * r_mult, 2)
+            pnl_r = r_mult
+            exit_price = tp1_val
+        else:  # SL_HIT
+            pnl_amount = -round(risk_amt, 2)
+            pnl_r = -1.0
+            exit_price = sl_val
+
+        # Close on MT5 terminal if live
+        if str(trade.broker_order_id or '').startswith('MT5-'):
+            cls._close_mt5_position(account, trade)
+
+        trade.current_price = Decimal(str(round(float(exit_price), 5)))
+        trade.status = 'CLOSED'
+        trade.exit_price = Decimal(str(round(float(exit_price), 5)))
+        trade.exit_reason = outcome
+        trade.pnl_amount = Decimal(str(pnl_amount))
+        trade.pnl_r = pnl_r
+        trade.closed_at = timezone.now()
+        trade.save()
+
+        # Adjust account balance & equity
+        new_balance = max(0.0, float(account.balance) + pnl_amount)
+        account.balance = Decimal(str(round(new_balance, 2)))
+        account.equity = account.balance
+        account.save(update_fields=['balance', 'equity', 'updated_at'])
+
+        # Synchronize linked Signal status so Active Signals table also resolves immediately at TP1
+        if sync_signal and trade.signal and trade.signal.status == 'ACTIVE':
+            try:
+                from signals.models import SignalPerformance
+                sig = trade.signal
+                sig.status = 'HIT_TP' if outcome == 'TP_HIT' else 'HIT_SL'
+                sig.save(update_fields=['status'])
+
+                perf_outcome = 'WIN' if outcome == 'TP_HIT' else 'LOSS'
+                perf_r = float(sig.risk_reward or pnl_r) if outcome == 'TP_HIT' else -1.0
+                SignalPerformance.objects.update_or_create(
+                    signal=sig,
+                    defaults={
+                        'outcome': perf_outcome,
+                        'actual_exit': Decimal(str(round(float(exit_price), 5))),
+                        'pnl_percent': perf_r,
+                        'pnl_r': perf_r,
+                        'pnl_pips': round(perf_r * 20.0, 1),
+                    }
+                )
+            except Exception as e:
+                logger.debug(f"[AutoTrader] Signal sync note: {e}")
+
+        cls._notify_trade_closed(trade, account)
+        return trade
+
+    @classmethod
+    def close_open_trades_for_signal(cls, signal, signal_outcome: str, exit_price: float):
+        """
+        Called by evaluate_signals when a Signal hits TP1 (HIT_TP) or SL (HIT_SL) so all
+        linked AutoTradeExecutions close 100% immediately without waiting for TP2.
+        """
+        if signal_outcome not in ('HIT_TP', 'HIT_SL'):
+            return []
+        trade_outcome = 'TP_HIT' if signal_outcome == 'HIT_TP' else 'SL_HIT'
+        open_trades = AutoTradeExecution.objects.filter(signal=signal, status='OPEN').select_related('account', 'signal')
+        closed = []
+        for trade in open_trades:
+            cls._finalize_trade_closure(trade, trade_outcome, exit_price, sync_signal=False)
+            closed.append(trade)
+        return closed
+
+    @classmethod
     def evaluate_and_close_open_trades(cls):
         """
-        Section 14: Automatic Position Management.
-        Continuously monitors open auto-trades against live price feeds.
-        Closes positions on TP or SL hits and updates account balance and realized R-multiples.
+        Section 14: Automatic Position Management (100% Full Auto-Close on TP1 Hit).
+        Continuously monitors open auto-trades against live M1 price feeds.
+        Immediately closes 100% of the position as soon as TP1 or SL is reached (never waits for TP2).
         """
-        open_trades = AutoTradeExecution.objects.filter(status='OPEN')
+        open_trades = AutoTradeExecution.objects.filter(status='OPEN').select_related('account', 'signal')
         if not open_trades.exists():
             return []
 
@@ -514,77 +676,62 @@ class AutoTraderEngine:
 
         for sym in symbols:
             try:
-                df = fetcher.fetch(sym, timeframe='M5', limit=200)
+                df = fetcher.fetch(sym, timeframe='M1', limit=120)
                 if df is not None and len(df) > 0:
                     price_cache[sym] = df
             except Exception as e:
                 logger.error(f"[AutoTrader] Error fetching prices for {sym}: {e}")
 
         for trade in open_trades:
+            sl_val = float(trade.stop_loss)
+            tp1_val = float(trade.take_profit_1)
+
+            # 1. If the linked signal already hit TP1 or SL, close the trade immediately
+            if trade.signal and trade.signal.status in ('HIT_TP', 'HIT_SL'):
+                outcome = 'TP_HIT' if trade.signal.status == 'HIT_TP' else 'SL_HIT'
+                exit_p = tp1_val if outcome == 'TP_HIT' else sl_val
+                cls._finalize_trade_closure(trade, outcome, exit_p, sync_signal=False)
+                resolved_trades.append(trade)
+                continue
+
             df = price_cache.get(trade.symbol)
-            if df is None:
+            if df is None or len(df) == 0:
                 continue
 
             last_close = float(df['close'].iloc[-1])
-            trade.current_price = last_close
+            trade.current_price = Decimal(str(round(last_close, 5)))
             trade.save(update_fields=['current_price'])
 
-            # Evaluate recent price action for TP/SL trigger
-            recent_high = float(df['high'].iloc[-10:].max())
-            recent_low = float(df['low'].iloc[-10:].min())
+            # Evaluate live price right now + any M1 candles completed strictly after trade.opened_at
+            post_open_df = df[df.index > trade.opened_at]
+            if len(post_open_df) > 0:
+                recent_high = max(last_close, float(post_open_df['high'].max()))
+                recent_low = min(last_close, float(post_open_df['low'].min()))
+            else:
+                recent_high = last_close
+                recent_low = last_close
 
             outcome = None
             exit_price = None
 
-            sl_val = float(trade.stop_loss)
-            tp1_val = float(trade.take_profit_1)
-            entry_val = float(trade.entry_price)
-
             if trade.direction == 'BUY':
-                if recent_low <= sl_val:
-                    outcome = 'SL_HIT'
-                    exit_price = sl_val
-                elif recent_high >= tp1_val:
+                if recent_high >= tp1_val or last_close >= tp1_val:
                     outcome = 'TP_HIT'
                     exit_price = tp1_val
+                elif recent_low <= sl_val or last_close <= sl_val:
+                    outcome = 'SL_HIT'
+                    exit_price = sl_val
             elif trade.direction == 'SELL':
-                if recent_high >= sl_val:
-                    outcome = 'SL_HIT'
-                    exit_price = sl_val
-                elif recent_low <= tp1_val:
+                if recent_low <= tp1_val or last_close <= tp1_val:
                     outcome = 'TP_HIT'
                     exit_price = tp1_val
+                elif recent_high >= sl_val or last_close >= sl_val:
+                    outcome = 'SL_HIT'
+                    exit_price = sl_val
 
             if outcome:
-                account = trade.account
-                risk_amt = float(account.balance) * (float(account.max_risk_pct) / 100.0)
-
-                if outcome == 'TP_HIT':
-                    sl_dist = abs(entry_val - sl_val)
-                    tp_dist = abs(tp1_val - entry_val)
-                    r_mult = round(tp_dist / max(1e-5, sl_dist), 2)
-                    pnl_amount = round(risk_amt * r_mult, 2)
-                    pnl_r = r_mult
-                else:  # SL_HIT
-                    pnl_amount = -round(risk_amt, 2)
-                    pnl_r = -1.0
-
-                trade.status = 'CLOSED'
-                trade.exit_price = exit_price
-                trade.exit_reason = outcome
-                trade.pnl_amount = Decimal(str(pnl_amount))
-                trade.pnl_r = pnl_r
-                trade.closed_at = timezone.now()
-                trade.save()
-
-                # Adjust account balance & equity
-                new_balance = max(0.0, float(account.balance) + pnl_amount)
-                account.balance = Decimal(str(round(new_balance, 2)))
-                account.equity = account.balance
-                account.save(update_fields=['balance', 'equity', 'updated_at'])
-
+                cls._finalize_trade_closure(trade, outcome, exit_price, sync_signal=True)
                 resolved_trades.append(trade)
-                cls._notify_trade_closed(trade, account)
 
         return resolved_trades
 
