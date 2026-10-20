@@ -1,16 +1,16 @@
-sleeve,oos_years,sharpe_net,sharpe_gross,cagr,maxdd,trades,win_rate,profit_factor
-EURUSD/trend,20.6,0.22,0.24,1.7%,-29.5%,50,38%,1.5
-EURUSD/donchian,20.6,0.21,0.23,1.7%,-27.3%,36,44%,1.63
-EURUSD/meanrev,20.6,-0.06,0.02,-0.7%,-19.0%,261,63%,0.98
-GBPUSD/trend,20.6,-0.04,-0.01,-0.9%,-41.6%,56,36%,0.93
-GBPUSD/donchian,20.6,0.22,0.25,1.8%,-22.9%,52,48%,1.64
-GBPUSD/meanrev,20.6,0.12,0.21,0.6%,-26.6%,201,66%,1.17
-XAUUSD/trend,23.0,0.53,0.55,5.1%,-30.0%,38,29%,2.56
-XAUUSD/donchian,23.0,0.4,0.42,3.7%,-36.0%,62,32%,1.8
-XAUUSD/meanrev,23.0,-0.27,-0.21,-2.0%,-39.2%,232,61%,0.81
-US30/trend,31.8,0.31,0.32,2.7%,-54.2%,67,28%,1.79
-US30/donchian,31.8,0.05,0.08,0.0%,-50.0%,97,28%,1.09
-US30/meanrev,31.8,-0.02,0.05,-0.3%,-34.4%,295,64%,1.01
-BTCUSD/trend,9.1,0.52,0.54,5.4%,-23.5%,27,44%,2.13
-BTCUSD/donchian,9.1,0.63,0.65,6.7%,-23.5%,45,47%,2.04
-BTCUSD/meanrev,9.1,-0.62,-0.56,-3.8%,-36.3%,81,62%,0.6
+sleeve,win_rate,avg_win_R,avg_loss_R,profit_factor,expectancy_R,break_even_win_rate,verdict,trades,sharpe_net,cagr,maxdd
+EURUSD/trend,37.5%,+7.12R,-2.77R,1.54,+0.94R,28.0%,Insufficient data (n=48/100),48,0.21,1.7%,-31.8%
+EURUSD/donchian,47.1%,+7.87R,-3.81R,1.84,+1.69R,32.6%,Insufficient data (n=34/100),34,0.27,2.3%,-27.3%
+EURUSD/meanrev,62.4%,+1.19R,-2.03R,0.97,-0.02R,63.1%,Negative edge,226,-0.06,-0.8%,-24.1%
+GBPUSD/trend,38.6%,+6.37R,-2.88R,1.39,+0.69R,31.2%,Insufficient data (n=44/100),44,0.14,0.9%,-32.7%
+GBPUSD/donchian,38.9%,+5.43R,-3.40R,1.02,+0.03R,38.5%,Insufficient data (n=54/100),54,0.01,-0.5%,-42.1%
+GBPUSD/meanrev,63.3%,+1.16R,-1.81R,1.10,+0.07R,61.0%,Unproven edge (CI spans zero),180,0.06,0.2%,-24.9%
+XAUUSD/trend,33.3%,+21.13R,-3.69R,2.87,+4.59R,14.9%,Insufficient data (n=30/100),30,0.57,5.6%,-32.2%
+XAUUSD/donchian,31.7%,+11.19R,-2.86R,1.82,+1.59R,20.3%,Insufficient data (n=60/100),60,0.4,3.7%,-38.3%
+XAUUSD/meanrev,62.1%,+1.06R,-2.08R,0.83,-0.13R,66.2%,Negative edge,203,-0.22,-1.5%,-32.1%
+US30/trend,25.4%,+12.86R,-2.58R,1.70,+1.34R,16.7%,Insufficient data (n=71/100),71,0.29,2.5%,-54.2%
+US30/donchian,34.3%,+6.60R,-2.77R,1.25,+0.45R,29.5%,Insufficient data (n=99/100),99,0.14,0.9%,-40.0%
+US30/meanrev,62.8%,+1.10R,-1.95R,0.95,-0.04R,64.0%,Negative edge,282,-0.08,-0.7%,-40.5%
+BTCUSD/trend,47.8%,+9.54R,-3.63R,2.41,+2.67R,27.6%,Insufficient data (n=23/100),23,0.59,6.3%,-23.5%
+BTCUSD/donchian,47.6%,+11.63R,-3.34R,3.17,+3.79R,22.3%,Insufficient data (n=21/100),21,0.77,8.4%,-23.5%
+BTCUSD/meanrev,63.4%,+0.80R,-2.37R,0.58,-0.36R,74.7%,Negative edge,101,-0.7,-4.3%,-39.3%

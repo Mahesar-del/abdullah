@@ -51,20 +51,57 @@ def metrics(ret: pd.Series, ppy: int) -> dict:
                 maxdd=float(dd), calmar=float(cagr / abs(dd)) if dd < 0 else 0.0, years=float(years))
 
 
-def trade_stats(pos: pd.Series, ret: pd.Series) -> dict:
-    """Per-trade stats; a trade = consecutive bars with the same position sign."""
+def trade_stats(pos: pd.Series, ret: pd.Series, risk_unit: float = 0.01, run_bootstrap: bool = True) -> dict:
+    """Per-trade stats; a trade = consecutive bars with the same position sign.
+    
+    Returns comprehensive R-multiple metrics (where 1R = risk_unit, default 1% = 0.01).
+    """
     sign = np.sign(pos)
     run = (sign != sign.shift()).cumsum()
     pnls = [ret[g.index].sum() for _, g in pos.groupby(run) if np.sign(g.iloc[0]) != 0]
     if not pnls:
-        return dict(trades=0, win_rate=0.0, profit_factor=0.0, expectancy=0.0, avg_win=0.0, avg_loss=0.0)
+        return dict(
+            trades=0, n_trades=0, win_rate=0.0, loss_rate=0.0, profit_factor=0.0,
+            expectancy=0.0, expectancy_R=0.0, avg_win=0.0, avg_loss=0.0,
+            avg_win_R=0.0, avg_loss_R=0.0, payoff_ratio=0.0,
+            break_even_win_rate=0.0, expectancy_ci_95=(0.0, 0.0), expectancy_p5=0.0,
+            is_win_rate_trap=False, edge_verdict="Insufficient data (n=0)"
+        )
     p = np.array(pnls)
+    r_trades = p / risk_unit if (risk_unit and risk_unit > 0) else p
+    from .metrics_r import compute_metrics_r
+    m_r = compute_metrics_r(r_trades, run_bootstrap=run_bootstrap)
+
     wins, losses = p[p > 0], p[p <= 0]
-    pf = wins.sum() / abs(losses.sum()) if losses.sum() < 0 else float("inf")
-    return dict(trades=len(p), win_rate=float((p > 0).mean()), profit_factor=float(pf),
-                expectancy=float(p.mean()),
-                avg_win=float(wins.mean()) if len(wins) else 0.0,
-                avg_loss=float(losses.mean()) if len(losses) else 0.0)
+    return dict(
+        trades=m_r["n_trades"],
+        n_trades=m_r["n_trades"],
+        win_rate=m_r["win_rate"],
+        loss_rate=m_r["loss_rate"],
+        profit_factor=m_r["profit_factor"],
+        expectancy=float(p.mean()),
+        expectancy_R=m_r["expectancy_R"],
+        avg_win=float(wins.mean()) if len(wins) else 0.0,
+        avg_loss=float(abs(losses.mean())) if len(losses) else 0.0,
+        avg_win_R=m_r["avg_win_R"],
+        avg_loss_R=m_r["avg_loss_R"],
+        payoff_ratio=m_r["payoff_ratio"],
+        break_even_win_rate=m_r["break_even_win_rate"],
+        expectancy_ci_95=m_r["expectancy_ci_95"],
+        expectancy_p5=m_r["expectancy_p5"],
+        win_rate_ci_95=m_r["win_rate_ci_95"],
+        is_win_rate_trap=m_r["is_win_rate_trap"],
+        edge_verdict=m_r["edge_verdict"],
+    )
+
+
+def select_parameters(scores: dict, metric_name: str = "expectancy_R"):
+    """Selects parameter candidate strictly by score (expectancy or Sharpe).
+    NEVER selects, ranks, or breaks ties by win rate.
+    """
+    if not scores:
+        raise ValueError("Candidate scores dict cannot be empty.")
+    return max(scores.keys(), key=lambda c: scores[c])
 
 
 def bootstrap_sharpe(ret: pd.Series, ppy: int, block: int = 20, n: int = 1000, seed: int = 0):
@@ -84,8 +121,10 @@ def bootstrap_sharpe(ret: pd.Series, ppy: int, block: int = 20, n: int = 1000, s
     return float(np.nanpercentile(sh, 5)), float(np.nanpercentile(sh, 95)), float(np.nanmean(sh > 0))
 
 
-def walk_forward(df, strat, cost_bps, ppy, train_bars, test_bars, target_vol=0.10, max_lev=3.0):
+def walk_forward(df, strat, cost_bps, ppy, train_bars, test_bars, target_vol=0.10, max_lev=3.0, selection_metric="expectancy"):
     """Pick params on the TRAIN window only, trade them on the NEXT unseen window, roll forward.
+    Selection is driven by net expectancy_R (or Sharpe) on the TRAIN window.
+    NEVER selects or ranks by win rate.
     Returns (out-of-sample sleeve DataFrame, log of chosen params, number of param trials)."""
     fn, grid = REGISTRY[strat]
     keys = list(grid.keys())
@@ -99,29 +138,51 @@ def walk_forward(df, strat, cost_bps, ppy, train_bars, test_bars, target_vol=0.1
     while start < len(df):
         end = min(start + test_bars, len(df))
         tr = slice(start - train_bars, start)
-        scores = {c: metrics(cache[c]["ret"].iloc[tr], ppy)["sharpe"] for c in combos}
-        best = max(combos, key=lambda c: scores[c])
+        if selection_metric == "sharpe":
+            scores = {c: metrics(cache[c]["ret"].iloc[tr], ppy)["sharpe"] for c in combos}
+        else:
+            scores = {}
+            for c in combos:
+                t_stats = trade_stats(cache[c]["pos"].iloc[tr], cache[c]["ret"].iloc[tr], run_bootstrap=False)
+                scores[c] = t_stats["expectancy_R"]
+
+        best = select_parameters(scores, metric_name=selection_metric)
         oos.append(cache[best].iloc[start:end])
-        log.append({"fold_start": df.index[start], "params": dict(zip(keys, best)), "train_sharpe": scores[best]})
+        log.append({"fold_start": df.index[start], "params": dict(zip(keys, best)), f"train_{selection_metric}": scores[best]})
         start = end
     if not oos:
         raise ValueError(f"Not enough data: {len(df)} bars < train window {train_bars}.")
     return pd.concat(oos), log, len(combos)
 
 
-def fit_latest(df, strat, cost_bps, ppy, train_bars, target_vol=0.10, max_lev=3.0):
-    """Params chosen on the most recent train window -> today's desired exposure (for paper trading)."""
+def fit_latest(df, strat, cost_bps, ppy, train_bars, target_vol=0.10, max_lev=3.0, selection_metric="expectancy"):
+    """Params chosen on the most recent train window -> today's desired exposure (for paper trading).
+    Selected strictly by net expectancy_R (or Sharpe) on the TRAIN window. Never by win rate."""
     fn, grid = REGISTRY[strat]
     keys = list(grid.keys())
-    best, best_s = None, -1e9
+    scores = {}
+    sig_cache = {}
     for combo in itertools.product(*[grid[k] for k in keys]):
         sig = fn(df, **dict(zip(keys, combo)))
         r = sleeve_returns(df, sig, cost_bps, ppy, target_vol, max_lev)
-        s = metrics(r["ret"].iloc[-train_bars:], ppy)["sharpe"]
-        if s > best_s:
-            best, best_s = (combo, sig), s
-    combo, sig = best
+        if selection_metric == "sharpe":
+            s = metrics(r["ret"].iloc[-train_bars:], ppy)["sharpe"]
+        else:
+            t = trade_stats(r["pos"].iloc[-train_bars:], r["ret"].iloc[-train_bars:], run_bootstrap=False)
+            s = t["expectancy_R"]
+        scores[combo] = s
+        sig_cache[combo] = sig
+
+    combo = select_parameters(scores, metric_name=selection_metric)
+    sig = sig_cache[combo]
+    best_score = scores[combo]
     ret = df["close"].pct_change().fillna(0.0)
     vol = ret.ewm(span=30, min_periods=20).std() * np.sqrt(ppy)
     w = (target_vol / vol).clip(upper=max_lev).fillna(0.0)
-    return dict(params=dict(zip(keys, combo)), train_sharpe=best_s, exposure=float(sig.iloc[-1] * w.iloc[-1]))
+    return {
+        "params": dict(zip(keys, combo)),
+        "train_score": best_score,
+        f"train_{selection_metric}": best_score,
+        "train_sharpe": best_score if selection_metric == "sharpe" else None,
+        "exposure": float(sig.iloc[-1] * w.iloc[-1]),
+    }

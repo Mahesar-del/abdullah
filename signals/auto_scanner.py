@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 # Minimum confidence required to create and display a signal
 MIN_CONFIDENCE_THRESHOLD = 75.0
 
-# Supported symbols and timeframes for automatic continuous scanning
+# Supported symbols and timeframes for automatic continuous scanning (Institutional Standard: H4 and D1 only, no M1-M15 noise)
 DEFAULT_SCAN_SYMBOLS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'BTCUSD', 'US30']
-DEFAULT_SCAN_TIMEFRAMES = ['M1', 'M5', 'M15', 'M30', 'H1', 'H2', 'H4']
+DEFAULT_SCAN_TIMEFRAMES = ['H4', 'D1']
 
 SCAN_INTERVAL_SEC = 45  # Scan cycle interval
 _lock = threading.Lock()
@@ -28,35 +28,27 @@ _running = False
 
 def _get_validity(timeframe: str) -> timedelta:
     tf = timeframe.upper()
-    if tf == 'M1':
-        return timedelta(minutes=20)
-    elif tf == 'M5':
-        return timedelta(hours=1)
-    elif tf == 'M15':
-        return timedelta(hours=3)
-    elif tf == 'M30':
-        return timedelta(hours=6)
-    elif tf == 'H1':
-        return timedelta(hours=24)
-    elif tf == 'H2':
-        return timedelta(hours=48)
-    elif tf == 'H4':
-        return timedelta(days=4)
-    return timedelta(hours=24)
+    if tf == 'H4':
+        return timedelta(days=2)
+    elif tf == 'D1':
+        return timedelta(days=7)
+    return timedelta(days=2)
 
 
 def scan_single(symbol: str, timeframe: str):
     """
     Scans a single symbol + timeframe.
     Strictly enforces:
+    - Daily/H4 timeframe only
+    - Price sanity & non-stale data verification
     - Direction must be BUY or SELL (never WAIT)
     - Confidence must be >= 75.0%
-    - Independent groups confluence >= 3
     """
     from market_data.models import Instrument
     from signals.models import Signal
     from engines.data_fetcher import DataFetcher
     from engines.unified import UnifiedSignalEngine
+    from quant.data import validate_price_sanity
 
     try:
         instrument = Instrument.objects.filter(symbol=symbol).first()
@@ -66,6 +58,12 @@ def scan_single(symbol: str, timeframe: str):
         fetcher = DataFetcher()
         df = fetcher.fetch(symbol, timeframe, limit=120)
         if df is None or len(df) < 40:
+            return None
+
+        # Institutional Price Sanity & Anti-Stale Gate
+        is_valid, sanity_reason = validate_price_sanity(df, max_bar_jump=0.10)
+        if not is_valid:
+            logger.warning("[AUTO-SCANNER] Rejected %s %s due to data anomaly: %s", symbol, timeframe, sanity_reason)
             return None
 
         engine = UnifiedSignalEngine(df, symbol, timeframe)

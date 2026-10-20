@@ -110,36 +110,27 @@ class UnifiedSignalEngine:
     Enforces dynamic asset weighting and deterministic risk criteria.
     """
 
-    # Dynamic weights by asset class per Master Architecture Section 17
+    # Dynamic weights by asset class per Institutional Ablation Study
+    # Fallback/unverified engines (macro, news, institutional, intermarket, ai_ml) are zero-weighted
+    # Only pure causal price & structural engines (technical, smc_ict, price_action, godzilla) vote
+    PROVEN_CORE_WEIGHTS = {
+        'technical':    0.30,
+        'smc_ict':      0.35,
+        'price_action': 0.20,
+        'godzilla':     0.15,
+        'macro':        0.00,
+        'news':         0.00,
+        'institutional':0.00,
+        'intermarket':  0.00,
+        'ai_ml':        0.00,
+    }
+
     ASSET_WEIGHTS = {
-        # Godzilla engine is added with 10% weight.
-        # Other engine weights scaled down proportionally to keep sum = 1.0
-        'FOREX': {
-            'technical': 0.13, 'smc_ict': 0.18, 'price_action': 0.13, 'macro': 0.13,
-            'news': 0.13, 'institutional': 0.10, 'intermarket': 0.05, 'ai_ml': 0.05,
-            'godzilla': 0.10
-        },
-        'CRYPTO': {
-            # Godzilla gets highest weight in crypto (order flow + volatility most relevant)
-            'smc_ict': 0.20, 'technical': 0.17, 'price_action': 0.13, 'institutional': 0.13,
-            'news': 0.12, 'intermarket': 0.05, 'macro': 0.05, 'ai_ml': 0.00,
-            'godzilla': 0.15
-        },
-        'METALS': {
-            'macro': 0.22, 'smc_ict': 0.18, 'price_action': 0.14, 'technical': 0.13,
-            'institutional': 0.10, 'intermarket': 0.10, 'news': 0.05, 'ai_ml': 0.00,
-            'godzilla': 0.08
-        },
-        'INDICES': {
-            'macro': 0.18, 'technical': 0.18, 'price_action': 0.13, 'smc_ict': 0.13,
-            'institutional': 0.13, 'intermarket': 0.10, 'news': 0.05, 'ai_ml': 0.00,
-            'godzilla': 0.10
-        },
-        'COMMODITIES': {
-            'macro': 0.22, 'technical': 0.13, 'smc_ict': 0.13, 'price_action': 0.14,
-            'institutional': 0.13, 'intermarket': 0.10, 'news': 0.05, 'ai_ml': 0.00,
-            'godzilla': 0.10
-        }
+        'FOREX':       PROVEN_CORE_WEIGHTS,
+        'CRYPTO':      PROVEN_CORE_WEIGHTS,
+        'METALS':      PROVEN_CORE_WEIGHTS,
+        'INDICES':     PROVEN_CORE_WEIGHTS,
+        'COMMODITIES': PROVEN_CORE_WEIGHTS,
     }
 
     # Thresholds

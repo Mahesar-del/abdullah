@@ -182,6 +182,31 @@ async function loadStats() {
         animateValue('stat-total-val',  data.total_signals,  0);
         animateValue('stat-active-val', data.active_signals, 0);
         document.getElementById('stat-winrate-val').textContent    = data.win_rate_percent + '%';
+        
+        // ── Institutional R-Multiple Context Display Next to Win Rate ─────
+        const elSampleN = document.getElementById('winrate-sample-n');
+        if (elSampleN) elSampleN.textContent = `n=${data.sample_size_trades || 0}`;
+        const elWinR = document.getElementById('winrate-avg-win');
+        if (elWinR) elWinR.textContent = `Win: +${Number(data.avg_win_r || 0).toFixed(2)}R`;
+        const elLossR = document.getElementById('winrate-avg-loss');
+        if (elLossR) elLossR.textContent = `Loss: -${Number(data.avg_loss_r || 0).toFixed(2)}R`;
+        const elPf = document.getElementById('winrate-pf');
+        if (elPf) elPf.textContent = `PF: ${Number(data.profit_factor || 0).toFixed(2)}`;
+        const elExp = document.getElementById('winrate-exp');
+        if (elExp) {
+            const expVal = Number(data.expectancy_r || 0);
+            elExp.textContent = `Exp: ${expVal >= 0 ? '+' : ''}${expVal.toFixed(2)}R`;
+            elExp.style.color = expVal >= 0 ? '#10b981' : '#ef4444';
+        }
+        const elCi = document.getElementById('winrate-ci');
+        if (elCi) {
+            if (data.expectancy_ci_95 && data.sample_size_trades >= 100) {
+                elCi.textContent = `95% CI: [${Number(data.expectancy_ci_95[0]).toFixed(2)}, ${Number(data.expectancy_ci_95[1]).toFixed(2)}]`;
+            } else {
+                elCi.textContent = `95% CI: [n < 100 trades]`;
+            }
+        }
+
         document.getElementById('stat-confidence-val').textContent = data.avg_confidence;
         
         animateValue('stat-won-val', data.take_profit_hits || 0, 0);
@@ -210,6 +235,48 @@ async function loadStats() {
         if (expEl) {
             const exp = data.expectancy_r !== undefined ? Number(data.expectancy_r) : 0.0;
             expEl.textContent = `${exp >= 0 ? '+' : ''}${exp.toFixed(2)} R`;
+        }
+
+        // Strictly Computed Edge Status & Badges (Honesty Rule 1)
+        const nTrades = data.sample_size_trades || 0;
+        const expVal = Number(data.expectancy_r || 0);
+        const bootP5 = data.bootstrap_p5 !== undefined && data.bootstrap_p5 !== null ? Number(data.bootstrap_p5) : -1.0;
+
+        let computedStatus = 'INSUFFICIENT_DATA';
+        let computedLabel = `Insufficient data (n=${nTrades}/100)`;
+        let computedColor = '#94a3b8';
+
+        if (nTrades < 100) {
+            computedStatus = 'INSUFFICIENT_DATA';
+            computedLabel = `Insufficient data (n=${nTrades}/100)`;
+            computedColor = '#94a3b8';
+        } else if (expVal < 0) {
+            computedStatus = 'NEGATIVE_EDGE';
+            computedLabel = 'Negative edge';
+            computedColor = '#ef4444';
+        } else if (bootP5 > 0) {
+            computedStatus = 'POSITIVE_EDGE';
+            computedLabel = 'Positive edge';
+            computedColor = '#10b981';
+        } else {
+            computedStatus = 'UNCERTAIN_EDGE';
+            computedLabel = 'Unproven edge (CI spans 0)';
+            computedColor = '#f59e0b';
+        }
+
+        const edgeBadge = document.getElementById('edge-badge');
+        if (edgeBadge) {
+            edgeBadge.textContent = computedLabel;
+            edgeBadge.style.color = computedColor;
+            edgeBadge.style.borderColor = computedColor;
+            edgeBadge.style.background = `${computedColor}26`;
+        }
+
+        const expEdge = document.getElementById('stat-expectancy-edge');
+        if (expEdge) {
+            expEdge.textContent = computedLabel;
+            expEdge.style.color = computedColor;
+            expEdge.className = computedStatus === 'POSITIVE_EDGE' ? 'stat-trend up' : (computedStatus === 'NEGATIVE_EDGE' ? 'stat-trend down' : 'stat-trend');
         }
 
         const ddEl = document.getElementById('stat-max-drawdown-val');

@@ -583,42 +583,44 @@ class SignalStatsView(views.APIView):
         else:
             win_rate = round(float(avg_conf_val), 2)
 
-        # ── R-Multiple Performance Tracking (Phase 12) ─────────────────────────
+        # ── R-Multiple Performance Tracking (Phase 12 / Institutional Expectancy) ────
         perfs = SignalPerformance.objects.filter(outcome__in=['WIN', 'LOSS'])
+        all_r = [float(x) for x in perfs.exclude(pnl_r__isnull=True).values_list('pnl_r', flat=True)]
+        
+        from quant.metrics_r import compute_metrics_r
+        m_r = compute_metrics_r(all_r)
+
         wins = perfs.filter(outcome='WIN')
         losses = perfs.filter(outcome='LOSS')
-
         win_count = wins.count()
         loss_count = losses.count()
 
-        if win_count > 0:
-            avg_win_val = round(float(wins.aggregate(avg=Avg('pnl_r'))['avg'] or 0.0), 2)
-        else:
-            avg_win_val = 0.0
+        avg_win_val = m_r["avg_win_R"]
+        avg_loss_val = m_r["avg_loss_R"]
+        profit_factor = m_r["profit_factor"]
+        expectancy_r = m_r["expectancy_R"]
+        break_even_win_rate = m_r["break_even_win_rate"]
+        n_closed = m_r["n_trades"]
 
-        if loss_count > 0:
-            avg_loss_val = round(float(losses.aggregate(avg=Avg('pnl_r'))['avg'] or 0.0), 2)
+        # Objective Edge Classification:
+        # Insufficient data if n < 100; Negative edge if expectancy_R < 0;
+        # Positive edge ONLY if n >= 100 AND bootstrap 5th percentile > 0
+        if n_closed < 100:
+            edge_status = 'INSUFFICIENT_DATA'
+            edge_badge_label = f'Insufficient data (n={n_closed}/100)'
+            edge_badge_color = '#94a3b8'
+        elif expectancy_r < 0:
+            edge_status = 'NEGATIVE_EDGE'
+            edge_badge_label = f'Negative edge (Exp: {expectancy_r:+.2f}R)'
+            edge_badge_color = '#ef4444'
+        elif m_r["expectancy_p5"] > 0:
+            edge_status = 'POSITIVE_EDGE'
+            edge_badge_label = f'Positive edge (95% CI: [{m_r["expectancy_ci_95"][0]:+.2f}, {m_r["expectancy_ci_95"][1]:+.2f}])'
+            edge_badge_color = '#10b981'
         else:
-            avg_loss_val = 0.0
-
-        # Total Win R and Loss R
-        total_win_r = float(wins.aggregate(sum=Sum('pnl_r'))['sum'] or 0.0)
-        total_loss_r = abs(float(losses.aggregate(sum=Sum('pnl_r'))['sum'] or 0.0))
-
-        if total_loss_r > 0:
-            profit_factor = round(total_win_r / total_loss_r, 2)
-        elif total_win_r > 0:
-            profit_factor = round(total_win_r, 2)
-        else:
-            profit_factor = 0.0
-
-        # Trade Expectancy in R: (Win_Rate * Avg_Win) - (Loss_Rate * |Avg_Loss|)
-        if closed > 0:
-            win_p = hits_tp / closed
-            loss_p = hits_sl / closed
-            expectancy_r = round((win_p * avg_win_val) - (loss_p * abs(avg_loss_val)), 2)
-        else:
-            expectancy_r = 0.0
+            edge_status = 'UNCERTAIN_EDGE'
+            edge_badge_label = 'Unproven edge (CI spans 0)'
+            edge_badge_color = '#f59e0b'
 
         # Max Drawdown calculation over cumulative equity curve (in R and %)
         cum_r = 0.0
@@ -682,15 +684,28 @@ class SignalStatsView(views.APIView):
             'take_profit_hits':  hits_tp,
             'stop_loss_hits':    hits_sl,
             'closed_signals':    closed,
-            'win_rate_percent':  win_rate,
-            'win_rate_source':   'actual' if closed > 0 else 'confidence_avg',
+            'win_rate_percent':  round(m_r["win_rate"] * 100, 1) if n_closed > 0 else win_rate,
+            'win_rate_source':   'actual' if n_closed > 0 else 'confidence_avg',
             'avg_confidence':    round(float(avg_conf_val), 2),
             'avg_win_r':         avg_win_val,
             'avg_loss_r':        avg_loss_val,
+            'payoff_ratio':      m_r["payoff_ratio"],
             'profit_factor':     profit_factor,
             'expectancy_r':      expectancy_r,
+            'break_even_win_rate': round(break_even_win_rate * 100, 1),
+            'expectancy_ci_95':  m_r["expectancy_ci_95"],
+            'expectancy_p5':     m_r["expectancy_p5"],
+            'win_rate_ci_95':    [round(w * 100, 1) for w in m_r["win_rate_ci_95"]],
+            'is_win_rate_trap':  m_r["is_win_rate_trap"],
             'max_drawdown_pct':  max_drawdown_pct,
             'loss_breakdown':    loss_breakdown,
+            'edge_status':       edge_status,
+            'edge_badge_label':  edge_badge_label,
+            'edge_badge_color':  edge_badge_color,
+            'edge_verdict':      m_r["edge_verdict"],
+            'sample_size_trades': n_closed,
+            'bootstrap_p5':      m_r["expectancy_p5"],
+            'bootstrap_p95':     m_r["expectancy_ci_95"][1],
             'by_direction': {
                 'BUY':  Signal.objects.filter(direction='BUY').count(),
                 'SELL': Signal.objects.filter(direction='SELL').count(),

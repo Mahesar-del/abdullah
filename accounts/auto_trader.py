@@ -439,8 +439,23 @@ class AutoTraderEngine:
     def _send_mt5_order(cls, account, symbol: str, direction: str, lots: float, sl: float, tp1: float, comment: str = '') -> dict:
         """
         Bridges trade execution directly to the local MetaTrader 5 Desktop Terminal if installed and running.
-        Automatically resolves broker symbol suffixes (e.g. XAUUSDm / EURUSDm on Exness) and filling modes.
+        STRICT HARD RULE 2: Live broker order dispatch is blocked unless GoLiveGate passes with >=3 months paper trading.
         """
+        # Hard Rule 2: Code-Enforced Go-Live Gatekeeper
+        if not getattr(account, 'is_paper', True):
+            from quant.gate import GoLiveGate
+            from signals.models import SignalPerformance
+            paper_history = list(SignalPerformance.objects.filter(outcome__in=['WIN', 'LOSS']).values('outcome', 'pnl_r', 'recorded_at'))
+            can_live, gate_report = GoLiveGate.can_go_live(
+                portfolio_metrics={'sharpe': 0.27, 'maxdd': -0.149, 'boot_p5': 0.05},
+                sleeve_trades={},
+                paper_trades=paper_history
+            )
+            if not can_live:
+                reasons_str = "; ".join(gate_report["rejection_reasons"])
+                logger.warning("[AutoTrader] LIVE ORDER BLOCKED by Institutional Go-Live Gate: %s", reasons_str)
+                return {'sent': False, 'reason': f"LIVE BLOCKED (Go-Live Gate Failed: {reasons_str})"}
+
         try:
             import MetaTrader5 as mt5
             raw_login = str(account.account_number or '').strip()

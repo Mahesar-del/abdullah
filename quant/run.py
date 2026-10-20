@@ -45,6 +45,7 @@ def main(argv=None):
     ap.add_argument("--test-years", type=float, default=1.0)
     ap.add_argument("--target-vol", type=float, default=0.10)
     ap.add_argument("--out", default="quant_reports")
+    ap.add_argument("--select-metric", default="expectancy", choices=["expectancy", "sharpe"], help="Train selection metric (never win rate)")
     args = ap.parse_args(argv)
     os.makedirs(args.out, exist_ok=True)
     synthetic = args.source.startswith("synthetic")
@@ -53,6 +54,7 @@ def main(argv=None):
 
     sleeves, rows, latest, trials = {}, [], [], 0
     pnl_trades = {}
+    trap_warnings = []
     for sym in args.symbols:
         a = ASSETS[sym]
         ppy = periods_per_year(a, args.interval)
@@ -66,7 +68,9 @@ def main(argv=None):
         train, test = int(args.train_years * ppy), int(args.test_years * ppy)
         for st in REGISTRY:
             try:
-                oos, log, n_tr = walk_forward(df, st, a.cost_bps, ppy, train, test, args.target_vol)
+                oos, log, n_tr = walk_forward(
+                    df, st, a.cost_bps, ppy, train, test, args.target_vol, selection_metric=args.select_metric
+                )
             except ValueError as e:
                 print(f"[skip] {sym}/{st}: {e}")
                 continue
@@ -75,12 +79,29 @@ def main(argv=None):
             sleeves[name] = oos["ret"]
             m, t = metrics(oos["ret"], ppy), trade_stats(oos["pos"], oos["ret"])
             g = metrics(oos["gross"], ppy)
-            rows.append(dict(sleeve=name, oos_years=round(m["years"], 1), sharpe_net=round(m["sharpe"], 2),
-                             sharpe_gross=round(g["sharpe"], 2), cagr=f"{m['cagr']:.1%}", maxdd=f"{m['maxdd']:.1%}",
-                             trades=t["trades"], win_rate=f"{t['win_rate']:.0%}",
-                             profit_factor=round(t["profit_factor"], 2)))
+
+            # Win-Rate Trap Warning: High win rate masking poor payoff / negative expectancy
+            if t["is_win_rate_trap"] or (t["win_rate"] > 0.55 and t["profit_factor"] < 1.20):
+                trap_warnings.append(
+                    f"[WIN-RATE TRAP] Sleeve '{name}': Win Rate={t['win_rate']:.1%} (>55%) but Profit Factor={t['profit_factor']:.2f} (<1.20). Net Expectancy={t['expectancy_R']:+.2f}R."
+                )
+
+            rows.append(dict(
+                sleeve=name,
+                win_rate=f"{t['win_rate']:.1%}",
+                avg_win_R=f"+{t['avg_win_R']:.2f}R",
+                avg_loss_R=f"-{t['avg_loss_R']:.2f}R",
+                profit_factor=f"{t['profit_factor']:.2f}",
+                expectancy_R=f"{t['expectancy_R']:+.2f}R",
+                break_even_win_rate=f"{t['break_even_win_rate']:.1%}",
+                verdict=t["edge_verdict"],
+                trades=t["trades"],
+                sharpe_net=round(m["sharpe"], 2),
+                cagr=f"{m['cagr']:.1%}",
+                maxdd=f"{m['maxdd']:.1%}"
+            ))
             try:
-                latest.append((sym, st, fit_latest(df, st, a.cost_bps, ppy, train, args.target_vol)))
+                latest.append((sym, st, fit_latest(df, st, a.cost_bps, ppy, train, args.target_vol, selection_metric=args.select_metric)))
             except Exception:
                 pass
     if not sleeves:
@@ -88,9 +109,20 @@ def main(argv=None):
         return 1
 
     tbl = pd.DataFrame(rows)
-    print("OUT-OF-SAMPLE results per sleeve (params chosen on past data only, costs included)")
-    print(tbl.to_string(index=False))
+    print("OUT-OF-SAMPLE results per sleeve (params chosen on TRAIN window only, net of costs)")
+    # Print institutional table prioritizing Expectancy, Payoff, Break-Even and Verdict
+    display_cols = [
+        "sleeve", "win_rate", "avg_win_R", "avg_loss_R", "profit_factor",
+        "expectancy_R", "break_even_win_rate", "verdict"
+    ]
+    print(tbl[display_cols].to_string(index=False))
     tbl.to_csv(os.path.join(args.out, "sleeves.csv"), index=False)
+
+    if trap_warnings:
+        print("\n--- WIN-RATE TRAP WARNINGS ---")
+        for tw in trap_warnings:
+            print(f"  WARNING: {tw}")
+        print("  Notice: Never optimize or rank by win rate alone. High win rate with poor payoff yields negative expectancy.\n")
 
     port = combine(sleeves, ppy=252, target_vol=args.target_vol)
     # start the portfolio where at least one sleeve has OOS data
@@ -103,10 +135,18 @@ def main(argv=None):
     print(f"  CAGR: {pm['cagr']:.1%} | Vol: {pm['vol']:.1%} | MaxDD: {pm['maxdd']:.1%} | Calmar: {pm['calmar']:.2f} | total trades: {avg_trades}")
     print(f"  Parameter trials tried (selection/overfit risk): {trials}")
 
-    ok = (pm["sharpe"] >= GATE["min_sharpe"] and lo > GATE["min_boot_p5"]
-          and pm["maxdd"] >= GATE["max_dd"] and avg_trades >= GATE["min_trades"])
-    print("\nVERDICT:", "PASS -> eligible for PAPER trading (not live yet)" if ok
-          else "FAIL -> do NOT trade live. No statistically reliable edge shown.")
+    from .gate import GoLiveGate
+    pm_gate = dict(pm)
+    pm_gate["boot_p5"] = lo
+    sleeve_trades = {r["sleeve"]: int(r["trades"]) for r in tbl.to_dict("records")}
+    ok, gate_reasons = GoLiveGate.evaluate_backtest_gate(pm_gate, sleeve_trades)
+
+    print("\nVERDICT:", "PASS -> eligible for PAPER trading (requires >=3 months paper tracking before live)" if ok
+          else f"FAIL -> do NOT trade live. Gate failed: {'; '.join(gate_reasons[:2])}")
+    if not ok and gate_reasons:
+        print("  Gate Failures:")
+        for r in gate_reasons:
+            print(f"    - {r}")
     if synthetic:
         print("(synthetic data: verdict is only a pipeline check)")
 
