@@ -2310,6 +2310,124 @@ input:checked + .slider-switch:before {
     font-family: inherit;
 }
 
+/* ── TRADING DESK UI REFRESH ───────────────────────── */
+:root {
+    --bg-base: #080d17;
+    --bg-surface: #0c1422;
+    --bg-card: #101b2d;
+    --bg-hover: #17253a;
+    --border: #1d2b40;
+    --border-glow: #2c4868;
+    --accent-blue: #4f8cff;
+    --accent-cyan: #35c9d7;
+    --buy-color: #28c890;
+    --sell-color: #ff657a;
+}
+
+body { background: var(--bg-base); }
+.sidebar { background: linear-gradient(180deg, #0c1524 0%, #0a111e 100%); }
+.sidebar-logo { min-height: 68px; }
+.nav-item { min-height: 44px; }
+.nav-item.active { box-shadow: inset 3px 0 0 var(--accent-blue); }
+.main-content { flex: 1 1 auto; }
+.topbar { gap: 18px; }
+.topbar-right { gap: 10px; }
+.overview-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 4px 0 14px;
+}
+.overview-eyebrow {
+    display: block;
+    color: var(--accent-cyan);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .14em;
+    margin-bottom: 5px;
+}
+.overview-heading h2 { font-size: 16px; font-weight: 650; letter-spacing: -.02em; }
+.overview-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    white-space: nowrap;
+}
+.overview-live span {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--buy-color); box-shadow: 0 0 10px rgba(40,200,144,.5);
+}
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 26px;
+    min-width: 0;
+}
+.stat-card {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    align-items: start;
+    column-gap: 12px;
+    row-gap: 12px;
+    min-width: 0;
+    min-height: 146px;
+    height: auto;
+    padding: 20px;
+    background: linear-gradient(145deg, rgba(17,29,47,.98), rgba(13,23,39,.98));
+    border-color: rgba(112,145,184,.17);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.12);
+}
+.stat-card::before { height: 2px; opacity: .85; }
+.stat-card:hover { transform: translateY(-2px); border-color: rgba(79,140,255,.45); }
+.stat-icon {
+    width: 34px; height: 34px;
+    display: grid; place-items: center;
+    border-radius: 10px;
+    background: rgba(79,140,255,.12);
+    font-size: 18px;
+}
+.stat-body { min-width: 0; }
+.stat-value { font-size: clamp(21px, 1.65vw, 28px); }
+.stat-label { color: #9aabc2; font-size: 12px; }
+.stat-trend {
+    grid-column: 2;
+    align-self: end;
+    justify-self: start;
+    margin: 0;
+    padding: 4px 9px;
+    color: #91a7c2;
+    background: rgba(139,164,195,.09);
+    font-size: 10px;
+}
+#stat-winrate { min-width: 0 !important; }
+#stat-winrate #stat-winrate-r-metrics { font-size: 11px !important; }
+#stat-winrate #winrate-ci { font-size: 10px !important; }
+.section-title { letter-spacing: -.025em; }
+
+@media (min-width: 1500px) {
+    .stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 1100px) {
+    .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 768px) {
+    .overview-heading { align-items: start; flex-direction: column; gap: 8px; }
+    .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+    .stat-card { min-height: 132px; padding: 15px; column-gap: 9px; }
+    .topbar-right { min-width: 0; }
+}
+@media (max-width: 420px) {
+    .stats-grid { grid-template-columns: minmax(0, 1fr) !important; }
+    .stat-card { min-height: 116px; }
+    .overview-live { white-space: normal; }
+}
+
 .engine-expand-all-btn:hover {
     background: rgba(59, 130, 246, 0.26);
     color: #fff;
@@ -2653,6 +2771,151 @@ input:checked + .slider-switch:before {
     background: rgba(59, 130, 246, 0.08);
     border-color: rgba(59, 130, 246, 0.35);
     transform: translateX(3px);
+}
+
+/* ── FULL DASHBOARD TRADING TERMINAL LAYOUT ─────────── */
+.main-content {
+    max-width: 1800px;
+    margin-right: auto;
+    padding-bottom: 56px;
+}
+.page-title { font-size: 25px; }
+.page-subtitle { color: #8497b2; font-size: 12px; }
+.topbar {
+    border-color: rgba(125,155,190,.14);
+    background: rgba(8,13,23,.94);
+    box-shadow: 0 10px 30px rgba(0,0,0,.12);
+}
+.nav-auto-btn {
+    background: #101c2d;
+    border-color: #233854;
+    border-radius: 999px;
+}
+.live-clock { font-size: 16px; }
+.automation-console-section {
+    border-color: rgba(79,140,255,.22) !important;
+    background: linear-gradient(145deg, #101c2d, #0c1523) !important;
+    box-shadow: 0 14px 34px rgba(0,0,0,.2) !important;
+}
+.auto-console-metric-card {
+    background: rgba(8,15,26,.58) !important;
+    border-color: rgba(125,155,190,.14) !important;
+    border-radius: 12px !important;
+}
+.auto-safety-notice { line-height: 1.55 !important; }
+
+.r-multiple-section,
+.loss-diagnosis-section,
+.pair-scores-section,
+.direction-bar-section {
+    background: linear-gradient(145deg, rgba(15,25,41,.96), rgba(11,19,32,.96));
+    border: 1px solid rgba(112,145,184,.16);
+    border-radius: 16px;
+    padding: 20px 22px;
+    margin: 0 0 18px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.11);
+}
+.r-multiple-section .section-header,
+.loss-diagnosis-section .section-header,
+.pair-scores-section .section-header {
+    padding: 0 0 14px;
+    margin: 0 0 16px;
+    border-bottom: 1px solid rgba(125,155,190,.13);
+}
+.section-header { padding: 17px 22px; border-color: rgba(125,155,190,.14); }
+.section-title { font-size: 15px; letter-spacing: -.015em; }
+.section-badge {
+    background: rgba(79,140,255,.09);
+    border-color: rgba(79,140,255,.18);
+    color: #91b8ff;
+}
+.r-multiple-section .stats-grid,
+.loss-diagnosis-section .stats-grid { margin: 0; }
+#loss-reasons-grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
+#institutional-section .stats-grid {
+    grid-template-columns: repeat(3, minmax(0,1fr)) !important;
+    padding: 18px 22px !important;
+    margin: 0;
+}
+#institutional-section .stat-card { min-height: 138px; }
+#institutional-section .stat-value { font-size: clamp(15px, 1.2vw, 19px) !important; }
+.direction-bar-section { padding: 18px 22px; }
+.direction-bar { height: 8px; }
+.pair-scores-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.pair-score-card {
+    background: rgba(8,15,26,.62);
+    border-color: rgba(112,145,184,.15);
+    border-radius: 13px;
+}
+.signals-section,
+.engine-section,
+.news-section {
+    background: linear-gradient(145deg, rgba(15,25,41,.96), rgba(11,19,32,.96));
+    border: 1px solid rgba(112,145,184,.16);
+    border-radius: 16px;
+    margin-bottom: 18px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.11);
+}
+.signals-table { min-width: 1080px; }
+.signals-table th { color: #8296b1; background: #0c1625; }
+.signals-table td { border-color: rgba(125,155,190,.1); }
+.signals-table tbody tr:hover { background: rgba(79,140,255,.055); }
+.signals-table td:first-child:not(.empty-state) { background: #101b2d; }
+.signals-table tbody tr:hover td:first-child:not(.empty-state) { background: #15243a; }
+.engine-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 12px;
+    padding: 18px 22px 22px;
+}
+.engine-card {
+    min-width: 0;
+    padding: 12px 14px;
+    gap: 16px;
+    background: rgba(8,15,26,.5);
+    border: 1px solid rgba(112,145,184,.12);
+    border-radius: 11px;
+}
+.engine-card.clickable-engine-card { padding: 12px 14px; }
+.engine-name { min-width: 142px; font-size: 12px; }
+.engine-bar { height: 8px; border-radius: 99px; }
+.engine-fill { border-radius: 99px; padding-left: 0; font-size: 0; }
+.news-list { padding: 18px 22px 22px; }
+.news-item { background: rgba(8,15,26,.54); border-color: rgba(112,145,184,.13); border-radius: 11px; }
+#backtest-section > div:not(.section-header) { padding: 20px 22px !important; }
+#bt-metrics-grid { grid-template-columns: repeat(4, minmax(0,1fr)) !important; }
+#bt-status-box { background: rgba(79,140,255,.06) !important; border-color: rgba(79,140,255,.15) !important; }
+#bt-symbol, #bt-timeframe {
+    background-color: #101b2d !important;
+    border-color: rgba(125,155,190,.2) !important;
+    border-radius: 9px !important;
+    min-height: 38px;
+}
+
+@media (max-width: 1100px) {
+    .main-content { padding-left: 20px; padding-right: 20px; }
+    #loss-reasons-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    #institutional-section .stats-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+    #bt-metrics-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+    .engine-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+    .main-content { padding-left: 14px; padding-right: 14px; }
+    .r-multiple-section, .loss-diagnosis-section, .pair-scores-section,
+    .direction-bar-section { padding: 16px; }
+    .section-header { padding: 15px 16px; }
+    .engine-grid, .news-list { padding: 14px 16px 16px; }
+    #backtest-section > div:not(.section-header) { padding: 14px 16px !important; }
+    #institutional-section .stats-grid { grid-template-columns: 1fr !important; padding: 14px 16px !important; }
+    .engine-card, .engine-card.clickable-engine-card { padding: 10px; gap: 10px; }
+    .engine-name { min-width: 120px; font-size: 11px; }
+    .signals-table { min-width: 0; }
+}
+@media (max-width: 420px) {
+    #loss-reasons-grid, #bt-metrics-grid { grid-template-columns: 1fr !important; }
+    .section-title { font-size: 14px; }
+    .engine-card, .engine-card.clickable-engine-card { flex-wrap: wrap; }
+    .engine-name { min-width: 100%; }
 }
 
 

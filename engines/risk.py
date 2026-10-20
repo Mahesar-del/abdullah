@@ -135,6 +135,28 @@ class RiskEngine:
                 rejection_reasons=rejection_reasons
             )
 
+        # Reject malformed capital inputs and prices before sizing or persistence.
+        if account_balance <= 0:
+            rejection_reasons.append("Account balance must be positive")
+        if risk_percentage <= 0:
+            rejection_reasons.append("Risk percentage must be positive")
+        if direction == 'BUY' and not (stop_loss < entry < take_profit):
+            rejection_reasons.append("BUY levels invalid: expected stop_loss < entry < take_profit")
+        elif direction == 'SELL' and not (take_profit < entry < stop_loss):
+            rejection_reasons.append("SELL levels invalid: expected take_profit < entry < stop_loss")
+        if rejection_reasons:
+            return RiskEvaluation(
+                is_allowed=False,
+                direction=direction,
+                recommended_lots=0.0,
+                risk_amount_currency=0.0,
+                risk_percentage=max(0.0, min(float(risk_percentage), cls.MAX_PER_TRADE_RISK_PCT)),
+                risk_reward_ratio=0.0,
+                current_spread_pips=0.0,
+                spread_cost_ratio_pct=0.0,
+                rejection_reasons=rejection_reasons,
+            )
+
         # 1. Enforce Per-Trade Risk Cap (Strictly <= 0.5% of Equity)
         effective_risk_pct = min(float(risk_percentage), cls.MAX_PER_TRADE_RISK_PCT)
         risk_amount = account_balance * (effective_risk_pct / 100.0)
@@ -199,7 +221,10 @@ class RiskEngine:
         spread_pips = 1.5
         try:
             from market_data.models import MarketQuoteSpread
-            latest_spread = MarketQuoteSpread.objects.filter(instrument__symbol=symbol).first()
+            latest_spread = MarketQuoteSpread.objects.filter(
+                instrument__symbol=symbol, is_live=True,
+                timestamp__gte=datetime.now(timezone.utc) - timedelta(minutes=2),
+            ).first()
             if latest_spread and hasattr(latest_spread, 'spread_pips'):
                 spread_pips = latest_spread.spread_pips
         except Exception:

@@ -162,8 +162,9 @@ class Command(BaseCommand):
                     'bid': base_price,
                     'ask': base_price + (vol_step * 0.1),
                     'spread': vol_step * 0.1,
-                    'provider': 'institutional_feed',
-                    'is_live': True,
+                    # These prices are deterministic demo fixtures, never an exchange feed.
+                    'provider': 'synthetic_seed',
+                    'is_live': False,
                     'timestamp': dj_tz.now()
                 }
             )

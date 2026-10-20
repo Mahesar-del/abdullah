@@ -7,8 +7,10 @@ services:
     startCommand: gunicorn trading_platform.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
     envVars:
       - key: DEBUG
-        value: "True"
+        value: "False"
       - key: ALLOWED_HOSTS
-        value: "*"
+        value: "tradesense-pro-live.onrender.com"
+      - key: SECRET_KEY
+        generateValue: true
       - key: RENDER
         value: "true"

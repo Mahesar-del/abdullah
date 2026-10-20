@@ -2354,7 +2354,7 @@ async function loadAutomationStatus() {
                 badge.style.background = 'rgba(16, 185, 129, 0.2)';
                 badge.style.color = '#10b981';
                 badge.style.borderColor = 'rgba(16, 185, 129, 0.4)';
-                badge.innerHTML = '<span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span> LIVE ACTIVE';
+                badge.innerHTML = '<span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span> PAPER ACTIVE';
             } else if (data.emergency_stop_active) {
                 badge.style.background = 'rgba(239, 68, 68, 0.25)';
                 badge.style.color = '#ef4444';
@@ -2435,7 +2435,7 @@ async function loadAutomationStatus() {
         }
 
         if (nextSignal) {
-            nextSignal.textContent = isRunning ? 'Monitoring live...' : 'Halted (Engine Off)';
+            nextSignal.textContent = isRunning ? 'Monitoring paper signals...' : 'Halted (Engine Off)';
             nextSignal.style.color = isRunning ? '#60a5fa' : '#94a3b8';
         }
 
@@ -2445,7 +2445,7 @@ async function loadAutomationStatus() {
         if (navPill) {
             if (isRunning) {
                 navPill.className = 'nav-auto-pill live';
-                navPill.innerHTML = '<span class="pill-dot"></span> LIVE ACTIVE';
+                navPill.innerHTML = '<span class="pill-dot"></span> PAPER ACTIVE';
             } else if (data.emergency_stop_active) {
                 navPill.className = 'nav-auto-pill stopped';
                 navPill.innerHTML = '<span class="pill-dot"></span> STOPPED';
@@ -2458,7 +2458,7 @@ async function loadAutomationStatus() {
             if (isRunning) {
                 sidebarBadge.style.background = 'rgba(16, 185, 129, 0.2)';
                 sidebarBadge.style.color = '#10b981';
-                sidebarBadge.textContent = 'LIVE';
+                sidebarBadge.textContent = 'PAPER';
             } else if (data.emergency_stop_active) {
                 sidebarBadge.style.background = 'rgba(239, 68, 68, 0.2)';
                 sidebarBadge.style.color = '#ef4444';
@@ -2533,8 +2533,8 @@ function openAuthorizeModal() {
     }
 
     if (currentAutomationData && currentAutomationData.account) {
-        document.getElementById('auth-risk-pct').value = currentAutomationData.account.risk_pct;
-        document.getElementById('auth-max-open-risk').value = currentAutomationData.account.max_open_risk_pct;
+        document.getElementById('auth-risk-pct').value = Math.min(0.5, Number(currentAutomationData.account.risk_pct) || 0.5);
+        document.getElementById('auth-max-open-risk').value = Math.min(1.5, Number(currentAutomationData.account.max_open_risk_pct) || 1.5);
     }
 
     document.getElementById('auth-explicit-confirm').checked = false;
@@ -2806,26 +2806,21 @@ async function submitConnectBroker() {
                 password: password,
                 server: server,
                 is_paper: isPaper,
-                auto_trade_enabled: true,
-                is_authorized: true,
+                auto_trade_enabled: false,
+                is_authorized: false,
                 max_risk_pct: 0.5,
-                max_open_risk_pct: 3.0
+                max_open_risk_pct: 1.5
             })
         });
         const data = await res.json();
         if (res.ok && data.success) {
-            await fetch('/api/accounts/global-switch/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
-                body: JSON.stringify({ enabled: true })
-            });
             // Show brief success info
             if (testBox) {
                 testBox.style.display = 'block';
-                testBox.style.background = isLive ? 'rgba(16,185,129,0.12)' : 'rgba(59,130,246,0.12)';
-                testBox.style.border = isLive ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(59,130,246,0.35)';
-                testBox.style.color = isLive ? '#34d399' : '#60a5fa';
-                testBox.innerHTML = (isLive ? '✅ <strong>Live Account Auto-Connected!</strong>' : '✅ <strong>Demo Account Auto-Connected!</strong>') + ` Account <strong>${accountNumber}</strong> connected successfully.`;
+                testBox.style.background = 'rgba(59,130,246,0.12)';
+                testBox.style.border = '1px solid rgba(59,130,246,0.35)';
+                testBox.style.color = '#60a5fa';
+                testBox.innerHTML = `✅ <strong>Account connected; automation remains OFF.</strong> ${isLive ? 'Live execution is locked until verified research results pass the go-live gate.' : 'Demo trading can be enabled separately after explicit authorization.'}`;
             }
             setTimeout(() => {
                 closeConnectBrokerModal();

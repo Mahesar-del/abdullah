@@ -73,6 +73,13 @@ def scan_single(symbol: str, timeframe: str):
         if unified.direction not in ('BUY', 'SELL'):
             return None
 
+        if not unified.is_trade_allowed:
+            logger.info(
+                "[AUTO-SCANNER] Rejected %s %s: deterministic risk gate denied the signal.",
+                symbol, timeframe
+            )
+            return None
+
         if float(unified.confidence) < MIN_CONFIDENCE_THRESHOLD:
             return None
 

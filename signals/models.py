@@ -90,6 +90,7 @@ class Signal(models.Model):
         ('CONFLICT',   'Conflict (WAIT)'),
         ('BLACKOUT',   'Blackout (WAIT)'),
         ('DATA_ERROR', 'Data Error (WAIT)'),
+        ('RISK_REJECTED', 'Risk Gate Rejected (WAIT)'),
     ]
     decision_class     = models.CharField(max_length=20, choices=DECISION_CLASSES, default='STRONG', db_index=True)
     market_regime      = models.CharField(max_length=50, default='TRENDING', db_index=True)

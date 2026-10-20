@@ -255,6 +255,11 @@ class UnifiedSignalEngine:
             'OrderFlow':       godzilla_result.direction if godzilla_result else 'NEUTRAL',
         }
 
+        # Only engines with non-zero, currently validated signal weights may
+        # form directional confluence. Other groups remain visible for context,
+        # but cannot create a trade by voting alongside the core price engines.
+        voting_groups = ('Structure', 'Price Action', 'Regime/Momentum', 'OrderFlow')
+
         # Market Regime Detection
         market_regime = 'TRENDING'
         if tech_result and any('RANGING' in r for r in tech_result.reasoning):
@@ -267,8 +272,8 @@ class UnifiedSignalEngine:
             market_regime = 'TRENDING'
 
         # Independent Group Support Counts
-        buy_groups  = [g for g, d in independent_groups.items() if d == 'BUY']
-        sell_groups = [g for g, d in independent_groups.items() if d == 'SELL']
+        buy_groups  = [g for g in voting_groups if independent_groups[g] == 'BUY']
+        sell_groups = [g for g in voting_groups if independent_groups[g] == 'SELL']
 
         is_blackout = any('BLACKOUT' in w for w in self.warnings)
         if macro_result and any('BLACKOUT' in r for r in macro_result.reasoning):
@@ -326,7 +331,7 @@ class UnifiedSignalEngine:
         # ── Confidence Calculation ────────────────────────
         if direction in ('BUY', 'SELL'):
             agreeing_groups = len(buy_groups) if direction == 'BUY' else len(sell_groups)
-            active_groups = len([g for g, d in independent_groups.items() if d != 'NEUTRAL'])
+            active_groups = len([g for g in voting_groups if independent_groups[g] != 'NEUTRAL'])
             group_confluence = (agreeing_groups / max(active_groups, 1)) * 100.0
             confidence = (abs_score * 0.60) + (group_confluence * 0.40)
         else:
@@ -389,6 +394,9 @@ class UnifiedSignalEngine:
         if not risk_eval.is_allowed and direction != 'WAIT':
             for reason in risk_eval.rejection_reasons:
                 self.warnings.append(f"RISK FILTER: {reason}")
+            # A rejected risk decision must not remain a directional, executable signal.
+            direction = 'WAIT'
+            decision_class = 'RISK_REJECTED'
 
         # ── Analysis Summary ──────────────────────────────
         analysis = self._build_analysis(direction, confidence, engine_results)

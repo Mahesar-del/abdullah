@@ -30,18 +30,18 @@ class LinkedBrokerAccount(models.Model):
     
     is_active = models.BooleanField(default=True)
     auto_trade_enabled = models.BooleanField(
-        default=True,
+        default=False,
         help_text="If True, automatically takes high-confidence trades without per-trade prompts"
     )
     is_authorized = models.BooleanField(
-        default=True,
+        default=False,
         help_text="Persistent user authorization for automated trading"
     )
     authorized_at = models.DateTimeField(null=True, blank=True)
-    permission_type = models.CharField(max_length=50, default='LIVE_AUTOMATED_TRADING')
+    permission_type = models.CharField(max_length=50, default='PAPER_SIMULATION_TRADING')
     authorization_status = models.CharField(
         max_length=30,
-        default='ON',
+        default='OFF',
         choices=[
             ('ON', 'Active (Authorized)'),
             ('OFF', 'Disabled by User'),
@@ -85,7 +85,7 @@ class SystemTradingConfig(models.Model):
     Global Master Switch and Emergency Stop Configuration.
     Controls system-wide automated trading execution across all accounts.
     """
-    global_auto_trading = models.BooleanField(default=True, help_text="Global Master Switch: ON/OFF")
+    global_auto_trading = models.BooleanField(default=False, help_text="Global Master Switch: ON/OFF")
     emergency_stop_active = models.BooleanField(default=False)
     emergency_stopped_at = models.DateTimeField(null=True, blank=True)
     emergency_stop_reason = models.CharField(max_length=255, blank=True, default='')
@@ -158,6 +158,7 @@ class AutoTradeExecution(models.Model):
     
     pnl_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     pnl_r = models.FloatField(default=0.0)
+    risk_amount_currency = models.FloatField(default=0.0, help_text="Planned cash risk captured when the position opened")
     
     opened_at = models.DateTimeField(auto_now_add=True)
     closed_at = models.DateTimeField(null=True, blank=True)

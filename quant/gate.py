@@ -14,7 +14,7 @@ Gate Criteria:
    - Realised paper-trading performance consistent with backtest (expectancy > 0)
 """
 from typing import Dict, List, Optional, Tuple, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 import numpy as np
 
 
@@ -33,24 +33,49 @@ class GoLiveGate:
         """
         reasons = []
 
-        sharpe = portfolio_metrics.get("sharpe", 0.0)
-        max_dd = portfolio_metrics.get("maxdd", -1.0)
-        boot_p5 = portfolio_metrics.get("boot_p5", -1.0)
+        sharpe = portfolio_metrics.get("sharpe")
+        max_dd = portfolio_metrics.get("maxdd")
+        boot_p5 = portfolio_metrics.get("boot_p5")
 
-        if sharpe < cls.MIN_SHARPE:
+        for label, value in (("Sharpe", sharpe), ("Max Drawdown", max_dd), ("Bootstrap p5 Sharpe", boot_p5)):
+            try:
+                finite = value is not None and np.isfinite(float(value))
+            except (TypeError, ValueError):
+                finite = False
+            if not finite:
+                reasons.append(f"{label} metric is missing or non-finite")
+
+        try:
+            sharpe = float(sharpe)
+        except (TypeError, ValueError):
+            sharpe = None
+        try:
+            max_dd = float(max_dd)
+        except (TypeError, ValueError):
+            max_dd = None
+        try:
+            boot_p5 = float(boot_p5)
+        except (TypeError, ValueError):
+            boot_p5 = None
+
+        if sharpe is not None and np.isfinite(sharpe) and sharpe < cls.MIN_SHARPE:
             reasons.append(f"Sharpe ratio ({sharpe:.2f}) < required minimum {cls.MIN_SHARPE:.2f}")
 
-        if max_dd < cls.MAX_DRAWDOWN:
+        if max_dd is not None and np.isfinite(max_dd) and max_dd < cls.MAX_DRAWDOWN:
             reasons.append(f"Max Drawdown ({max_dd:.1%}) worse than allowed limit {cls.MAX_DRAWDOWN:.1%}")
 
-        if boot_p5 <= cls.MIN_BOOT_P5:
+        if boot_p5 is not None and np.isfinite(boot_p5) and boot_p5 <= cls.MIN_BOOT_P5:
             reasons.append(f"Bootstrap 5th percentile Sharpe ({boot_p5:.2f}) <= {cls.MIN_BOOT_P5:.2f} (edge not statistically significant)")
 
         if not sleeve_trades:
             reasons.append("No active sleeve trade records provided for verification")
         else:
             for sleeve, trades in sleeve_trades.items():
-                if trades < cls.MIN_TRADES_PER_SLEEVE:
+                try:
+                    count = int(trades)
+                except (TypeError, ValueError):
+                    count = 0
+                if count < cls.MIN_TRADES_PER_SLEEVE:
                     reasons.append(f"Sleeve '{sleeve}' trades ({trades}) < required minimum {cls.MIN_TRADES_PER_SLEEVE}")
 
         return len(reasons) == 0, reasons
@@ -67,24 +92,41 @@ class GoLiveGate:
             return False, reasons
 
         # Check calendar span
-        timestamps = [t.get("closed_at") or t.get("recorded_at") for t in paper_trades if t.get("closed_at") or t.get("recorded_at")]
-        if not timestamps:
-            reasons.append("Paper trades lack recorded timestamps")
+        timestamps = [t.get("closed_at") or t.get("recorded_at") for t in paper_trades]
+        if any(ts is None for ts in timestamps):
+            reasons.append("One or more paper trades lack a close/recorded timestamp")
             return False, reasons
 
-        min_ts = min(timestamps)
-        max_ts = max(timestamps)
-        duration_days = (max_ts - min_ts).days if hasattr((max_ts - min_ts), "days") else 0
+        realized_r = []
+        for trade in paper_trades:
+            try:
+                value = float(trade.get("pnl_r"))
+            except (TypeError, ValueError):
+                value = float("nan")
+            if not np.isfinite(value):
+                reasons.append("One or more paper trades lack a finite realized R result")
+                return False, reasons
+            realized_r.append(value)
+
+        if any(not isinstance(ts, datetime) for ts in timestamps):
+            reasons.append("Paper trade timestamps must be datetime values")
+            return False, reasons
+        timestamps = [ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else ts for ts in timestamps]
+        try:
+            min_ts = min(timestamps)
+            max_ts = max(timestamps)
+            duration_days = (max_ts - min_ts).days
+        except (TypeError, ValueError, OverflowError):
+            reasons.append("Paper trade timestamps are incompatible")
+            return False, reasons
 
         if duration_days < cls.MIN_PAPER_DAYS:
             reasons.append(f"Paper trading history duration ({duration_days} days) < 90 days required (3 months)")
 
         # Realized expectancy check
-        realized_r = [float(t.get("pnl_r", 0.0)) for t in paper_trades if t.get("pnl_r") is not None]
-        if realized_r:
-            avg_r = np.mean(realized_r)
-            if avg_r <= 0.0:
-                reasons.append(f"Paper trading realized expectancy is non-positive ({avg_r:+.2f}R <= 0.0)")
+        avg_r = float(np.mean(realized_r))
+        if avg_r <= 0.0:
+            reasons.append(f"Paper trading realized expectancy is non-positive ({avg_r:+.2f}R <= 0.0)")
 
         return len(reasons) == 0, reasons
 

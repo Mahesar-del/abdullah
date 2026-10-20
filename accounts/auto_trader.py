@@ -13,6 +13,8 @@ Implements all 20 sections of the Persistent Automated Trading Architecture:
 import logging
 import uuid
 import threading
+import math
+from datetime import timedelta
 from decimal import Decimal
 from django.utils import timezone
 from .models import LinkedBrokerAccount, AutoTradeExecution, SystemTradingConfig
@@ -26,6 +28,18 @@ class AutoTraderEngine:
     Core automated execution engine operating continuously in the background.
     """
 
+    # Paper simulation contract units in USD account currency. Symbols without
+    # an explicit, reviewed contract assumption are rejected instead of treated
+    # as generic FX. Live broker specs must come from the broker before live use.
+    PAPER_CONTRACT_UNITS = {
+        'EURUSD': 100_000.0,
+        'GBPUSD': 100_000.0,
+        'XAUUSD': 100.0,
+        'BTCUSD': 1.0,
+        'ETHUSD': 1.0,
+        'US30': 1.0,
+    }
+
     @classmethod
     def get_automation_status(cls):
         """
@@ -38,6 +52,7 @@ class AutoTraderEngine:
             config.global_auto_trading and 
             not config.emergency_stop_active and 
             primary_acc is not None and 
+            primary_acc.is_paper and
             primary_acc.auto_trade_enabled and 
             primary_acc.authorization_status == 'ON' and
             primary_acc.connection_status == 'CONNECTED'
@@ -88,7 +103,7 @@ class AutoTraderEngine:
         
         # Calculate daily risk used across open trades
         if primary_acc and float(primary_acc.balance) > 0:
-            open_risk_sum = open_count * primary_acc.max_risk_pct
+            open_risk_sum = open_count * min(float(primary_acc.max_risk_pct), 0.5)
         else:
             open_risk_sum = 0.0
 
@@ -159,7 +174,7 @@ class AutoTraderEngine:
         }
 
     @classmethod
-    def authorize_account(cls, account_id: int, max_risk_pct: float = 0.5, max_open_risk_pct: float = 3.0):
+    def authorize_account(cls, account_id: int, max_risk_pct: float = 0.5, max_open_risk_pct: float = 1.5):
         """
         Section 1: One-Time Authorization.
         User authorizes once -> AUTOMATED TRADING = ON.
@@ -167,6 +182,15 @@ class AutoTraderEngine:
         """
         try:
             acc = LinkedBrokerAccount.objects.get(id=account_id)
+            if not acc.is_paper:
+                raise ValueError(
+                    "Live authorization is locked: verified walk-forward results and paper-trading history "
+                    "are not connected to the go-live gate."
+                )
+            if not 0 < float(max_risk_pct) <= 0.5:
+                raise ValueError("Per-trade risk must be greater than 0 and no more than 0.5%.")
+            if not 0 < float(max_open_risk_pct) <= 1.5:
+                raise ValueError("Combined open risk must be greater than 0 and no more than 1.5%.")
             acc.is_authorized = True
             acc.authorized_at = timezone.now()
             acc.permission_type = 'LIVE_AUTOMATED_TRADING' if not acc.is_paper else 'PAPER_SIMULATION_TRADING'
@@ -269,6 +293,20 @@ class AutoTraderEngine:
         if not signal or signal.direction not in ['BUY', 'SELL']:
             return []
 
+        if getattr(signal, 'status', 'ACTIVE') != 'ACTIVE':
+            logger.info("[AutoTrader Gate 0 FAIL] Signal is not active.")
+            return []
+        valid_until = getattr(signal, 'valid_until', None)
+        if valid_until and valid_until <= timezone.now():
+            logger.info("[AutoTrader Gate 0 FAIL] Signal has expired.")
+            return []
+
+        # Signal generation's deterministic risk gate is authoritative. Do not
+        # execute a directional signal that was rejected for risk/data reasons.
+        if not getattr(signal, 'is_trade_allowed', False):
+            logger.info("[AutoTrader Gate 0 FAIL] Signal is_trade_allowed is false.")
+            return []
+
         # Gate 1: Global Master Switch & Emergency Stop
         config = SystemTradingConfig.get_config()
         if not config.global_auto_trading or config.emergency_stop_active:
@@ -308,9 +346,25 @@ class AutoTraderEngine:
         symbol = signal.instrument.symbol
 
         for account in authorized_accounts:
+            # The go-live gate has no connected, reproducible research artifact.
+            # Until that exists, only paper accounts may receive executions.
+            if not account.is_paper:
+                logger.warning(
+                    "[AutoTrader Gate 0 FAIL] Live account %s remains locked pending verified research gate.",
+                    account.name
+                )
+                continue
+
             # Gate 5: Broker Connection Check (Section 8)
             if account.connection_status != 'CONNECTED':
                 logger.warning(f"[AutoTrader Gate 5 FAIL] Account {account.name}: Broker connection lost.")
+                continue
+
+            if str(account.currency).upper() != 'USD':
+                logger.warning(
+                    "[AutoTrader Gate 5 FAIL] Paper contract sizing is only validated for USD accounts (%s).",
+                    account.name
+                )
                 continue
 
             # Gate 6: Account Risk & Drawdown Kill Switch (Section 12)
@@ -330,12 +384,17 @@ class AutoTraderEngine:
                 continue
 
             # Gate 8: Maximum Open Risk Check (Section 13)
-            current_open_risk = sum(account.max_risk_pct for _ in range(open_count))
-            new_total_open_risk = current_open_risk + account.max_risk_pct
-            if new_total_open_risk > account.max_open_risk_pct:
+            effective_risk_pct = min(float(account.max_risk_pct), 0.5)
+            if effective_risk_pct <= 0:
+                logger.warning("[AutoTrader Gate 8 FAIL] Account risk must be positive.")
+                continue
+            current_open_risk = sum(effective_risk_pct for _ in range(open_count))
+            new_total_open_risk = current_open_risk + effective_risk_pct
+            open_risk_limit = min(float(account.max_open_risk_pct), 1.5)
+            if open_risk_limit <= 0 or new_total_open_risk > open_risk_limit:
                 logger.warning(
                     f"[AutoTrader Gate 8 FAIL] Account {account.name}: Maximum Open Risk exceeded "
-                    f"({new_total_open_risk:.1f}% > {account.max_open_risk_pct}% limit). Trade rejected."
+                    f"({new_total_open_risk:.1f}% > {open_risk_limit:.1f}% hard limit). Trade rejected."
                 )
                 continue
 
@@ -349,30 +408,59 @@ class AutoTraderEngine:
                 logger.info(f"[AutoTrader Gate 9 FAIL] Account {account.name}: Already has an active open position on {symbol}.")
                 continue
 
+            # Gate 9b: Daily realized-loss stop, based on this account's executions.
+            today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            daily_closed = AutoTradeExecution.objects.filter(
+                account=account, status='CLOSED', closed_at__gte=today_start
+            )
+            daily_pnl = sum(float(t.pnl_amount) for t in daily_closed)
+            daily_limit = float(account.balance) * float(account.daily_drawdown_limit_pct) / 100.0
+            if daily_pnl <= -daily_limit:
+                logger.warning("[AutoTrader Gate 9b FAIL] Account %s reached daily loss limit.", account.name)
+                continue
+
             # Gate 10: Position Sizing Calculation (Single Full-Close Target at TP1)
             balance = float(account.balance)
-            risk_amount = balance * (float(account.max_risk_pct) / 100.0)
+            risk_amount = balance * (effective_risk_pct / 100.0)
             entry_f = float(signal.entry_price)
             sl_f = float(signal.stop_loss)
             tp1_f = float(signal.take_profit_1)
             tp2_f = None
             tp3_f = None
 
+            # Do not attach invented spread values to execution records. The
+            # quote must be a recent real feed observation for this instrument.
+            from market_data.models import MarketQuoteSpread
+            quote = MarketQuoteSpread.objects.filter(
+                instrument__symbol=symbol, is_live=True,
+                timestamp__gte=timezone.now() - timedelta(minutes=2),
+            ).first()
+            if quote is None:
+                logger.warning("[AutoTrader Gate 10 FAIL] No fresh live quote for %s; execution skipped.", symbol)
+                continue
+            spread_pips = float(quote.spread_pips)
+
             sl_distance = abs(entry_f - sl_f)
             if sl_distance <= 0:
                 continue
 
-            if 'XAU' in symbol or 'GOLD' in symbol:
-                contract_size = 100.0
-            elif 'BTC' in symbol or 'ETH' in symbol:
-                contract_size = 1.0
-            elif 'US30' in symbol or 'SPX' in symbol:
-                contract_size = 10.0
-            else:
-                contract_size = 100000.0  # Standard FX lot
+            contract_size = cls.PAPER_CONTRACT_UNITS.get(symbol.upper())
+            if contract_size is None:
+                logger.warning(
+                    "[AutoTrader Gate 10 FAIL] No reviewed paper contract specification for %s.", symbol
+                )
+                continue
 
             raw_lots = risk_amount / (sl_distance * contract_size)
-            lots = round(max(0.01, min(10.0, raw_lots)), 2)
+            # Never round a small calculated size up to the broker minimum: that
+            # would exceed the account's stated risk budget. Round down to 0.01.
+            lots = int(min(10.0, raw_lots) * 100) / 100.0
+            if lots < 0.01:
+                logger.warning(
+                    "[AutoTrader Gate 10 FAIL] %s size %.4f is below the 0.01 lot minimum; "
+                    "minimum lot would exceed the configured risk budget.", symbol, raw_lots
+                )
+                continue
 
             # Generate unique order identifiers (Section 15)
             broker_order_id = f"BK-{account.broker_type}-{int(timezone.now().timestamp())}-{uuid.uuid4().hex[:6].upper()}"
@@ -396,7 +484,13 @@ class AutoTraderEngine:
                     executed_price = float(mt5_res.get('price') or executed_price)
                     mt5_note = f" | Live MT5 Terminal Order #{mt5_res['order_id']}"
                 else:
-                    mt5_note = f" | Dashboard Auto-Execution ({mt5_res.get('reason', 'MT5 terminal bridge standby')})"
+                    # Never record a failed live broker request as an OPEN trade.
+                    # That creates phantom positions and corrupts risk/PnL tracking.
+                    logger.error(
+                        "[AutoTrader] Live order rejected for %s on %s: %s",
+                        symbol, account.name, mt5_res.get('reason', 'unknown broker error')
+                    )
+                    continue
 
             # SECTION 3: AUTOMATICALLY PLACE TRADE (NO PER-TRADE CONFIRMATION)
             trade = AutoTradeExecution.objects.create(
@@ -410,13 +504,14 @@ class AutoTraderEngine:
                 take_profit_1=tp1_f,
                 take_profit_2=tp2_f,
                 take_profit_3=tp3_f,
+                risk_amount_currency=round(risk_amount, 2),
                 current_price=executed_price,
                 status='OPEN',
                 broker_order_id=broker_order_id,
                 client_order_id=client_order_id,
                 requested_price=entry_f,
                 executed_price=executed_price,
-                spread_pips=1.2,
+                spread_pips=spread_pips,
                 slippage_pips=0.1,
                 confluence_groups=getattr(signal, 'independent_groups', {}),
                 market_regime=getattr(signal, 'market_regime', 'TRENDING'),
@@ -444,10 +539,15 @@ class AutoTraderEngine:
         # Hard Rule 2: Code-Enforced Go-Live Gatekeeper
         if not getattr(account, 'is_paper', True):
             from quant.gate import GoLiveGate
-            from signals.models import SignalPerformance
-            paper_history = list(SignalPerformance.objects.filter(outcome__in=['WIN', 'LOSS']).values('outcome', 'pnl_r', 'recorded_at'))
+            paper_history = list(AutoTradeExecution.objects.filter(
+                account__is_paper=True,
+                status='CLOSED',
+                closed_at__isnull=False,
+            ).values('closed_at', 'pnl_r'))
+            # No verified walk-forward artifact is persisted/connected yet. Empty
+            # metrics intentionally fail closed; never substitute placeholder stats.
             can_live, gate_report = GoLiveGate.can_go_live(
-                portfolio_metrics={'sharpe': 0.27, 'maxdd': -0.149, 'boot_p5': 0.05},
+                portfolio_metrics={},
                 sleeve_trades={},
                 paper_trades=paper_history
             )
@@ -502,8 +602,14 @@ class AutoTraderEngine:
             vol_min = float(getattr(sym_info, 'volume_min', 0.01) or 0.01)
             vol_max = float(getattr(sym_info, 'volume_max', 100.0) or 100.0)
             vol_step = float(getattr(sym_info, 'volume_step', 0.01) or 0.01)
-
-            norm_lots = max(vol_min, min(vol_max, round(round(float(lots) / vol_step) * vol_step, 2)))
+            if vol_step <= 0 or vol_min <= 0 or vol_max < vol_min:
+                return {'sent': False, 'reason': 'Broker returned invalid volume constraints'}
+            # Round down to the broker step. Rounding to nearest or forcing the
+            # minimum can silently exceed the risk budget calculated upstream.
+            norm_lots = min(vol_max, math.floor((float(lots) + 1e-12) / vol_step) * vol_step)
+            if norm_lots + 1e-12 < vol_min:
+                return {'sent': False, 'reason': 'Risk-sized volume is below broker minimum'}
+            norm_lots = round(norm_lots, 8)
             order_type = mt5.ORDER_TYPE_BUY if direction == 'BUY' else mt5.ORDER_TYPE_SELL
             price = round(float(tick.ask if direction == 'BUY' else tick.bid), digits)
             norm_sl = round(float(sl), digits) if sl else 0.0
@@ -597,7 +703,9 @@ class AutoTraderEngine:
         entry_val = float(trade.entry_price)
         sl_val = float(trade.stop_loss)
         tp1_val = float(trade.take_profit_1)
-        risk_amt = float(account.balance) * (float(account.max_risk_pct) / 100.0)
+        risk_amt = float(trade.risk_amount_currency or (
+            float(account.balance) * (float(account.max_risk_pct) / 100.0)
+        ))
 
         if outcome == 'TP_HIT':
             sl_dist = abs(entry_val - sl_val)
@@ -611,9 +719,11 @@ class AutoTraderEngine:
             pnl_r = -1.0
             exit_price = sl_val
 
-        # Close on MT5 terminal if live
+        # Keep the local record OPEN unless the broker confirms the close.
         if str(trade.broker_order_id or '').startswith('MT5-'):
-            cls._close_mt5_position(account, trade)
+            if not cls._close_mt5_position(account, trade):
+                logger.error("[AutoTrader] Broker close not confirmed; trade %s remains OPEN.", trade.pk)
+                return trade
 
         trade.current_price = Decimal(str(round(float(exit_price), 5)))
         trade.status = 'CLOSED'
@@ -775,7 +885,12 @@ class AutoTraderEngine:
         pnl_r = round(price_diff / sl_dist, 2)
 
         account = trade.account
-        risk_amt = float(account.balance) * (float(account.max_risk_pct) / 100.0)
+        risk_amt = float(trade.risk_amount_currency or (
+            float(account.balance) * (float(account.max_risk_pct) / 100.0)
+        ))
+        if str(trade.broker_order_id or '').startswith('MT5-') and not cls._close_mt5_position(account, trade):
+            logger.error("[AutoTrader] Manual broker close not confirmed; trade %s remains OPEN.", trade.pk)
+            return None
         pnl_amount = round(risk_amt * pnl_r, 2)
 
         trade.status = 'CLOSED'

@@ -11,20 +11,17 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-this-in-production')
+SECRET_KEY = os.getenv('SECRET_KEY', '')
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
+if not SECRET_KEY and not DEBUG:
+    raise RuntimeError('SECRET_KEY must be set when DEBUG is disabled.')
+if not SECRET_KEY:
+    SECRET_KEY = 'django-insecure-local-development-only-change-me'
+ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if host.strip()]
 CSRF_TRUSTED_ORIGINS = [
-    'https://*.trycloudflare.com',
-    'https://*.lhr.life',
-    'https://*.loca.lt',
-    'https://*.ngrok-free.app',
-    'https://*.ngrok.io',
-    'https://*.onrender.com',
-    'https://*.pythonanywhere.com',
-    'https://*.hf.space',
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
+    origin.strip() for origin in os.getenv(
+        'CSRF_TRUSTED_ORIGINS', 'https://tradesense-pro-live.onrender.com'
+    ).split(',') if origin.strip()
 ]
 
 # ─── Installed Apps ───────────────────────────────────────────────────────────
@@ -146,7 +143,9 @@ CELERY_TIMEZONE = 'Asia/Karachi'
 
 # ─── REST Framework ───────────────────────────────────────────────────────────
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
@@ -155,8 +154,17 @@ REST_FRAMEWORK = {
 }
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    origin.strip() for origin in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if origin.strip()
+]
 CORS_ALLOW_CREDENTIALS = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SECURE_HSTS_SECONDS = 31_536_000 if not DEBUG else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
 
 # ─── Static & Media Files ─────────────────────────────────────────────────────
 STATIC_URL = '/static/'
