@@ -4,7 +4,7 @@ Accounts Views — Broker Linking & Automated Trade Management
 import logging
 from rest_framework import views, status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import AllowAny, IsAdminUser
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from decimal import Decimal
@@ -23,7 +23,7 @@ class LinkedAccountsView(views.APIView):
     POST /api/accounts/linked/
     Connect a new broker account (MT5, MT4, Exness, Binance, Bybit, Paper).
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         accounts = LinkedBrokerAccount.objects.filter(is_active=True).order_by('-created_at')
@@ -179,7 +179,7 @@ class TestBrokerConnectionView(views.APIView):
     Section 1: Test Connection before enabling automated trading.
     Validates credentials (login, password, server, broker_type) against real broker API or local MT5 terminal.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         broker_type = request.data.get('broker_type', 'MT5').upper()
@@ -326,7 +326,7 @@ class SelectActiveAccountView(views.APIView):
     POST /api/accounts/select-active/
     Section 9: Switch active trading account.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         account_id = request.data.get('account_id')
@@ -354,7 +354,7 @@ class ToggleAutoTradeView(views.APIView):
     POST /api/accounts/toggle-auto/<id>/
     Toggles auto-trade state for a specific account.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def post(self, request, pk):
         account = get_object_or_404(LinkedBrokerAccount, pk=pk)
@@ -372,7 +372,7 @@ class DeleteAccountView(views.APIView):
     POST /api/accounts/unlink/<id>/
     Unlinks / deletes a broker account.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def post(self, request, pk):
         account = get_object_or_404(LinkedBrokerAccount, pk=pk)
@@ -386,7 +386,7 @@ class AutoTradesListView(views.APIView):
     GET /api/accounts/trades/
     Returns recent auto-executed trades (both OPEN and CLOSED).
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         status_filter = request.query_params.get('status')
@@ -427,7 +427,7 @@ class CloseTradeManualView(views.APIView):
     POST /api/accounts/close-trade/<id>/
     Manually close an open auto-trade position.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def post(self, request, pk):
         trade = AutoTraderEngine.close_trade_manually(pk)
@@ -445,7 +445,7 @@ class EvaluateTradesView(views.APIView):
     POST /api/accounts/evaluate-trades/
     Triggers immediate evaluation of all open trades against market data to close on TP/SL.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         resolved = AutoTraderEngine.evaluate_and_close_open_trades()
@@ -468,7 +468,7 @@ class AutomationStatusView(views.APIView):
     GET /api/accounts/automation-status/
     Returns real-time status of persistent automated trading for the dashboard widget.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         status_data = AutoTraderEngine.get_automation_status()
@@ -481,7 +481,7 @@ class AuthorizeAccountView(views.APIView):
     Section 1: One-time authorization.
     Body: { "account_id": 1, "max_risk_pct": 0.5, "max_open_risk_pct": 3.0 }
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         account_id = request.data.get('account_id')
@@ -527,7 +527,7 @@ class ToggleGlobalSwitchView(views.APIView):
     Section 10: Toggle Global Automated Trading ON/OFF.
     Body: { "enabled": true/false }
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         enabled = request.data.get('enabled')
@@ -553,7 +553,7 @@ class EmergencyStopView(views.APIView):
     Halts all new trading and optionally closes all open positions at market price.
     Body: { "close_positions": true/false, "reason": "User emergency stop" }
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         close_positions = bool(request.data.get('close_positions', True))
@@ -572,7 +572,7 @@ class EmergencyStopView(views.APIView):
 
 class EmergencyKillSwitchView(views.APIView):
     """Legacy alias for emergency stop"""
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         count = AutoTraderEngine.emergency_stop(close_positions=True)
@@ -589,7 +589,7 @@ class UpdateBalanceView(views.APIView):
     POST /api/accounts/update-balance/
     Allows setting the exact account balance/equity directly (e.g. from broker login or live balance edit).
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         balance_val = request.data.get('balance')
