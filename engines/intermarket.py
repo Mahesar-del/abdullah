@@ -136,12 +136,13 @@ class IntermarketEngine(BaseEngine):
             buy_score += 30
             reasoning.append(f"Liquidity Sweep: Price raided sell-side liquidity ({cur_low:.2f} < {prev_swing_l:.2f}) then reclaimed the range — Trap for breakout sellers")
 
-        # ── 4. Cross-Asset Benchmark Correlations ─────────────
-        corrs = self.BENCHMARK_CORRELATIONS.get(self.symbol, self.BENCHMARK_CORRELATIONS['EURUSD'])
-        dxy_corr = corrs.get('dxy', -0.85)
-        spx_corr = corrs.get('spx', 0.40)
-        oil_corr = corrs.get('oil', 0.20)
-        gold_corr = corrs.get('gold', 0.50)
+        # ── 4. Cross-Asset Empirical Correlations & Yield Curve ─────────────
+        metrics = self.get_real_intermarket_metrics(self.symbol, df)
+        dxy_corr = metrics['dxy']
+        spx_corr = metrics['spx']
+        oil_corr = metrics['oil']
+        gold_corr = metrics['gold']
+        yield_slope = metrics['yield_curve_slope']
 
         # ── 5. Persist Intermarket Snapshot ───────────────────
         self._save_intermarket_snapshot(
@@ -149,6 +150,7 @@ class IntermarketEngine(BaseEngine):
             spx_corr=spx_corr,
             oil_corr=oil_corr,
             gold_corr=gold_corr,
+            yield_slope=yield_slope,
             vol_regime=vol_regime,
             liq_regime=liq_regime,
             is_squeeze=is_squeeze,
@@ -181,14 +183,13 @@ class IntermarketEngine(BaseEngine):
         )
 
     def _save_intermarket_snapshot(self, dxy_corr: float, spx_corr: float, oil_corr: float, gold_corr: float,
-                                   vol_regime: str, liq_regime: str, is_squeeze: bool, divergence: str):
+                                   yield_slope: float, vol_regime: str, liq_regime: str, is_squeeze: bool, divergence: str):
         """Save latest intermarket regime snapshot to database"""
         try:
             from signals.models import IntermarketSnapshot
             from django.utils import timezone as dj_tz
 
             now = dj_tz.now()
-            # Only record snapshot at most once per 30 minutes
             recent = IntermarketSnapshot.objects.filter(
                 symbol=self.symbol,
                 timestamp__gte=now - timedelta(minutes=30)
@@ -202,7 +203,7 @@ class IntermarketEngine(BaseEngine):
                     spx_correlation_30d=spx_corr,
                     oil_correlation_30d=oil_corr,
                     gold_correlation_30d=gold_corr,
-                    yield_curve_slope=0.15, # 10Y-2Y slope
+                    yield_curve_slope=yield_slope,
                     volatility_regime=vol_regime,
                     liquidity_regime=liq_regime,
                     bb_keltner_squeeze=is_squeeze,
@@ -210,3 +211,67 @@ class IntermarketEngine(BaseEngine):
                 )
         except Exception:
             pass
+
+    @classmethod
+    def get_real_intermarket_metrics(cls, symbol: str, current_df: Optional[pd.DataFrame] = None) -> dict:
+        """
+        Calculates empirical 30-day Pearson correlations against real market data
+        (DXY DX-Y.NYB, SPX ^GSPC, Oil CL=F, Gold GC=F) and calculates the real US Treasury
+        Yield Curve slope (^TNX 10Y minus ^IRX 13W T-Bill).
+        """
+        from engines.data_fetcher import DataFetcher
+        fetcher = DataFetcher()
+
+        target_close = None
+        if current_df is not None and len(current_df) >= 15:
+            target_close = current_df['close']
+        else:
+            try:
+                df = fetcher.fetch(symbol, timeframe='D1', limit=40)
+                if df is not None and len(df) >= 15:
+                    target_close = df['close']
+            except Exception:
+                pass
+
+        macro_syms = {
+            'dxy': 'DX-Y.NYB',
+            'spx': '^GSPC',
+            'oil': 'CL=F',
+            'gold': 'GC=F',
+        }
+
+        corrs = {}
+        if target_close is not None and len(target_close) >= 10:
+            target_pct = target_close.pct_change().dropna()
+            for key, yf_sym in macro_syms.items():
+                try:
+                    m_df = fetcher._fetch_from_yahoo_api(yf_sym, timeframe='D1', limit=40)
+                    if m_df is not None and len(m_df) >= 10:
+                        m_pct = m_df['close'].pct_change().dropna()
+                        n = min(len(target_pct), len(m_pct), 30)
+                        if n >= 8:
+                            c = float(np.corrcoef(target_pct.iloc[-n:], m_pct.iloc[-n:])[0, 1])
+                            if not np.isnan(c):
+                                corrs[key] = round(c, 2)
+                except Exception:
+                    pass
+
+        yield_slope = 0.20
+        try:
+            tnx_df = fetcher._fetch_from_yahoo_api('^TNX', timeframe='D1', limit=5)
+            irx_df = fetcher._fetch_from_yahoo_api('^IRX', timeframe='D1', limit=5)
+            if tnx_df is not None and irx_df is not None and len(tnx_df) > 0 and len(irx_df) > 0:
+                y10 = float(tnx_df['close'].iloc[-1])
+                y3m = float(irx_df['close'].iloc[-1])
+                yield_slope = round(y10 - y3m, 2)
+        except Exception:
+            pass
+
+        base_bench = cls.BENCHMARK_CORRELATIONS.get(symbol, cls.BENCHMARK_CORRELATIONS.get('EURUSD', {}))
+        return {
+            'dxy': corrs.get('dxy', base_bench.get('dxy', -0.75)),
+            'spx': corrs.get('spx', base_bench.get('spx', 0.45)),
+            'oil': corrs.get('oil', base_bench.get('oil', 0.25)),
+            'gold': corrs.get('gold', base_bench.get('gold', 0.50)),
+            'yield_curve_slope': yield_slope,
+        }

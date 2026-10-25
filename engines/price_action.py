@@ -19,7 +19,7 @@ from .base import BaseEngine, EngineResult
 
 class PriceActionEngine(BaseEngine):
     name   = 'price_action'
-    weight = 0.15
+    weight = 0.08  # Reduced from 0.15 to 0.08 per loss attribution audit (stops breakout chasing)
 
     SHADOW_RATIO  = 2.0
     DOJI_THRESH   = 0.1
@@ -198,19 +198,30 @@ class PriceActionEngine(BaseEngine):
             sell_score += 25
             reasoning.append(f"Bearish Market Structure: {', '.join(self.structure_labels)}")
 
-        # ── 2. Breakouts & Rejections ─────────────────────
+        # ── 2. Breakouts & Rejections (Wyckoff Volume-Confirmed) ─────
+        # Per Wyckoff & Livermore: Breakouts on normal/low volume are distribution traps!
+        cur_vol = float(self.df['volume'].iloc[-1]) if 'volume' in self.df.columns else 0.0
+        avg_vol = float(self.df['volume'].iloc[-20:].mean()) + 1e-5 if 'volume' in self.df.columns else 1.0
+        rvol = cur_vol / avg_vol
+
         if self.breakout_type == 'BULLISH_BREAKOUT':
-            buy_score += 20
-            reasoning.append(f"Bullish Breakout above key level {self.nearest_res:.5g}")
+            if rvol >= 1.3 and self.has_displacement:
+                buy_score += 18
+                reasoning.append(f"Confirmed Institutional Breakout above key level {self.nearest_res:.5g} (RVOL: {rvol:.2f}x)")
+            else:
+                reasoning.append(f"Wyckoff Trap Warning: Breakout above {self.nearest_res:.5g} lacks volume expansion (RVOL: {rvol:.2f}x) — Breakout scoring suppressed to prevent trap")
         elif self.breakout_type == 'BEARISH_BREAKOUT':
-            sell_score += 20
-            reasoning.append(f"Bearish Breakout below key level {self.nearest_sup:.5g}")
+            if rvol >= 1.3 and self.has_displacement:
+                sell_score += 18
+                reasoning.append(f"Confirmed Institutional Breakdown below key level {self.nearest_sup:.5g} (RVOL: {rvol:.2f}x)")
+            else:
+                reasoning.append(f"Wyckoff Trap Warning: Breakdown below {self.nearest_sup:.5g} lacks volume expansion (RVOL: {rvol:.2f}x) — Breakdown scoring suppressed to prevent trap")
         elif self.breakout_type == 'FALSE_BREAKOUT_HIGH':
-            sell_score += 22
-            reasoning.append(f"False Breakout (Liquidity Trap) at resistance {self.nearest_res:.5g}")
+            sell_score += 25
+            reasoning.append(f"Wyckoff Upthrust / Liquidity Trap at resistance {self.nearest_res:.5g} (Smart Money Distribution)")
         elif self.breakout_type == 'FALSE_BREAKOUT_LOW':
-            buy_score += 22
-            reasoning.append(f"False Breakout (Liquidity Trap) at support {self.nearest_sup:.5g}")
+            buy_score += 25
+            reasoning.append(f"Wyckoff Spring / Liquidity Trap at support {self.nearest_sup:.5g} (Smart Money Accumulation)")
 
         # ── 3. Displacement & Energy ──────────────────────
         if self.has_displacement:
@@ -276,15 +287,18 @@ class PriceActionEngine(BaseEngine):
         elif self.range_status == 'CONTRACTION':
             reasoning.append("Range Contraction — potential volatility expansion upcoming")
 
-        # ── Final Direction & Score ───────────────────────
+        # ── Final Direction & Score (Calibrated to prevent 100% false breakout spikes) ─
         total = buy_score + sell_score + 1e-5
+        raw_diff = abs(buy_score - sell_score)
+        # Scaled by benchmark conviction of 75 points (caps realistic PA score between 50 and 85)
+        scaled_score = min(85.0, max(50.0, 50.0 + (raw_diff / 75.0) * 35.0))
 
         if buy_score > sell_score and (buy_score / total) > 0.55:
             direction = 'BUY'
-            score     = (buy_score / total) * 100
+            score     = scaled_score
         elif sell_score > buy_score and (sell_score / total) > 0.55:
             direction = 'SELL'
-            score     = (sell_score / total) * 100
+            score     = scaled_score
         else:
             direction = 'NEUTRAL'
             score     = 50.0

@@ -34,6 +34,20 @@ class Instrument(models.Model):
     def __str__(self):
         return f"{self.symbol} ({self.get_market_type_display()})"
 
+    _CACHE = {}
+
+    @classmethod
+    def get_cached(cls, symbol: str):
+        """Zero-latency in-memory instrument lookup (nanosecond speed)"""
+        sym_clean = symbol.upper().replace('/', '')
+        if sym_clean in cls._CACHE:
+            return cls._CACHE[sym_clean]
+        inst = cls.objects.filter(symbol__iexact=sym_clean).first()
+        if inst:
+            cls._CACHE[sym_clean] = inst
+            cls._CACHE[inst.symbol] = inst
+        return inst
+
     class Meta:
         ordering = ['market_type', 'symbol']
 

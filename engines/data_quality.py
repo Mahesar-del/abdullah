@@ -145,8 +145,14 @@ class DataQualityValidator:
             score -= 20.0
 
         # 5. Missing / Gap check
+        if not isinstance(cleaned.index, pd.DatetimeIndex) and 'timestamp' in cleaned.columns:
+            try:
+                cleaned.index = pd.to_datetime(cleaned['timestamp'])
+            except Exception:
+                pass
+
         expected_delta = cls.TIMEFRAME_DELTAS.get(timeframe)
-        if expected_delta and len(cleaned) > 1:
+        if expected_delta and isinstance(cleaned.index, pd.DatetimeIndex) and len(cleaned) > 1:
             time_diffs = cleaned.index.to_series().diff().dropna()
             # If gap > 2 * expected_delta (ignore for non-crypto weekends if daily/weekly)
             large_gaps = time_diffs[time_diffs > (expected_delta * 2.5)]
@@ -155,11 +161,16 @@ class DataQualityValidator:
                 score -= min(20.0, len(large_gaps) * 4.0)
 
         # 6. Stale data detection
-        last_timestamp = cleaned.index[-1]
-        if hasattr(last_timestamp, 'to_pydatetime'):
-            last_dt = last_timestamp.to_pydatetime()
-        else:
-            last_dt = last_timestamp
+        last_dt = None
+        if isinstance(cleaned.index, pd.DatetimeIndex) and len(cleaned) > 0:
+            last_timestamp = cleaned.index[-1]
+            if hasattr(last_timestamp, 'to_pydatetime'):
+                last_dt = last_timestamp.to_pydatetime()
+            else:
+                last_dt = last_timestamp
+        elif 'timestamp' in cleaned.columns and len(cleaned) > 0:
+            last_ts = cleaned['timestamp'].iloc[-1]
+            last_dt = pd.to_datetime(last_ts).to_pydatetime() if hasattr(pd.to_datetime(last_ts), 'to_pydatetime') else None
 
         if last_dt.tzinfo is None:
             now = datetime.now()

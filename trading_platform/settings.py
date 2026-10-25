@@ -18,6 +18,8 @@ if not SECRET_KEY and not DEBUG:
 if not SECRET_KEY:
     SECRET_KEY = 'django-insecure-local-development-only-change-me'
 ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if host.strip()]
+if 'testserver' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('testserver')
 CSRF_TRUSTED_ORIGINS = [
     origin.strip() for origin in os.getenv(
         'CSRF_TRUSTED_ORIGINS', 'https://tradesense-pro-live.onrender.com'
@@ -95,7 +97,7 @@ if USE_POSTGRES:
         }
     }
 else:
-    # SQLite for local development (no setup required)
+    # SQLite with High-Performance Optimization (WAL mode, 256MB MMAP, 64MB Cache)
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -106,20 +108,32 @@ else:
         }
     }
 
-# ─── Cache & Channels (Redis) ─────────────────────────────────────────────────
+# ─── SQLite Ultra-Fast In-Memory PRAGMAs (WAL Mode, 256MB MMAP, 64MB Cache) ──
+from django.db.backends.signals import connection_created
+from django.dispatch import receiver
+
+@receiver(connection_created)
+def configure_sqlite_performance(sender, connection, **kwargs):
+    if connection.vendor == 'sqlite':
+        with connection.cursor() as cursor:
+            cursor.execute('PRAGMA journal_mode = WAL;')
+            cursor.execute('PRAGMA synchronous = NORMAL;')
+            cursor.execute('PRAGMA cache_size = -64000;')      # 64 MB RAM cache
+            cursor.execute('PRAGMA mmap_size = 268435456;')    # 256 MB zero-copy memory mapped I/O
+            cursor.execute('PRAGMA temp_store = MEMORY;')
+            cursor.execute('PRAGMA busy_timeout = 10000;')
+
+# ─── Cache & Channels (Redis / In-Memory LocMem) ──────────────────────────────
 REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
-
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': REDIS_URL,
-    }
-}
-
-# Use In-Memory channel layer for dev (no Redis needed), Redis in production
 USE_REDIS = os.getenv('USE_REDIS', 'False') == 'True'
 
 if USE_REDIS:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_URL,
+        }
+    }
     CHANNEL_LAYERS = {
         'default': {
             'BACKEND': 'channels_redis.core.RedisChannelLayer',
@@ -127,6 +141,17 @@ if USE_REDIS:
         },
     }
 else:
+    # Ultra-fast microsecond In-Memory Cache for local execution
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'tradesense-ultra-fast-cache',
+            'TIMEOUT': 300,
+            'OPTIONS': {
+                'MAX_ENTRIES': 20000,
+            }
+        }
+    }
     CHANNEL_LAYERS = {
         'default': {
             'BACKEND': 'channels.layers.InMemoryChannelLayer',

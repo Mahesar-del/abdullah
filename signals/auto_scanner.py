@@ -16,9 +16,13 @@ logger = logging.getLogger(__name__)
 # Minimum confidence required to create and display a signal
 MIN_CONFIDENCE_THRESHOLD = 75.0
 
-# Supported symbols and timeframes for automatic continuous scanning (Institutional Standard: H4 and D1 only, no M1-M15 noise)
+# Supported symbols and timeframes for automatic continuous scanning:
+# - M15: Intraday Scalps & Liquidity Sweeps
+# - H1: Day Trading & London/NY Session Momentum
+# - H4: Institutional Swing Setups
+# - D1: Macro Trend & Positional Wave Trades
 DEFAULT_SCAN_SYMBOLS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'BTCUSD', 'US30']
-DEFAULT_SCAN_TIMEFRAMES = ['H4', 'D1']
+DEFAULT_SCAN_TIMEFRAMES = ['M15', 'H1', 'H4', 'D1']
 
 SCAN_INTERVAL_SEC = 45  # Scan cycle interval
 _lock = threading.Lock()
@@ -28,18 +32,24 @@ _running = False
 
 def _get_validity(timeframe: str) -> timedelta:
     tf = timeframe.upper()
-    if tf == 'H4':
+    if tf == 'M15':
+        return timedelta(hours=4)
+    elif tf == 'M30':
+        return timedelta(hours=8)
+    elif tf == 'H1':
+        return timedelta(hours=24)
+    elif tf == 'H4':
         return timedelta(days=2)
     elif tf == 'D1':
         return timedelta(days=7)
-    return timedelta(days=2)
+    return timedelta(hours=24)
 
 
 def scan_single(symbol: str, timeframe: str):
     """
     Scans a single symbol + timeframe.
     Strictly enforces:
-    - Daily/H4 timeframe only
+    - Multi-timeframe institutional alignment (M15, H1, H4, D1)
     - Price sanity & non-stale data verification
     - Direction must be BUY or SELL (never WAIT)
     - Confidence must be >= 75.0%

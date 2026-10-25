@@ -10,4 +10,6 @@ urlpatterns = [
     path('sessions/',           views.MarketSessionView.as_view(),   name='sessions'),
     path('live-tick/',          views.LiveTickView.as_view(),        name='live-tick'),
     path('live-chart/',         views.LiveSymbolChartView.as_view(), name='live-chart'),
+    path('institutional-positions/', views.InstitutionalOverviewView.as_view(), name='institutional-positions'),
+    path('institutional-liquidity/', views.InstitutionalLiquidityView.as_view(), name='institutional-liquidity'),
 ]

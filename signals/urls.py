@@ -28,6 +28,14 @@ urlpatterns = [
     path('backtest/history/', BacktestHistoryView.as_view(),           name='backtest-history'),
     path('walk-forward/',     WalkForwardValidationView.as_view(),     name='walk-forward'),
     path('alert-logs/',       AlertLogsView.as_view(),                 name='alert-logs'),
+
+    # Continuous Learning & Automated Retraining
+    path('learning-status/',  views.ContinuousLearningStatusView.as_view(), name='learning-status'),
+    path('retrain/',          views.TriggerRetrainView.as_view(),          name='retrain'),
+
+    # 100-Year Macro & Changing World Order Intelligence
+    path('world-order/',      views.WorldOrderMacroView.as_view(),         name='world-order'),
 ]
+
 
 

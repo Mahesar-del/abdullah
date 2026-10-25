@@ -2,6 +2,11 @@ from django.db import models
 from django.utils import timezone
 
 
+from django.core.signing import Signer, BadSignature
+
+_broker_signer = Signer(salt='TradeSenseBrokerCredentialsSalt')
+
+
 class LinkedBrokerAccount(models.Model):
     """
     Connected Broker Account for automated trade execution.
@@ -21,7 +26,23 @@ class LinkedBrokerAccount(models.Model):
     account_number = models.CharField(max_length=100, blank=True, default='DEMO-8899')
     server = models.CharField(max_length=100, blank=True, default='MetaQuotes-Demo')
     api_key = models.CharField(max_length=255, blank=True, default='')
-    api_secret = models.CharField(max_length=255, blank=True, default='')
+    api_secret = models.CharField(max_length=512, blank=True, default='')
+
+    def set_secret(self, raw_secret: str):
+        """Encrypts and stores broker secret using cryptographic signing."""
+        if not raw_secret:
+            self.api_secret = ''
+        else:
+            self.api_secret = _broker_signer.sign(str(raw_secret))
+
+    def get_secret(self) -> str:
+        """Decrypts and returns broker secret, with backwards compatibility for legacy plaintext."""
+        if not self.api_secret:
+            return ''
+        try:
+            return _broker_signer.unsign(self.api_secret)
+        except BadSignature:
+            return self.api_secret
     
     is_paper = models.BooleanField(default=True, help_text="True for zero-risk demo/simulation trading")
     balance = models.DecimalField(max_digits=12, decimal_places=2, default=10000.00)

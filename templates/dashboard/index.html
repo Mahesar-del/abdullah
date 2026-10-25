@@ -9,9 +9,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=11">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=13">
+    <link rel="stylesheet" href="{% static 'css/terminal.css' %}?v=5">
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
-    <script src="https://s3.tradingview.com/tv.js" async></script>
+    <script src="https://s3.tradingview.com/tv.js"></script>
 </head>
 <body>
 
@@ -31,6 +32,11 @@
             <span class="nav-icon">⚡</span>
             <span>Dashboard</span>
         </a>
+        <a href="#" class="nav-item" id="nav-tradingview">
+            <span class="nav-icon">📈</span>
+            <span>TradingView</span>
+            <span style="margin-left:auto; font-size:9px; padding:1px 5px; border-radius:2px; background:rgba(46,189,133,0.18); color:#2ebd85; border:1px solid rgba(46,189,133,0.4); font-weight:700; letter-spacing:.04em;">LIVE</span>
+        </a>
         <a href="#" class="nav-item" id="nav-autotrading" onclick="toggleAutoTradingConsole(event)">
             <span class="nav-icon">🤖</span>
             <span>Auto Trading</span>
@@ -48,6 +54,11 @@
             <span class="nav-icon">🧠</span>
             <span>AI Analysis</span>
         </a>
+        <a href="#" class="nav-item" id="nav-agents">
+            <span class="nav-icon">🧸</span>
+            <span>Agent Studio</span>
+            <span class="agent-nav-dot" aria-label="4 agents online"></span>
+        </a>
         <a href="#" class="nav-item" id="nav-news">
             <span class="nav-icon">📰</span>
             <span>News Events</span>
@@ -57,6 +68,18 @@
             <span>Performance</span>
         </a>
     </nav>
+
+    <div class="tf-nav" id="sidebar-tv-pairs" style="padding-bottom: 4px;">
+        <div class="tf-nav-title">📈 TradingView Charts</div>
+        <div class="tf-nav-grid" style="grid-template-columns: repeat(2, 1fr);">
+            <button class="tf-btn sidebar-sym-btn active" data-tv-sym="XAUUSD" onclick="selectTradingViewSymbol('XAUUSD', true)">XAUUSD</button>
+            <button class="tf-btn sidebar-sym-btn" data-tv-sym="BTCUSD" onclick="selectTradingViewSymbol('BTCUSD', true)">BTCUSD</button>
+            <button class="tf-btn sidebar-sym-btn" data-tv-sym="EURUSD" onclick="selectTradingViewSymbol('EURUSD', true)">EURUSD</button>
+            <button class="tf-btn sidebar-sym-btn" data-tv-sym="GBPUSD" onclick="selectTradingViewSymbol('GBPUSD', true)">GBPUSD</button>
+            <button class="tf-btn sidebar-sym-btn" data-tv-sym="NAS100" onclick="selectTradingViewSymbol('NAS100', true)">NAS100</button>
+            <button class="tf-btn sidebar-sym-btn" data-tv-sym="USOIL"  onclick="selectTradingViewSymbol('USOIL', true)">USOIL</button>
+        </div>
+    </div>
 
     <div class="tf-nav" id="tf-nav">
         <div class="tf-nav-title">⏱ Timeframe</div>
@@ -118,6 +141,11 @@
             </button>
         </div>
     </header>
+
+    <!-- ── LIVE MARKET TICKER TAPE (real prices via /api/market/live-tick/) ── -->
+    <div class="ticker-tape" id="ticker-tape" aria-label="Live market ticker">
+        <div class="ticker-track" id="ticker-track"></div>
+    </div>
 
     <!-- ── MOBILE / TABLET QUICK TIMEFRAME PILL BAR ──────── -->
     <div class="mobile-tf-bar" id="mobile-tf-bar">
@@ -424,7 +452,7 @@
     </section>
 
     <!-- ── ACTIVE SIGNALS TABLE ────────────────────────── -->
-    <section class="signals-section">
+    <section class="signals-section" id="signals-section">
         <div class="section-header">
             <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                 <h2 class="section-title">🎯 Active Signals</h2>
@@ -452,11 +480,12 @@
                         <th>R:R</th>
                         <th>Confidence</th>
                         <th>Generated</th>
+                        <th>TradingView</th>
                     </tr>
                 </thead>
                 <tbody id="signals-tbody">
                     <tr>
-                        <td colspan="11" class="empty-state">
+                        <td colspan="12" class="empty-state">
                             <div class="empty-icon">📡</div>
                             <div>Loading signals...</div>
                         </td>
@@ -467,7 +496,7 @@
     </section>
 
     <!-- ── ENGINE WEIGHTS ──────────────────────────────── -->
-    <section class="engine-section">
+    <section class="engine-section" id="ai-analysis-section">
         <div class="section-header">
             <h2 class="section-title">⚙️ Signal Engine Weights</h2>
             <span class="section-badge" style="cursor:pointer;" onclick="openDashboardEngineDetail('technical')">👆 Click any engine for live trade details · Per SRS v2.0</span>
@@ -508,32 +537,87 @@
     <section class="engine-section" id="institutional-section">
         <div class="section-header">
             <h2 class="section-title">🏛️ Institutional COT &amp; Intermarket Positioning</h2>
-            <span class="section-badge warning">Sample display · Not a live feed</span>
+            <span class="section-badge live" id="cot-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">🟢 CFTC Official &amp; Derivatives Live</span>
         </div>
-        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); padding: 20px 24px; margin-bottom: 0;">
-            <div class="stat-card gold">
+        <div class="stats-grid" id="institutional-cards-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); padding: 20px 24px; margin-bottom: 0;">
+            <div class="stat-card gold" style="cursor:pointer;" onclick="selectTradingViewSymbol('XAUUSD', true)" title="Click to open XAUUSD TradingView Chart">
                 <div class="stat-icon">🪙</div>
                 <div class="stat-body">
-                    <div class="stat-value" style="font-size: 1.15rem;">Sample · XAUUSD COT</div>
-                    <div class="stat-label">Non-Commercial Speculators (82.5% 52W Pctl)</div>
+                    <div class="stat-value" id="cot-val-xau" style="font-size: 1.15rem;">XAUUSD · Net +191.8K</div>
+                    <div class="stat-label" id="cot-lbl-xau">CFTC Speculators (46.1% 52W Pctl) · 2026-10-20</div>
                 </div>
-                <div class="stat-trend up" style="color: #10b981;">Bullish Bias</div>
+                <div class="stat-trend" id="cot-trd-xau" style="color: #94a3b8;">Neutral / Range</div>
             </div>
-            <div class="stat-card blue">
+            <div class="stat-card blue" style="cursor:pointer;" onclick="selectTradingViewSymbol('EURUSD', true)" title="Click to open EURUSD TradingView Chart">
                 <div class="stat-icon">💶</div>
                 <div class="stat-body">
-                    <div class="stat-value" style="font-size: 1.15rem;">Sample · EURUSD COT</div>
-                    <div class="stat-label">Commercial Hedgers Net: -43.0K</div>
+                    <div class="stat-value" id="cot-val-eur" style="font-size: 1.15rem;">EURUSD · Net -161.4K</div>
+                    <div class="stat-label" id="cot-lbl-eur">Commercials Net: +130.8K (0.5% Pctl) · 2026-10-20</div>
                 </div>
-                <div class="stat-trend">Neutral / Range</div>
+                <div class="stat-trend down" id="cot-trd-eur" style="color: #ef4444;">Bearish Squeeze</div>
             </div>
-            <div class="stat-card purple">
+            <div class="stat-card purple" style="cursor:pointer;" onclick="selectTradingViewSymbol('BTCUSD', true)" title="Click to open BTCUSD TradingView Chart">
                 <div class="stat-icon">⚡</div>
                 <div class="stat-body">
-                    <div class="stat-value" style="font-size: 1.15rem;">Sample · BTCUSD OI</div>
-                    <div class="stat-label">Funding: +0.012% | P/C: 0.74 (Contango)</div>
+                    <div class="stat-value" id="cot-val-btc" style="font-size: 1.15rem;">BTCUSD · CME +2.4K</div>
+                    <div class="stat-label" id="cot-lbl-btc">Binance Funding: +0.0034% · 68.2% 52W Pctl</div>
                 </div>
-                <div class="stat-trend up" style="color: #a855f7;">Expansion</div>
+                <div class="stat-trend up" id="cot-trd-btc" style="color: #10b981;">Bullish Bias</div>
+            </div>
+            <div class="stat-card" style="cursor:pointer; background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255, 255, 255, 0.08);" title="Real Macro Treasury & Intermarket Correlation">
+                <div class="stat-icon">🌐</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="cot-val-macro" style="font-size: 1.15rem;">Yield Slope: +0.96%</div>
+                    <div class="stat-label" id="cot-lbl-macro">10Y-3M Spread | DXY-XAU 30D Corr: -0.25</div>
+                </div>
+                <div class="stat-trend" id="cot-trd-macro" style="color: #38bdf8;">Empirical Real</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── AI CONTINUOUS LEARNING & RETRAINING PANEL ────── -->
+    <section class="engine-section" id="ai-learning-section">
+        <div class="section-header">
+            <h2 class="section-title">🧠 AI Self-Learning &amp; Continuous Model Retraining</h2>
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <span class="section-badge live" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3);">🟢 Walk-Forward Learning Active</span>
+                <button id="btn-retrain-ai" onclick="triggerAIRetrain()" style="padding: 6px 14px; font-size: 12px; font-weight: 600; background: #2563eb; color: #fff; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                    ⚡ Retrain Models Now
+                </button>
+            </div>
+        </div>
+        <div class="stats-grid" id="ai-models-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); padding: 20px 24px; margin-bottom: 0;">
+            <div class="stat-card blue" style="cursor:pointer;" onclick="selectTradingViewSymbol('US30', true)">
+                <div class="stat-icon">📈</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="ai-model-us30" style="font-size: 1.15rem;">US30 · RF Ensemble</div>
+                    <div class="stat-label" id="ai-label-us30">Walk-Forward Accuracy: 50.3% · Feature: body_ratio</div>
+                </div>
+                <div class="stat-trend up" style="color: #38bdf8;">Active Model</div>
+            </div>
+            <div class="stat-card gold" style="cursor:pointer;" onclick="selectTradingViewSymbol('XAUUSD', true)">
+                <div class="stat-icon">🪙</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="ai-model-xau" style="font-size: 1.15rem;">XAUUSD · RF Ensemble</div>
+                    <div class="stat-label" id="ai-label-xau">Walk-Forward Accuracy: 48.8% · Feature: upper_wick</div>
+                </div>
+                <div class="stat-trend up" style="color: #fbbf24;">Active Model</div>
+            </div>
+            <div class="stat-card purple" style="cursor:pointer;" onclick="selectTradingViewSymbol('BTCUSD', true)">
+                <div class="stat-icon">⚡</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="ai-model-btc" style="font-size: 1.15rem;">BTCUSD · RF Ensemble</div>
+                    <div class="stat-label" id="ai-label-btc">Walk-Forward Accuracy: 56.2% · Feature: sma30_dist</div>
+                </div>
+                <div class="stat-trend up" style="color: #a855f7;">Active Model</div>
+            </div>
+            <div class="stat-card green" style="cursor:pointer;" title="Continuous Learning Pipeline Stats">
+                <div class="stat-icon">🔄</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="ai-models-count" style="font-size: 1.15rem;">13+ Models Trained</div>
+                    <div class="stat-label" id="ai-trades-count">Real Trades Learned: 4 · Auto-Retrain: Every 12h</div>
+                </div>
+                <div class="stat-trend up" style="color: #10b981;">Online Learning</div>
             </div>
         </div>
     </section>
@@ -601,7 +685,7 @@
     </section>
 
     <!-- ── NEWS EVENTS ─────────────────────────────────── -->
-    <section class="news-section">
+    <section class="news-section" id="news-section">
         <div class="section-header">
             <h2 class="section-title">📰 Upcoming News Events</h2>
             <span class="section-badge warning">⚠️ Signals paused during HIGH impact</span>
@@ -610,6 +694,165 @@
             <div class="news-loading">Loading news events...</div>
         </div>
     </section>
+
+    <!-- ── SINGLE TRADINGVIEW LIVE CHART (AT BOTTOM OF ALL UI) ── -->
+    <section class="tv-chart-section" id="tv-chart-section">
+        <div class="section-header">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <h2 class="section-title">📈 TradingView Live Market Chart</h2>
+                <span class="tv-live-pill" style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;background:rgba(46,189,133,0.15);border:1px solid rgba(46,189,133,0.4);color:#2ebd85;font-size:10px;font-weight:700;">
+                    <span class="pulse-dot" style="width:6px;height:6px;border-radius:50%;background:#2ebd85;box-shadow:0 0 8px #2ebd85;"></span> LIVE STREAM
+                </span>
+                <span id="tv-active-symbol-pill" style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--amber);background:rgba(245,165,36,0.12);border:1px solid rgba(245,165,36,0.35);padding:2px 8px;border-radius:2px;">XAUUSD · 1H</span>
+                <div id="btm-tv-price-box" class="tv-live-price-box up" style="font-family:var(--mono);font-size:12px;font-weight:700;padding:2px 8px;border-radius:2px;background:rgba(46,189,133,0.15);color:#2ebd85;border:1px solid rgba(46,189,133,0.35);">
+                    <span id="btm-tv-price-val">Loading…</span>
+                    <span id="btm-tv-price-arrow">▲</span>
+                </div>
+                <span id="btm-tv-clock" style="font-family:var(--mono);font-size:10.5px;color:#38bdf8;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3);padding:2px 8px;border-radius:2px;font-weight:600;" title="Live Market Clock">🕒 --:--:--</span>
+                <span id="btm-tv-countdown" style="font-family:var(--mono);font-size:10.5px;color:var(--text-secondary);background:var(--bg-surface);border:1px solid var(--border);padding:2px 7px;border-radius:2px;" title="Time until current candle closes">⏱ Next Bar: --:--</span>
+            </div>
+            <div class="tv-chart-controls">
+                <div class="tv-chart-layout-group" id="btm-tv-nav-tools">
+                    <button type="button" onclick="window.btmChartFitHistory && window.btmChartFitHistory()" title="View all 800+ real past historical candles">⏪ Past History</button>
+                    <button type="button" onclick="window.btmChartScrollLive && window.btmChartScrollLive()" title="Jump to active real-time candle">⏩ Live Candle</button>
+                </div>
+                <div class="tv-chart-layout-group" id="btm-tv-engine-mode">
+                    <button data-engine="LIVE" class="active" title="Real-Time Tick-by-Tick TradingView Lightweight Chart">⚡ Live Stream</button>
+                    <button data-engine="WIDGET" title="TradingView Web Widget">🌐 TV Widget</button>
+                </div>
+                <select id="tv-symbol-select" aria-label="Chart symbol">
+                    <optgroup label="Metals">
+                        <option value="XAUUSD" selected>XAUUSD · Gold</option>
+                        <option value="XAGUSD">XAGUSD · Silver</option>
+                    </optgroup>
+                    <optgroup label="Forex">
+                        <option value="EURUSD">EURUSD · Euro</option>
+                        <option value="GBPUSD">GBPUSD · British Pound</option>
+                        <option value="USDJPY">USDJPY · Japanese Yen</option>
+                        <option value="USDCHF">USDCHF · Swiss Franc</option>
+                        <option value="AUDUSD">AUDUSD · Australian Dollar</option>
+                        <option value="USDCAD">USDCAD · Canadian Dollar</option>
+                        <option value="NZDUSD">NZDUSD · NZ Dollar</option>
+                        <option value="EURGBP">EURGBP · Euro / Pound</option>
+                        <option value="EURJPY">EURJPY · Euro / Yen</option>
+                        <option value="GBPJPY">GBPJPY · Pound / Yen</option>
+                    </optgroup>
+                    <optgroup label="Crypto">
+                        <option value="BTCUSD">BTCUSD · Bitcoin</option>
+                        <option value="ETHUSD">ETHUSD · Ethereum</option>
+                        <option value="BNBUSD">BNBUSD · BNB</option>
+                        <option value="SOLUSD">SOLUSD · Solana</option>
+                        <option value="XRPUSD">XRPUSD · Ripple</option>
+                    </optgroup>
+                    <optgroup label="Indices &amp; Oil">
+                        <option value="US30">US30 · Dow Jones</option>
+                        <option value="NAS100">NAS100 · Nasdaq 100</option>
+                        <option value="SPX500">SPX500 · S&amp;P 500</option>
+                        <option value="USOIL">USOIL · WTI Crude</option>
+                        <option value="UKOIL">UKOIL · Brent Crude</option>
+                    </optgroup>
+                </select>
+                <div class="tv-chart-tf" id="tv-chart-tf">
+                    <button data-int="1">1m</button>
+                    <button data-int="5">5m</button>
+                    <button data-int="15">15m</button>
+                    <button data-int="30">30m</button>
+                    <button data-int="60" class="active">1H</button>
+                    <button data-int="120">2H</button>
+                    <button data-int="240">4H</button>
+                    <button data-int="D">1D</button>
+                </div>
+                <button type="button" class="tv-fs-btn" id="tv-fullscreen-btn" onclick="toggleTvFullscreen()" title="Toggle Fullscreen Chart">⛶</button>
+            </div>
+        </div>
+        <!-- Quick Symbol Strip -->
+        <div class="tv-quick-symbols" id="tv-quick-symbols">
+            <button class="tv-qsym active" data-sym="XAUUSD">🪙 XAUUSD</button>
+            <button class="tv-qsym" data-sym="BTCUSD">₿ BTCUSD</button>
+            <button class="tv-qsym" data-sym="EURUSD">💶 EURUSD</button>
+            <button class="tv-qsym" data-sym="GBPUSD">💷 GBPUSD</button>
+            <button class="tv-qsym" data-sym="USDJPY">💴 USDJPY</button>
+            <button class="tv-qsym" data-sym="ETHUSD">⟠ ETHUSD</button>
+            <button class="tv-qsym" data-sym="NAS100">💻 NAS100</button>
+            <button class="tv-qsym" data-sym="US30">🏛️ US30</button>
+            <button class="tv-qsym" data-sym="USOIL">🛢️ USOIL</button>
+            <button class="tv-qsym" data-sym="XAGUSD">🥈 XAGUSD</button>
+            <button class="tv-qsym" data-sym="SOLUSD">◎ SOLUSD</button>
+            <button class="tv-qsym" data-sym="GBPJPY">⚡ GBPJPY</button>
+        </div>
+        <div class="tv-chart-body" style="position:relative;">
+            <div id="btm-tv-ohlc-overlay" class="tv-ohlc-overlay" style="position:absolute;top:10px;left:12px;z-index:10;pointer-events:none;font-family:var(--mono);font-size:11px;background:rgba(11,14,19,0.78);padding:6px 10px;border-radius:3px;border:1px solid rgba(255,255,255,0.07);">
+                <div id="btm-tv-ohlc-row1" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#d9dee8;font-weight:600;">Loading live market feed…</div>
+                <div id="btm-tv-ohlc-row2" style="display:flex;align-items:center;gap:10px;margin-top:3px;font-size:10.5px;"></div>
+            </div>
+            <div id="tv-chart-container" style="width:100%;height:100%;"></div>
+        </div>
+    </section>
+    <!-- ── AGENT STUDIO ───────────────────────────────── -->
+    <section class="agent-studio" id="agent-studio" aria-labelledby="agent-studio-title">
+        <div class="agent-studio-header">
+            <div>
+                <span class="overview-eyebrow">AUTONOMOUS DESK</span>
+                <h2 id="agent-studio-title">Your AI crew is at work</h2>
+                <p>Little specialists, one shared trading mission. They only suggest actions; your safety rules stay in control.</p>
+            </div>
+            <div class="agent-studio-actions">
+                <span class="agent-presence"><i></i><span id="agent-online-count">4</span> agents online</span>
+                <button class="agent-control-btn" id="agent-pause-all" type="button">❚❚ Pause crew</button>
+            </div>
+        </div>
+
+        <div class="agent-room" id="agent-room">
+            <div class="room-grid" aria-hidden="true"></div>
+            <div class="room-label room-label-one">MARKET DESK</div>
+            <div class="room-label room-label-two">RISK DESK</div>
+            <div class="room-window"><span>☾</span><span>✦</span><span>✦</span></div>
+
+            <article class="agent-toy agent-violet is-working" data-agent="Scout">
+                <div class="agent-aura"></div><div class="agent-face">🦊</div>
+                <div class="agent-status"><i></i> scouting</div>
+                <div class="agent-name">Scout</div><div class="agent-role">Market radar</div>
+                <div class="agent-task">Scanning XAUUSD momentum</div>
+                <div class="agent-progress"><span style="width:76%"></span></div>
+            </article>
+            <article class="agent-toy agent-cyan is-working" data-agent="Atlas">
+                <div class="agent-aura"></div><div class="agent-face">🤖</div>
+                <div class="agent-status"><i></i> thinking</div>
+                <div class="agent-name">Atlas</div><div class="agent-role">Technical analyst</div>
+                <div class="agent-task">Mapping H1 structure</div>
+                <div class="agent-progress"><span style="width:58%"></span></div>
+            </article>
+            <article class="agent-toy agent-amber is-working" data-agent="Sage">
+                <div class="agent-aura"></div><div class="agent-face">🦉</div>
+                <div class="agent-status"><i></i> watching</div>
+                <div class="agent-name">Sage</div><div class="agent-role">Risk guardian</div>
+                <div class="agent-task">Checking exposure limits</div>
+                <div class="agent-progress"><span style="width:91%"></span></div>
+            </article>
+            <article class="agent-toy agent-pink is-working" data-agent="Nova">
+                <div class="agent-aura"></div><div class="agent-face">🐙</div>
+                <div class="agent-status"><i></i> briefing</div>
+                <div class="agent-name">Nova</div><div class="agent-role">News intelligence</div>
+                <div class="agent-task">Reading macro calendar</div>
+                <div class="agent-progress"><span style="width:43%"></span></div>
+            </article>
+            <div class="desk-lamp" aria-hidden="true">💡</div><div class="plant" aria-hidden="true">🪴</div>
+        </div>
+
+        <div class="agent-feed" aria-live="polite">
+            <div class="agent-feed-title"><span>✦</span> Crew activity <button type="button" id="agent-refresh" title="Refresh crew activity">↻</button></div>
+            <div class="agent-message" id="agent-message"><b>Scout</b><span> found a possible London-session breakout on XAUUSD.</span><time>now</time></div>
+        </div>
+    </section>
+
+    <!-- ── SIGNALFORGE COPILOT ─────────────────────────── -->
+    <section class="copilot-panel" id="copilot-panel" aria-labelledby="copilot-title">
+        <div class="copilot-heading"><div class="copilot-orb">✦</div><div><span class="overview-eyebrow">FREE LOCAL GUIDE · CLAUDE OPTIONAL</span><h2 id="copilot-title">Ask SignalForge Copilot</h2><p>Ask about agents, signals, validation or data gaps. It explains the system; it does not trade.</p></div></div>
+        <div class="copilot-messages" id="copilot-messages" aria-live="polite"><div class="copilot-message assistant"><b>SignalForge Copilot</b><span>Ask me how this dashboard works, what an agent is doing, or why a signal was validated.</span></div></div>
+        <form class="copilot-compose" id="copilot-form"><input id="copilot-input" maxlength="3000" autocomplete="off" placeholder="e.g. Why is the current signal weak?" aria-label="Ask SignalForge Copilot"><button type="submit" id="copilot-send">Ask ✦</button></form>
+        <div class="copilot-disclaimer">Research assistant only · never executes trades · answers are grounded in current dashboard context</div>
+    </section>
+
 </main>
 
 <!-- ── SIGNAL DETAIL MODAL ─────────────────────────────── -->
@@ -791,6 +1034,10 @@
         <span class="mobile-nav-icon">⚡</span>
         <span class="mobile-nav-label">Home</span>
     </button>
+    <button class="mobile-nav-item" data-target="tv" onclick="mobileNavJump('tv', this)">
+        <span class="mobile-nav-icon">📈</span>
+        <span class="mobile-nav-label">TradingView</span>
+    </button>
     <button class="mobile-nav-item" data-target="auto" onclick="mobileNavJump('auto', this)">
         <span class="mobile-nav-icon">🤖</span>
         <span class="mobile-nav-label">Auto Trade</span>
@@ -799,17 +1046,14 @@
         <span class="mobile-nav-icon">🎯</span>
         <span class="mobile-nav-label">Signals</span>
     </button>
-    <button class="mobile-nav-item" data-target="pairs" onclick="mobileNavJump('pairs', this)">
-        <span class="mobile-nav-icon">📈</span>
-        <span class="mobile-nav-label">Pairs</span>
-    </button>
     <button class="mobile-nav-item" data-target="menu" onclick="toggleMobileSidebar()">
         <span class="mobile-nav-icon">☰</span>
         <span class="mobile-nav-label">Menu</span>
     </button>
 </nav>
 
-<script src="{% static 'js/dashboard.js' %}?v=18"></script>
+<script src="{% static 'js/dashboard.js' %}?v=34"></script>
+<script src="{% static 'js/terminal.js' %}?v=8"></script>
 </body>
 </html>
 

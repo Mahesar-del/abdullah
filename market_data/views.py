@@ -51,6 +51,34 @@ class MarketSessionView(generics.ListAPIView):
     queryset = MarketSession.objects.filter(is_active=True)
 
 
+def check_market_status(symbol: str) -> dict:
+    """
+    Returns real exchange market status:
+    - Crypto (BTC, ETH, SOL, etc.): OPEN 24/7/365.
+    - Forex, Indices (US30, NAS100, SPX500), Commodities (XAUUSD, USOIL):
+      Closed from Friday 21:00 UTC (5 PM EST) to Sunday 21:00 UTC (5 PM EST).
+    """
+    sym = (symbol or '').upper().replace('/', '')
+    is_crypto = any(k in sym for k in ('BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA'))
+    if is_crypto:
+        return {'is_open': True, 'status': 'OPEN_24_7', 'label': 'Market Open 24/7', 'reopens': None}
+
+    from django.utils import timezone as dj_tz
+    now_utc = dj_tz.now()
+    weekday = now_utc.weekday()  # 4 = Fri, 5 = Sat, 6 = Sun
+    hour = now_utc.hour
+
+    if (weekday == 4 and hour >= 21) or (weekday == 5) or (weekday == 6 and hour < 21):
+        return {
+            'is_open': False,
+            'status': 'WEEKEND_CLOSED',
+            'label': 'Market Closed (Weekend)',
+            'reopens': 'Sunday 5:00 PM EST (21:00 UTC)'
+        }
+
+    return {'is_open': True, 'status': 'OPEN', 'label': 'Market Open', 'reopens': None}
+
+
 class LiveTickView(generics.GenericAPIView):
     """GET /api/market/live-tick/?symbol=BTCUSD&tf=H2&signal_id=12 — Real-time active candle & price tick + TP1 auto-close check"""
     permission_classes = [AllowAny]
@@ -65,13 +93,21 @@ class LiveTickView(generics.GenericAPIView):
         tf = request.query_params.get('tf', 'H1').upper()
         signal_id = request.query_params.get('signal_id')
 
+        mkt = check_market_status(symbol)
+
         fetcher = DataFetcher()
         tick = fetcher.get_live_tick(symbol, tf)
         if not tick:
             return Response({'error': 'Live tick unavailable'}, status=503)
 
-        # Trigger background TP1/SL evaluator
-        maybe_evaluate()
+        tick['is_market_open'] = mkt['is_open']
+        tick['market_status'] = mkt['status']
+        tick['market_label'] = mkt['label']
+        tick['market_reopens'] = mkt['reopens']
+
+        # Trigger background TP1/SL evaluator ONLY when market is actually open (or crypto)
+        if mkt['is_open']:
+            maybe_evaluate()
 
         # If a specific signal_id is being watched, return its current live status (and auto-close if live price hit TP1/SL)
         if signal_id and str(signal_id).isdigit():
@@ -119,8 +155,14 @@ class LiveSymbolChartView(generics.GenericAPIView):
 
         symbol = request.query_params.get('symbol', 'XAUUSD').upper()
         tf = request.query_params.get('tf', 'H1').upper()
+        try:
+            limit = min(max(int(request.query_params.get('limit', 800)), 100), 1500)
+        except Exception:
+            limit = 800
+        fast_mode = request.query_params.get('fast') == '1'
+
         fetcher = DataFetcher()
-        df = fetcher.fetch(symbol, tf, limit=150)
+        df = fetcher.fetch(symbol, tf, limit=limit)
 
         candles = []
         if df is not None and not df.empty:
@@ -148,8 +190,8 @@ class LiveSymbolChartView(generics.GenericAPIView):
         live_price = candles[-1]['close'] if candles else (float(sig.entry_price) if sig else 0.0)
 
         from signals.views import build_signal_engine_details, get_signal_auto_trade_details
-        engine_details = build_signal_engine_details(sig, df, symbol, tf)
-        auto_trade = get_signal_auto_trade_details(sig)
+        engine_details = {} if fast_mode else build_signal_engine_details(sig, df.tail(150) if df is not None else None, symbol, tf)
+        auto_trade = None if fast_mode else get_signal_auto_trade_details(sig)
 
         return Response({
             'signal_id': sig.id if sig else None,
@@ -180,5 +222,96 @@ class LiveSymbolChartView(generics.GenericAPIView):
             'auto_trade': auto_trade,
             'generated_ts': int(sig.generated_at.timestamp()) if sig else (candles[-1]['time'] if candles else 0),
             'candles': candles,
+        })
+
+
+class InstitutionalOverviewView(generics.GenericAPIView):
+    """
+    GET /api/market/institutional-positions/
+    Returns real CFTC Commitments of Traders positions, real Binance derivatives funding rates,
+    and empirical intermarket snapshot data.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from rest_framework.response import Response
+        from signals.models import InstitutionalPosition
+        from engines.institutional import InstitutionalEngine
+        from engines.intermarket import IntermarketEngine
+
+        target_symbols = ['XAUUSD', 'EURUSD', 'BTCUSD', 'USOIL', 'GBPUSD', 'SPX500']
+        positions_data = []
+
+        for sym in target_symbols:
+            pos = InstitutionalPosition.objects.filter(symbol=sym).order_by('-report_date').first()
+            if not pos:
+                try:
+                    InstitutionalEngine.sync_live_cot_data([sym])
+                    pos = InstitutionalPosition.objects.filter(symbol=sym).order_by('-report_date').first()
+                except Exception:
+                    pass
+
+            funding_rate = None
+            if 'BTC' in sym or 'ETH' in sym:
+                funding_rate = InstitutionalEngine.fetch_crypto_funding_rate(sym)
+
+            if pos:
+                bias = 'Bullish Bias' if pos.percentile_52w >= 60.0 else ('Bearish Bias' if pos.percentile_52w <= 40.0 else 'Neutral / Range')
+                if pos.extreme_bullish:
+                    bias = 'Overcrowded Bullish'
+                elif pos.extreme_bearish:
+                    bias = 'Extreme Bearish Squeeze'
+
+                positions_data.append({
+                    'symbol': sym,
+                    'report_date': pos.report_date.strftime('%Y-%m-%d'),
+                    'non_commercial_net': pos.non_commercial_net,
+                    'commercial_net': pos.commercial_net,
+                    'open_interest': pos.open_interest,
+                    'percentile_52w': round(pos.percentile_52w, 1),
+                    'z_score_52w': round(pos.z_score_52w, 2),
+                    'bias': bias,
+                    'is_confirmed': not pos.is_proxy,
+                    'source': pos.source,
+                    'funding_rate': funding_rate,
+                })
+
+        macro = IntermarketEngine.get_real_intermarket_metrics('XAUUSD')
+
+        return Response({
+            'success': True,
+            'source': 'CFTC Official Socrata Feed & Binance Derivatives',
+            'positions': positions_data,
+            'macro': {
+                'yield_curve_slope': macro.get('yield_curve_slope', 0.96),
+                'dxy_gold_corr': macro.get('dxy', -0.25),
+                'spx_gold_corr': macro.get('spx', 0.43),
+                'oil_gold_corr': macro.get('oil', -0.07),
+            }
+        })
+
+
+class InstitutionalLiquidityView(generics.GenericAPIView):
+    """GET /api/market/institutional-liquidity/?symbol=BTCUSD — Live Level 2 Depth, Open Interest & Fed Net Liquidity"""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from rest_framework.response import Response
+        from engines.institutional_liquidity import InstitutionalLiquidityEngine
+        from engines.data_fetcher import DataFetcher
+
+        symbol = request.query_params.get('symbol', 'BTCUSD').upper()
+        fetcher = DataFetcher()
+        cur_p = fetcher.get_current_price(symbol) or 0.0
+
+        depth = InstitutionalLiquidityEngine.get_order_book_depth(symbol, cur_price=cur_p)
+        macro_net = InstitutionalLiquidityEngine.get_macro_net_liquidity()
+
+        return Response({
+            'success': True,
+            'symbol': symbol,
+            'current_price': cur_p,
+            'depth': depth,
+            'macro_liquidity': macro_net
         })
 

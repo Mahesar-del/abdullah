@@ -227,6 +227,18 @@ class Command(BaseCommand):
                             except Exception:
                                 pass
 
+                            # Feedback into Continuous Learning Engine for automated model retraining
+                            try:
+                                from engines.learning import ContinuousLearningEngine
+                                ContinuousLearningEngine.on_trade_resolved(
+                                    signal=sig,
+                                    outcome=perf_outcome,
+                                    realized_r=realized_r,
+                                    loss_category=loss_category
+                                )
+                            except Exception:
+                                pass
+
                             self.stdout.write(self.style.SUCCESS(f"Signal {sig.id} ({symbol}) resolved as {outcome} at {exit_price}"))
                             processed += 1
 

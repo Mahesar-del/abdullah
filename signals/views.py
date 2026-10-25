@@ -1,6 +1,7 @@
 """
 Signal Views - REST API endpoints
 """
+import pandas as pd
 from typing import Optional
 from rest_framework import generics, views
 from rest_framework.response import Response
@@ -129,7 +130,7 @@ def build_signal_engine_details(signal, df, sym: str, tf: str) -> dict:
     details['technical'] = {
         'key': 'technical',
         'title': '📐 Technical Indicator Engine',
-        'weight_pct': 15,
+        'weight_pct': 17,
         'score': round(tech_score, 1),
         'direction': tech_dir,
         'role': 'Trend Alignment, Momentum Oscillators, Volatility & Volume Confirmation',
@@ -156,6 +157,8 @@ def build_signal_engine_details(signal, df, sym: str, tf: str) -> dict:
             se._find_fvg()
             se._find_liquidity_sweeps_and_idm()
             se._detect_sessions_and_killzones()
+            se._map_liquidity_pools_and_dol()
+            se._detect_ote_and_2022_model()
             res = se._evaluate()
             smc_reasons = list(res.reasoning or [])
             if not signal:
@@ -169,20 +172,47 @@ def build_signal_engine_details(signal, df, sym: str, tf: str) -> dict:
             pd_zone = se._get_pd_zone()
             bull_ob_str = f"{fmt_p(se.bullish_obs[-1]['low'])} – {fmt_p(se.bullish_obs[-1]['high'])}" if se.bullish_obs else 'None Nearby'
             bear_ob_str = f"{fmt_p(se.bearish_obs[-1]['low'])} – {fmt_p(se.bearish_obs[-1]['high'])}" if se.bearish_obs else 'None Nearby'
+            bull_ob_mt = fmt_p(se.bullish_obs[-1].get('mean_threshold_mt', se.bullish_obs[-1]['mid'])) if se.bullish_obs else '—'
+            bear_ob_mt = fmt_p(se.bearish_obs[-1].get('mean_threshold_mt', se.bearish_obs[-1]['mid'])) if se.bearish_obs else '—'
+
             bull_fvg_str = f"{fmt_p(se.bullish_fvg[-1]['bot'])} – {fmt_p(se.bullish_fvg[-1]['top'])}" if se.bullish_fvg else 'Mitigated / None'
             bear_fvg_str = f"{fmt_p(se.bearish_fvg[-1]['bot'])} – {fmt_p(se.bearish_fvg[-1]['top'])}" if se.bearish_fvg else 'Mitigated / None'
-            sh_val = fmt_p(se.swing_highs[-1][1]) if se.swing_highs else '—'
-            sl_val = fmt_p(se.swing_lows[-1][1]) if se.swing_lows else '—'
+            bull_fvg_ce = fmt_p(se.bullish_fvg[-1].get('consequent_encroachment_ce', se.bullish_fvg[-1]['mid'])) if se.bullish_fvg else '—'
+            bear_fvg_ce = fmt_p(se.bearish_fvg[-1].get('consequent_encroachment_ce', se.bearish_fvg[-1]['mid'])) if se.bearish_fvg else '—'
+
+            # Liquidity Pools & Draw on Liquidity (DOL)
+            liq_map = getattr(se, 'liquidity_map', {}) or {}
+            near_bsl = liq_map.get('nearest_bsl')
+            near_ssl = liq_map.get('nearest_ssl')
+            bsl_info = f"{near_bsl['type']} @ {fmt_p(near_bsl['price'])}" if near_bsl else 'None Above'
+            ssl_info = f"{near_ssl['type']} @ {fmt_p(near_ssl['price'])}" if near_ssl else 'None Below'
+            bsl_dist = f"{liq_map.get('bsl_distance_atr', 0):.1f}x ATR" if liq_map.get('bsl_distance_atr') is not None else '—'
+            ssl_dist = f"{liq_map.get('ssl_distance_atr', 0):.1f}x ATR" if liq_map.get('ssl_distance_atr') is not None else '—'
+            trap_stat = "⚠️ Trapped Near Pool" if getattr(se, 'liquidity_trap', None) else "Clear (Safe Run)"
+
+            ote_sweet = '—'
+            if hasattr(se, 'ote_levels') and se.ote_levels:
+                if se.structure == 'BULLISH':
+                    ote_sweet = fmt_p(se.ote_levels.get('bullish_ote', {}).get('fib_705_sweet_spot', '—'))
+                elif se.structure == 'BEARISH':
+                    ote_sweet = fmt_p(se.ote_levels.get('bearish_ote', {}).get('fib_705_sweet_spot', '—'))
+
+            ict_model_status = 'Active' if (hasattr(se, 'ict_2022_model') and se.ict_2022_model.get('is_active')) else 'Monitoring'
+            ict_model_desc = se.ict_2022_model.get('description', 'Liquidity + MSS + FVG Scan') if hasattr(se, 'ict_2022_model') else 'Liquidity + MSS + FVG Scan'
 
             smc_metrics = [
+                {'label': 'ICT 2022 Model', 'value': ict_model_status, 'sub': ict_model_desc},
+                {'label': 'BSL Liquidity Pool', 'value': bsl_info, 'sub': f"Distance: {bsl_dist} | Status: {trap_stat}"},
+                {'label': 'SSL Liquidity Pool', 'value': ssl_info, 'sub': f"Distance: {ssl_dist} | Status: {trap_stat}"},
                 {'label': 'Market Structure', 'value': se.structure, 'sub': f"BOS: {se.bos or 'None'} | CHoCH: {se.choch or 'None'}"},
-                {'label': 'MSS & Displacement', 'value': se.mss or 'Intact', 'sub': f"ATR Displacement Unit: {fmt_p(se.cur_atr)}"},
+                {'label': 'MSS & Displacement', 'value': se.mss or 'Intact', 'sub': f"ATR Displacement: {fmt_p(se.cur_atr)}"},
+                {'label': 'OTE 70.5% Sweet Spot', 'value': ote_sweet, 'sub': 'Fib 62% - 70.5% - 79% Zone'},
                 {'label': 'Premium / Discount', 'value': pd_zone, 'sub': 'Discount favors BUY | Premium favors SELL'},
-                {'label': 'ICT Kill Zone', 'value': se.kill_zone.replace('_', ' '), 'sub': 'Institutional Session Window'},
-                {'label': 'Bullish Order Block', 'value': bull_ob_str, 'sub': f"Total Bull OBs: {len(se.bullish_obs)}"},
-                {'label': 'Bearish Order Block', 'value': bear_ob_str, 'sub': f"Total Bear OBs: {len(se.bearish_obs)}"},
-                {'label': 'Fair Value Gaps (FVG)', 'value': f"Bull: {bull_fvg_str}", 'sub': f"Bear: {bear_fvg_str}"},
-                {'label': 'Swing Liquidity Pools', 'value': f"BSL High: {sh_val}", 'sub': f"SSL Low: {sl_val}"},
+                {'label': 'ICT Session & Window', 'value': se.silver_bullet if getattr(se, 'silver_bullet', 'INACTIVE') != 'INACTIVE' else se.kill_zone.replace('_', ' '), 'sub': 'Killzone / Silver Bullet'},
+                {'label': 'Bullish OB & MT 50%', 'value': bull_ob_str, 'sub': f"Mean Threshold (MT 50%): {bull_ob_mt}"},
+                {'label': 'Bearish OB & MT 50%', 'value': bear_ob_str, 'sub': f"Mean Threshold (MT 50%): {bear_ob_mt}"},
+                {'label': 'Bull FVG (BISI) & CE', 'value': bull_fvg_str, 'sub': f"Consequent Encroachment (CE 50%): {bull_fvg_ce}"},
+                {'label': 'Bear FVG (SIBI) & CE', 'value': bear_fvg_str, 'sub': f"Consequent Encroachment (CE 50%): {bear_fvg_ce}"},
             ]
         except Exception:
             pass
@@ -191,7 +221,7 @@ def build_signal_engine_details(signal, df, sym: str, tf: str) -> dict:
     details['smc_ict'] = {
         'key': 'smc_ict',
         'title': '💡 SMC / ICT Smart Money Engine',
-        'weight_pct': 20,
+        'weight_pct': 40,
         'score': round(smc_score, 1),
         'direction': smc_dir,
         'role': 'Institutional Order Blocks, Fair Value Gaps (FVG), Liquidity Sweeps & BOS/CHoCH',
@@ -245,7 +275,7 @@ def build_signal_engine_details(signal, df, sym: str, tf: str) -> dict:
     details['price_action'] = {
         'key': 'price_action',
         'title': '🕯️ Price Action & Market Structure Engine',
-        'weight_pct': 15,
+        'weight_pct': 8,
         'score': round(pa_score, 1),
         'direction': pa_dir,
         'role': 'Candlestick Rejections, False Breakouts (Liquidity Traps), Support/Resistance & HH/HL Swings',
@@ -254,32 +284,69 @@ def build_signal_engine_details(signal, df, sym: str, tf: str) -> dict:
         'levels': pa_levels,
     }
 
-    # 4. Macro Environment Engine
+    # 4. Macro Environment & 100-Year World Order Engine
     macro_dir = ind_groups.get('Macro', 'NEUTRAL')
     macro_score = float(signal.macro_score) if signal else 50.0
     macro_reasons = []
+    cme_res = None
+    try:
+        from engines.century_macro import CenturyMacroEngine
+        cur_p = float(df['close'].iloc[-1]) if df is not None and len(df) > 0 else (float(signal.entry_price) if signal and signal.entry_price else 0.0)
+        cme_res = CenturyMacroEngine.evaluate_world_order_context(sym, cur_p, df)
+    except Exception:
+        cme_res = None
+
     if summary_lines.get('macro'):
         macro_reasons.append(summary_lines['macro'])
     if isinstance(saved_detail.get('macro'), dict):
         for r in (saved_detail['macro'].get('reasoning') or []):
             if r not in macro_reasons:
                 macro_reasons.append(r)
-    if not macro_reasons:
+
+    if cme_res:
+        para_name = cme_res.get('active_paradigm', {}).get('name', 'GLOBAL_CYCLE')
+        para_analog = cme_res.get('active_paradigm', {}).get('analog', '100-Year Macro History')
+        para_rule = cme_res.get('active_paradigm', {}).get('core_rule', '')
+        macro_reasons.append(f"100-Year Macro Regime: {para_name} ({para_analog})")
+        if para_rule:
+            macro_reasons.append(f"Historical Rule: {para_rule}")
+        macro_reasons.append(f"World Order Bias: {cme_res.get('century_bias')} ({cme_res.get('century_confidence')}% confidence) | Verdict: {cme_res.get('trading_verdict')}")
+    elif not macro_reasons:
         macro_reasons.append(f"Macro policy & yield differential regime evaluated for {sym} (Score: {macro_score:.0f}/100).")
+
+    macro_metrics = [
+        {'label': 'Macro Bias', 'value': macro_dir, 'sub': f"Engine Score: {macro_score:.0f}/100"},
+        {'label': 'Market Regime', 'value': getattr(signal, 'market_regime', 'TRENDING'), 'sub': f"Decision Class: {getattr(signal, 'decision_class', 'STRONG')}"},
+        {'label': 'Rate & Yield Sensitivity', 'value': 'USD / Real-Yield Tracked', 'sub': f"Instrument: {sym}"},
+        {'label': 'Central Bank Blackout', 'value': '✅ Clear' if getattr(signal, 'is_trade_allowed', True) else '⚠️ Restricted', 'sub': 'FOMC / ECB / BOE Window Check'},
+    ]
+
+    if cme_res:
+        macro_metrics.extend([
+            {'label': '100Y Paradigm Analog', 'value': cme_res.get('active_paradigm', {}).get('analog', '1971-1979 / 1929'), 'sub': cme_res.get('active_paradigm', {}).get('name')},
+            {'label': 'Dalio Debt Cycle', 'value': cme_res.get('debt_cycle_phase', 'Late-Stage Sovereign Debt'), 'sub': 'US Debt/GDP > 120% | Currency debasement'},
+            {'label': 'Wyckoff Structure', 'value': cme_res.get('wyckoff_structure', {}).get('phase', 'Accumulation/Distribution'), 'sub': cme_res.get('wyckoff_structure', {}).get('bias')},
+            {'label': '100Y Macro Verdict', 'value': cme_res.get('trading_verdict', 'FAVOR_STRUCTURAL_EXPANSION'), 'sub': f"Historical Confidence: {cme_res.get('century_confidence')}%"}
+        ])
+        vsa_info = cme_res.get('candle_and_volume_vsa', {})
+        if vsa_info:
+            macro_metrics.append({
+                'label': 'Wyckoff VSA Tape (Candle & Vol)',
+                'value': vsa_info.get('vsa_signal', 'Volume-Spread Synchronized'),
+                'sub': f"{vsa_info.get('candle_pattern')} | Vol: {vsa_info.get('volume_regime')} ({vsa_info.get('rvol', 1.0):.2f}x)"
+            })
+
+
     details['macro'] = {
         'key': 'macro',
-        'title': '🌍 Macro & Central Bank Policy Engine',
-        'weight_pct': 15,
+        'title': '🌍 Macro & 100-Year World Order Engine',
+        'weight_pct': 25,
         'score': round(macro_score, 1),
         'direction': macro_dir,
-        'role': 'Central Bank Rate Differentials, Real Yields, DXY Macro Pressure & Policy Regimes',
-        'metrics': [
-            {'label': 'Macro Bias', 'value': macro_dir, 'sub': f"Engine Score: {macro_score:.0f}/100"},
-            {'label': 'Market Regime', 'value': getattr(signal, 'market_regime', 'TRENDING'), 'sub': f"Decision Class: {getattr(signal, 'decision_class', 'STRONG')}"},
-            {'label': 'Rate & Yield Sensitivity', 'value': 'USD / Real-Yield Tracked', 'sub': f"Instrument: {sym}"},
-            {'label': 'Central Bank Blackout', 'value': '✅ Clear' if getattr(signal, 'is_trade_allowed', True) else '⚠️ Restricted', 'sub': 'FOMC / ECB / BOE Window Check'},
-        ],
+        'role': '100-Year Debt Cycles, De-dollarization, Central Bank Policy & Classic Literature Laws',
+        'metrics': macro_metrics,
         'reasoning': macro_reasons,
+        'world_order': cme_res,
         'levels': {},
     }
 
@@ -304,7 +371,7 @@ def build_signal_engine_details(signal, df, sym: str, tf: str) -> dict:
     details['news'] = {
         'key': 'news',
         'title': '📰 News Sentiment & Economic Calendar Engine',
-        'weight_pct': 15,
+        'weight_pct': 0,
         'score': round(news_score, 1),
         'direction': news_dir,
         'role': 'NLP Headline Sentiment Scoring & High-Impact Economic Release Blackout Protection',
@@ -343,7 +410,7 @@ def build_signal_engine_details(signal, df, sym: str, tf: str) -> dict:
     details['institutional'] = {
         'key': 'institutional',
         'title': '🏦 Institutional Flow, COT & Derivatives Engine',
-        'weight_pct': 10,
+        'weight_pct': 0,
         'score': round(inst_score, 1),
         'direction': inst_dir,
         'role': 'CFTC Commitments of Traders (COT), Futures Open Interest (OI) & Smart Money Accumulation',
@@ -417,6 +484,66 @@ def build_signal_engine_details(signal, df, sym: str, tf: str) -> dict:
         'levels': {},
     }
 
+    # 9. Institutional Master Traders Engine (PTJ, Wyckoff, Soros, Simons, Sarao, Livermore, Burry)
+    master_dir = ind_groups.get('Master Traders', 'NEUTRAL')
+    master_score = 50.0
+    master_reasons = []
+    master_levels = {}
+
+    if isinstance(saved_detail.get('master_traders'), dict):
+        md = saved_detail['master_traders']
+        master_score = float(md.get('score', 50.0))
+        master_dir = md.get('direction', master_dir)
+        master_reasons = list(md.get('reasoning') or [])
+        if md.get('entry_zone'):
+            master_levels = {
+                'entry_zone': fmt_p(md.get('entry_zone')),
+                'sl_zone': fmt_p(md.get('sl_zone')) if md.get('sl_zone') else '—',
+                'tp_zone': fmt_p(md.get('tp_zone')) if md.get('tp_zone') else '—',
+            }
+
+    if df is not None and len(df) >= 30 and not master_reasons:
+        try:
+            from engines.master_traders import MasterTradersEngine
+            mte = MasterTradersEngine(df, sym)
+            mte_res = mte.analyze()
+            master_score = float(mte_res.score)
+            master_dir = mte_res.direction
+            master_reasons = list(mte_res.reasoning or [])
+            if mte_res.entry_zone:
+                master_levels = {
+                    'entry_zone': fmt_p(mte_res.entry_zone),
+                    'sl_zone': fmt_p(mte_res.sl_zone) if mte_res.sl_zone else '—',
+                    'tp_zone': fmt_p(mte_res.tp_zone) if mte_res.tp_zone else '—',
+                }
+        except Exception:
+            pass
+
+    cur_close_p = float(df['close'].iloc[-1]) if df is not None and len(df) > 0 else (float(signal.entry_price) if signal and signal.entry_price else 0.0)
+    ema200_val = float(pd.Series(df['close']).ewm(span=min(200, len(df)), adjust=False).mean().iloc[-1]) if df is not None and len(df) >= 20 else cur_close_p
+    ptj_bias = 'BULLISH (Macro Above 200 EMA)' if cur_close_p >= ema200_val else 'BEARISH (Macro Below 200 EMA)'
+
+    master_metrics = [
+        {'label': 'Paul Tudor Jones 200 EMA', 'value': ptj_bias, 'sub': f"Price: {fmt_p(cur_close_p)} | 200 EMA: {fmt_p(ema200_val)}"},
+        {'label': 'Wyckoff Structural Phase', 'value': 'Spring / UTAD & VSA', 'sub': 'Smart Money Accumulation vs Distribution'},
+        {'label': 'Jesse Livermore Tape', 'value': 'Line of Least Resistance', 'sub': 'Pivotal Point Vol Expansion Detection'},
+        {'label': 'Soros/Druckenmiller Liquidity', 'value': 'Fed Net Liquidity', 'sub': 'WALCL - Reverse Repo - TGA Treasury Index'},
+        {'label': 'Sarao Order Book Depth', 'value': 'Level-2 Bid/Ask Delta', 'sub': 'ECN Depth Imbalance & Absorption Walls'},
+        {'label': 'Simons Medallion Filter', 'value': 'Statistical Autocorrelation', 'sub': 'Momentum vs Mean Reversion Regime Filter'},
+    ]
+
+    details['master_traders'] = {
+        'key': 'master_traders',
+        'title': '🏛️ Institutional Master Traders Engine',
+        'weight_pct': 25,
+        'score': round(master_score, 1),
+        'direction': master_dir,
+        'role': 'Paul Tudor Jones 200 EMA, Wyckoff Springs/UTAD, Soros Liquidity, Sarao ECN Depth & Simons Medallion Regime',
+        'metrics': master_metrics,
+        'reasoning': master_reasons or ['Institutional Master Trader frameworks applied to current market tape.'],
+        'levels': master_levels,
+    }
+
     return details
 
 
@@ -473,7 +600,7 @@ class SignalChartView(views.APIView):
         tf = req_tf if req_tf in valid_tfs else signal.timeframe
 
         fetcher = DataFetcher()
-        df = fetcher.fetch(sym, tf, limit=150)
+        df = fetcher.fetch(sym, tf, limit=600)
 
         candles = []
         if df is not None and not df.empty:
@@ -504,7 +631,7 @@ class SignalChartView(views.APIView):
         except Exception:
             pass
 
-        engine_details = build_signal_engine_details(signal, df, sym, tf)
+        engine_details = build_signal_engine_details(signal, df.tail(150) if df is not None else None, sym, tf)
         auto_trade = get_signal_auto_trade_details(signal)
 
         return Response({
@@ -724,3 +851,71 @@ class NewsEventListView(generics.ListAPIView):
         return NewsEvent.objects.filter(
             event_time__gte=timezone.now()
         ).order_by('event_time')[:20]
+
+
+class ContinuousLearningStatusView(views.APIView):
+    """
+    GET /api/signals/learning-status/
+    Returns real-time status of continuous learning pipeline, active model versions,
+    OOS validation metrics, and learned trade count.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from engines.learning import ContinuousLearningEngine
+        status = ContinuousLearningEngine.get_learning_status()
+        return Response(status)
+
+
+class TriggerRetrainView(views.APIView):
+    """
+    POST /api/signals/retrain/
+    Triggers automated walk-forward retraining for a symbol or all core instruments.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from engines.learning import ContinuousLearningEngine
+        symbol = request.data.get('symbol', '').strip().upper()
+        timeframe = request.data.get('timeframe', 'H1').strip().upper()
+
+        if symbol:
+            res = ContinuousLearningEngine.retrain_symbol(symbol, timeframe=timeframe, force=True)
+            return Response(res)
+            res = ContinuousLearningEngine.retrain_all_core_symbols()
+            return Response({
+                'success': True,
+                'message': f"Retrained models for {len(res)} core instruments",
+                'results': res
+            })
+
+
+class WorldOrderMacroView(views.APIView):
+    """
+    GET /api/signals/world-order/?symbol=XAUUSD
+    Provides deep 100-year historical paradigm comparisons, Dalio big debt cycle,
+    Wyckoff/Livermore classical trading laws, and comparison of past regimes (1929, 1971, 2008)
+    versus current geopolitical world order for trading decision-making.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from engines.century_macro import CenturyMacroEngine
+        symbol = request.GET.get('symbol', 'XAUUSD').strip().upper()
+        df = None
+        price = 0.0
+        try:
+            from engines.data_fetcher import DataFetcher
+            fetcher = DataFetcher()
+            df = fetcher.fetch(symbol, 'H1', limit=200)
+            if df is not None and len(df) > 0:
+                price = float(df['close'].iloc[-1])
+        except Exception:
+            pass
+        if price <= 0:
+            default_prices = {'XAUUSD': 2735.0, 'US30': 43800.0, 'BTCUSD': 68500.0, 'EURUSD': 1.0820, 'GBPUSD': 1.2980}
+            price = default_prices.get(symbol, 100.0)
+
+        data = CenturyMacroEngine.evaluate_world_order_context(symbol, price, df)
+        return Response(data)
+

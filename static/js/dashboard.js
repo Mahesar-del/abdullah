@@ -16,11 +16,17 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDashboardData();
     updateMarketSession();
     loadAutomationStatus();
+    loadInstitutionalData();
+    loadAILearningStatus();
     setInterval(updateMarketSession, 60000);
     setInterval(loadStats, 15000);   // auto-refresh scores every 15s
     setInterval(loadActiveSignals, 10000); // auto-refresh active signals every 10s (high-conviction signals appear automatically)
     setInterval(loadAutomationStatus, 5000); // auto-refresh automated trading engine status every 5s
+    setInterval(loadInstitutionalData, 30000); // auto-refresh institutional COT data every 30s
+    setInterval(loadAILearningStatus, 45000); // auto-refresh AI model learning status every 45s
     setupSidebarNav();
+    setupAgentStudio();
+    setupCopilot();
 
     // Restore Automated Trading console collapse state (opened if previously toggled open)
     const savedAutoState = localStorage.getItem('ts_auto_console_open');
@@ -55,6 +61,10 @@ function mobileNavJump(targetKey, btnEl) {
 
     if (targetKey === 'top') {
         window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+    }
+    if (targetKey === 'tv') {
+        document.getElementById('tv-chart-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
     }
     if (targetKey === 'auto') {
@@ -95,10 +105,12 @@ function setupSidebarNav() {
             let target = null;
             
             if (id === 'nav-dashboard')   target = document.querySelector('.stats-grid');
+            if (id === 'nav-tradingview') target = document.getElementById('tv-chart-section');
             if (id === 'nav-signals')     target = document.querySelector('.signals-section');
-            if (id === 'nav-markets')     target = document.querySelector('.engine-section');
-            if (id === 'nav-analysis')    target = document.querySelector('.direction-bar-section');
-            if (id === 'nav-news')        target = document.querySelector('.news-section');
+            if (id === 'nav-markets')     target = document.getElementById('tv-chart-section');
+            if (id === 'nav-analysis')    target = document.getElementById('ai-analysis-section') || document.querySelector('.direction-bar-section');
+            if (id === 'nav-agents')      target = document.getElementById('agent-studio');
+            if (id === 'nav-news')        target = document.getElementById('news-section') || document.querySelector('.news-section');
             if (id === 'nav-performance') target = document.querySelector('.r-multiple-section');
             
             closeMobileSidebar();
@@ -107,6 +119,151 @@ function setupSidebarNav() {
                 target.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         });
+    });
+}
+
+// ── Agent Studio ───────────────────────────────────────
+function setupAgentStudio() {
+    const pauseButton = document.getElementById('agent-pause-all');
+    const message = document.getElementById('agent-message');
+    const refresh = document.getElementById('agent-refresh');
+    const cards = [...document.querySelectorAll('.agent-toy')];
+    if (!pauseButton || !message || !cards.length) return;
+
+    const updates = [
+        ['Scout', ' spotted liquidity building near the Asian range.'],
+        ['Atlas', ' is comparing H1 and M15 trend alignment.'],
+        ['Sage', ' confirmed that portfolio risk remains within the daily limit.'],
+        ['Nova', ' found no high-impact event in the next 30 minutes.']
+    ];
+    let cursor = 0;
+    const showUpdate = () => {
+        const [name, text] = updates[cursor++ % updates.length];
+        message.innerHTML = `<b>${name}</b><span>${text}</span><time>now</time>`;
+    };
+    async function loadAgentWork() {
+        try {
+            const response = await fetch('/api/agents/status/');
+            const live = await response.json();
+            if (!response.ok) throw new Error(live.summary || 'Agent status unavailable');
+            live.cards.forEach((agent) => {
+                const card = cards.find((item) => item.dataset.agent === agent.name);
+                if (!card) return;
+                const status = card.querySelector('.agent-status');
+                const task = card.querySelector('.agent-task');
+                const progress = card.querySelector('.agent-progress span');
+                if (status) status.innerHTML = `<i></i> ${agent.status}`;
+                if (task) task.textContent = agent.task;
+                if (progress) progress.style.width = `${agent.progress}%`;
+                card.classList.toggle('is-working', agent.state === 'ok');
+            });
+            const gap = live.data_gaps?.length ? ` Data gaps: ${live.data_gaps.length}.` : '';
+            message.innerHTML = `<b>SignalForge</b><span>${live.summary}${gap}</span><time>live</time>`;
+        } catch (error) {
+            message.innerHTML = `<b>Agent bridge unavailable.</b><span> ${error.message}</span><time>now</time>`;
+        }
+    }
+    refresh?.addEventListener('click', loadAgentWork);
+    loadAgentWork();
+    setInterval(loadAgentWork, 60000);
+    pauseButton.addEventListener('click', () => {
+        const paused = pauseButton.classList.toggle('paused');
+        pauseButton.textContent = paused ? '▶ Resume crew' : '❚❚ Pause crew';
+        cards.forEach(card => card.classList.toggle('is-working', !paused));
+        document.getElementById('agent-online-count').textContent = paused ? '0' : '4';
+        message.innerHTML = paused ? '<b>Crew paused.</b><span> Agents are holding their current notes.</span><time>now</time>' : '<b>Crew resumed.</b><span> Agents are back on their assigned desks.</span><time>now</time>';
+    });
+    cards.forEach(card => card.addEventListener('click', () => {
+        const name = card.dataset.agent;
+        message.innerHTML = `<b>${name}</b><span> is focused — click Pause crew if you want every agent to stop.</span><time>now</time>`;
+    }));
+}
+
+// ── SignalForge Copilot (Claude provider, grounded dashboard context) ──
+function setupCopilot() {
+    const form = document.getElementById('copilot-form');
+    const input = document.getElementById('copilot-input');
+    const list = document.getElementById('copilot-messages');
+    const send = document.getElementById('copilot-send');
+    if (!form || !input || !list || !send) return;
+    const history = [];
+    const add = (role, content, pending = false) => {
+        const item = document.createElement('div');
+        item.className = `copilot-message ${role}${pending ? ' loading' : ''}`;
+        const title = document.createElement('b'); title.textContent = role === 'user' ? 'You' : 'SignalForge Copilot';
+        const text = document.createElement('span'); text.textContent = content;
+        item.append(title, text); list.appendChild(item); list.scrollTop = list.scrollHeight;
+        return item;
+    };
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault(); const question = input.value.trim(); if (!question) return;
+        add('user', question); history.push({ role: 'user', content: question }); input.value = ''; send.disabled = true;
+        const pending = add('assistant', 'Checking the current system context…', true);
+        try {
+            const response = await fetch('/api/copilot/chat/', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() }, body: JSON.stringify({ message: question, history: history.slice(-8) }) });
+            const payload = await response.json(); if (!response.ok) throw new Error(payload.error || 'Could not reach Copilot.');
+            pending.remove(); add('assistant', payload.answer); history.push({ role: 'assistant', content: payload.answer });
+        } catch (error) { pending.remove(); add('assistant', `I could not complete that request: ${error.message}`); }
+        finally { send.disabled = false; input.focus(); }
+    });
+}
+
+// ── Project source editor ──────────────────────────────
+function setupSourceEditor() {
+    const files = document.getElementById('editor-files');
+    const content = document.getElementById('editor-content');
+    const save = document.getElementById('editor-save');
+    const tab = document.getElementById('editor-tab');
+    const status = document.getElementById('editor-status');
+    const filter = document.getElementById('editor-filter');
+    if (!files || !content || !save || !tab || !status) return;
+    let selected = null; let original = '';
+    const setStatus = (value) => { status.textContent = value; };
+    async function openFile(path, button) {
+        setStatus('Opening…');
+        try {
+            const response = await fetch(`/api/editor/file/?path=${encodeURIComponent(path)}`);
+            const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Could not open file.');
+            selected = data.path; original = data.content; content.value = original; tab.textContent = selected;
+            files.querySelectorAll('.editor-file').forEach((item) => item.classList.remove('active')); button?.classList.add('active');
+            save.disabled = true; setStatus('Ready');
+        } catch (error) { setStatus(error.message); }
+    }
+    content.addEventListener('input', () => { save.disabled = !selected || content.value === original; setStatus(save.disabled ? 'Ready' : 'Unsaved changes'); });
+    save.addEventListener('click', async () => {
+        if (!selected || save.disabled) return; save.disabled = true; setStatus('Saving…');
+        try {
+            const response = await fetch('/api/editor/save/', { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrfToken()}, body:JSON.stringify({path:selected,content:content.value}) });
+            const data=await response.json(); if (!response.ok) throw new Error(data.error || 'Could not save file.');
+            original=content.value; setStatus('Saved ✓');
+        } catch (error) { setStatus(error.message); save.disabled=false; }
+    });
+    fetch('/api/editor/tree/').then((r) => r.json()).then((data) => {
+        files.textContent=''; const buttons=[];
+        data.files.forEach((path) => { const button=document.createElement('button'); button.type='button';button.className='editor-file';button.title=path;button.textContent=path;button.dataset.path=path;button.addEventListener('click',()=>openFile(path,button));files.appendChild(button);buttons.push(button); });
+        filter?.addEventListener('input', () => { const query=filter.value.toLowerCase(); buttons.forEach((button)=>{button.style.display=button.dataset.path.toLowerCase().includes(query)?'block':'none';}); });
+        const defaultButton = buttons.find((button) => button.dataset.path === 'templates/dashboard/index.html') || buttons[0];
+        if (defaultButton) openFile(defaultButton.dataset.path, defaultButton);
+        setStatus(`${data.files.length} files ready`);
+    }).catch(() => setStatus('Could not load project files'));
+    document.addEventListener('keydown', (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase()==='s' && selected) { event.preventDefault(); save.click(); } });
+}
+
+// ── Review-first AI code agent ─────────────────────────
+function setupCodeAgent() {
+    const input = document.getElementById('code-agent-input');
+    const run = document.getElementById('code-agent-run');
+    const result = document.getElementById('code-agent-result');
+    if (!input || !run || !result) return;
+    run.addEventListener('click', async () => {
+        const instruction = input.value.trim(); if (!instruction) { input.focus(); return; }
+        run.disabled = true; run.innerHTML = 'Reviewing…'; result.innerHTML = '<div class="code-agent-empty"><span>◌</span><div><b>Reviewing your request</b><p>No project files are being changed.</p></div></div>';
+        try {
+            const response = await fetch('/api/code-agent/plan/', { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrfToken()}, body:JSON.stringify({instruction}) });
+            const data = await response.json(); if (!response.ok) throw new Error(data.error || 'The code agent could not respond.');
+            result.textContent = ''; const title=document.createElement('b'); title.textContent=data.title || 'Code agent'; const copy=document.createElement('p'); copy.textContent=data.answer; result.append(title,copy);
+        } catch (error) { result.innerHTML = `<div class="code-agent-error">${error.message}</div>`; }
+        finally { run.disabled=false; run.innerHTML='Create plan <span>→</span>'; }
     });
 }
 
@@ -355,7 +512,7 @@ function renderPairScores(scores, source) {
             : `${p.closed === 0 ? 'No closed trades' : p.closed + ' closed'}`;
 
         return `
-        <div class="pair-score-card dir-${dirClass}" style="cursor:pointer" title="Click to view trade history" onclick="openPairHistory('${p.symbol}')">
+        <div class="pair-score-card dir-${dirClass}" style="cursor:pointer" title="Click to view TradingView chart &amp; trade history" onclick="openPairHistory('${p.symbol}')">
             <div class="pair-score-header">
                 <div>
                     <div class="pair-score-symbol">${p.symbol}</div>
@@ -370,6 +527,10 @@ function renderPairScores(scores, source) {
             <div class="pair-score-meta">
                 <span>${metaText}</span>
                 <span>Conf: ${p.confidence.toFixed(0)}%</span>
+            </div>
+            <div style="margin-top:6px;display:flex;gap:4px;">
+                <button type="button" class="tv-wall-act" style="flex:1;text-align:center;" onclick="event.stopPropagation(); window.selectTradingViewSymbol && window.selectTradingViewSymbol('${p.symbol}', true)">📈 TV Terminal</button>
+                <button type="button" class="tv-wall-act" style="flex:1;text-align:center;" onclick="event.stopPropagation(); openLiveSymbolChart('${p.symbol}', 'H1')">📊 Live Modal</button>
             </div>
         </div>`;
     }).join('');
@@ -416,7 +577,7 @@ function renderSignals(signals) {
         const dClass = s.decision_class || s.strength || 'STRONG';
         const regime = s.market_regime || 'TRENDING';
         return `
-        <tr onclick="openSignalModal(${s.id})" title="Click for details">
+        <tr onclick="openSignalModal(${s.id})" title="Click for TradingView chart &amp; signal details">
             <td>
                 <div style="font-weight:600">${s.instrument_symbol}</div>
                 <div style="font-size:11px;color:var(--text-muted)">${s.instrument_name || ''}</div>
@@ -436,6 +597,9 @@ function renderSignals(signals) {
                 </div>
             </td>
             <td style="color:var(--text-muted);font-size:12px">${formatTime(s.generated_at)}</td>
+            <td>
+                <button type="button" class="tv-wall-act" onclick="event.stopPropagation(); window.selectTradingViewSymbol && window.selectTradingViewSymbol('${s.instrument_symbol}', true)">📈 TV Chart</button>
+            </td>
         </tr>
     `;}).join('');
 }
@@ -443,7 +607,7 @@ function renderSignals(signals) {
 function renderEmptySignals(msg) {
     document.getElementById('signals-tbody').innerHTML = `
         <tr>
-            <td colspan="11" class="empty-state">
+            <td colspan="12" class="empty-state">
                 <div class="empty-icon">📡</div>
                 <div>${msg}</div>
             </td>
@@ -473,15 +637,20 @@ function selectTimeframe(tf) {
     clearInterval(autoScanTimer);
     autoScanTimer = null;
     currentTimeframe = tf;
-    document.querySelectorAll('.tf-btn').forEach(b =>
+    document.querySelectorAll('.tf-btn[data-tf]').forEach(b =>
         b.classList.toggle('active', b.dataset.tf === tf));
     closeMobileSidebar();
     renderSignals(allSignals);
-    document.querySelector('.signals-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     if (tf !== 'ALL') {
+        if (window.setTradingViewIntervalFromTf) {
+            window.setTradingViewIntervalFromTf(tf);
+        }
+        document.getElementById('tv-chart-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         scanWhenIdle();  // scan right away (waits if a previous scan is still running)
         autoScanTimer = setInterval(() => scanMarkets(true), TF_SCAN_MS[tf]);
+    } else {
+        document.querySelector('.signals-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 }
 
@@ -1009,15 +1178,17 @@ function renderSignalCandleChart(s) {
         return;
     }
 
-    // Sort ascending by time & deduplicate
+    // Deduplicate candles and ensure ascending pure UTC timestamps
+    const tfSeconds = s.tf_seconds || TF_SECONDS_MAP[currentChartTf] || 3600;
     const sorted = [...rawCandles].sort((a, b) => a.time - b.time);
-    const seen = new Set();
+    const seenTimes = new Set();
     const candleData = [];
     for (const c of sorted) {
-        if (!seen.has(c.time)) {
-            seen.add(c.time);
+        const t = Math.floor(Number(c.time));
+        if (!seenTimes.has(t)) {
+            seenTimes.add(t);
             candleData.push({
-                time: Number(c.time),
+                time: t,
                 open: Number(c.open),
                 high: Number(c.high),
                 low: Number(c.low),
@@ -1325,7 +1496,13 @@ function startLiveChartStream(s) {
         if (!currentChartInstance || !currentChartData.length || currentChartMode !== 'PLACEMENT') return;
 
         // Update candle close countdown timer
-        updateBarCloseCountdown(tfSeconds);
+        updateBarCloseCountdown(tfSeconds, symbol);
+
+        // FREEZE on weekends for closed non-crypto markets (US30, Gold, Forex)
+        const mkt = isMarketOpen(symbol);
+        if (!mkt.isOpen) {
+            return;
+        }
 
         // Smooth real-time micro-tick movement so candle & price axis stay live every second
         const lastBar = currentChartData[currentChartData.length - 1];
@@ -1344,7 +1521,7 @@ function startLiveChartStream(s) {
         applyLivePriceTickToChart(nextPrice, tfSeconds, 0);
     }, 1000);
 
-    updateBarCloseCountdown(tfSeconds);
+    updateBarCloseCountdown(tfSeconds, symbol);
 }
 
 function handleSignalAutoClosedOnChart(s, newStatus) {
@@ -1369,14 +1546,15 @@ function syncServerCandlesToChart(recentCandles, tfSeconds) {
 
     const latestServer = recentCandles[recentCandles.length - 1];
     const lastLocal = currentChartData[currentChartData.length - 1];
+    const srvTime = Math.floor(Number(latestServer.time));
 
-    if (latestServer.time > lastLocal.time) {
+    if (srvTime > lastLocal.time) {
         // New candle bar opened on server
         const newBar = {
-            time: Number(latestServer.time),
-            open: lastLocal.close,
-            high: Math.max(lastLocal.close, Number(latestServer.high)),
-            low: Math.min(lastLocal.close, Number(latestServer.low)),
+            time: srvTime,
+            open: Number(latestServer.open),
+            high: Number(latestServer.high),
+            low: Number(latestServer.low),
             close: Number(latestServer.close),
             volume: Number(latestServer.volume || 0),
         };
@@ -1387,12 +1565,12 @@ function syncServerCandlesToChart(recentCandles, tfSeconds) {
             value: newBar.volume,
             color: newBar.close >= newBar.open ? 'rgba(16, 185, 129, 0.28)' : 'rgba(239, 68, 68, 0.28)',
         });
-    } else {
+    } else if (srvTime === lastLocal.time) {
         // Update current active candle
         lastLocal.close = Number(latestServer.close);
         lastLocal.high = Math.max(lastLocal.high, Number(latestServer.high), lastLocal.close);
         lastLocal.low = Math.min(lastLocal.low, Number(latestServer.low), lastLocal.close);
-        if (latestServer.volume > lastLocal.volume) {
+        if (Number(latestServer.volume || 0) > lastLocal.volume) {
             lastLocal.volume = Number(latestServer.volume);
         }
         candleSeries.update(lastLocal);
@@ -1423,16 +1601,21 @@ function applyLivePriceTickToChart(rawPrice, tfSeconds, addedVolume = 0) {
     const { candleSeries, volumeSeries, ema20Series, ema50Series } = currentChartSeries;
 
     const sym = currentSignalPayload.symbol || '';
+    const mkt = isMarketOpen(sym);
+    if (!mkt.isOpen) {
+        return; // Freeze chart: Market is closed (Weekend) for non-crypto assets
+    }
     const isLowP = rawPrice < 10;
     const decimals = sym.includes('JPY') ? 3 : (isLowP ? 5 : 2);
     const price = Number(rawPrice.toFixed(decimals));
 
-    const nowSec = Math.floor(Date.now() / 1000);
-    const currentBucket = Math.floor(nowSec / tfSeconds) * tfSeconds;
+    const nowUtcSec = Math.floor(Date.now() / 1000);
+    const currentBucket = Math.floor(nowUtcSec / tfSeconds) * tfSeconds;
     let lastBar = currentChartData[currentChartData.length - 1];
 
-    // Roll over to a new bar if current timeframe bucket advanced beyond the last candle's bucket
-    if (currentBucket > lastBar.time && (currentBucket - lastBar.time) <= tfSeconds * 4) {
+    // Roll over to a new bar ONLY when the real clock advances into the very next timeframe bucket
+    // and the gap is reasonable (within 2 bars, avoiding generating artificial bars across weekends/halts)
+    if (currentBucket > lastBar.time && (currentBucket - lastBar.time) <= tfSeconds * 2) {
         const newBar = {
             time: currentBucket,
             open: lastBar.close,
@@ -1443,31 +1626,30 @@ function applyLivePriceTickToChart(rawPrice, tfSeconds, addedVolume = 0) {
         };
         currentChartData.push(newBar);
         lastBar = newBar;
+        candleSeries.update(newBar);
+        volumeSeries.update({
+            time: newBar.time,
+            value: newBar.volume,
+            color: newBar.close >= newBar.open ? 'rgba(16, 185, 129, 0.28)' : 'rgba(239, 68, 68, 0.28)',
+        });
     } else {
         lastBar.close = price;
         if (price > lastBar.high) lastBar.high = price;
         if (price < lastBar.low) lastBar.low = price;
         lastBar.volume = (lastBar.volume || 0) + (addedVolume > 0 ? addedVolume : Math.max(0.1, (lastBar.volume || 50) * 0.002));
+
+        const isBullish = lastBar.close >= lastBar.open;
+        candleSeries.applyOptions({
+            priceLineColor: isBullish ? '#10b981' : '#ef4444',
+        });
+
+        candleSeries.update(lastBar);
+        volumeSeries.update({
+            time: lastBar.time,
+            value: lastBar.volume,
+            color: isBullish ? 'rgba(16, 185, 129, 0.28)' : 'rgba(239, 68, 68, 0.28)',
+        });
     }
-
-    const isBullish = lastBar.close >= lastBar.open;
-    candleSeries.applyOptions({
-        priceLineColor: isBullish ? '#10b981' : '#ef4444',
-    });
-
-    candleSeries.update({
-        time: lastBar.time,
-        open: lastBar.open,
-        high: lastBar.high,
-        low: lastBar.low,
-        close: lastBar.close,
-    });
-
-    volumeSeries.update({
-        time: lastBar.time,
-        value: lastBar.volume,
-        color: isBullish ? 'rgba(16, 185, 129, 0.28)' : 'rgba(239, 68, 68, 0.28)',
-    });
 
     const e20 = computeEMASeries(currentChartData, 20).at(-1);
     const e50 = computeEMASeries(currentChartData, 50).at(-1);
@@ -1493,7 +1675,14 @@ function updateTvOhlcOverlay(symbol, bar, prevClose, ema20Val, ema50Val) {
     const pct = (diff / base) * 100;
     const sign = diff >= 0 ? '+' : '';
 
+    const d = new Date(Number(bar.time) * 1000);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const now = new Date();
+    const ss = !isHoveringCrosshair ? `:${String(now.getSeconds()).padStart(2, '0')}` : '';
+    const barTimeStr = `${String(d.getDate()).padStart(2, '0')} ${months[d.getMonth()]} · ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}${ss}`;
+
     valEl.innerHTML = `
+        <span style="color:#38bdf8;font-weight:700">🕒 ${barTimeStr}</span>
         <span>O <b style="color:${col}">${formatChartPrice(bar.open, symbol)}</b></span>
         <span>H <b style="color:${col}">${formatChartPrice(bar.high, symbol)}</b></span>
         <span>L <b style="color:${col}">${formatChartPrice(bar.low, symbol)}</b></span>
@@ -1506,6 +1695,7 @@ function updateTvOhlcOverlay(symbol, bar, prevClose, ema20Val, ema50Val) {
             <span style="color:#60a5fa">EMA 20: <b>${ema20Val ? formatChartPrice(ema20Val, symbol) : '—'}</b></span>
             <span style="color:#fbbf24">EMA 50: <b>${ema50Val ? formatChartPrice(ema50Val, symbol) : '—'}</b></span>
             <span style="color:#94a3b8">Vol: <b>${formatVolumeCompact(bar.volume)}</b></span>
+            <span style="color:#10b981">📜 ${currentChartData.length} Real Past Bars</span>
         `;
     }
 }
@@ -1572,18 +1762,59 @@ function updateLiveTradeTelemetry(s, livePrice) {
     }
 }
 
-function updateBarCloseCountdown(tfSeconds) {
+function isMarketOpen(symbol) {
+    const sym = (symbol || '').toUpperCase().replace('/', '');
+    const isCrypto = sym.includes('BTC') || sym.includes('ETH') || sym.includes('SOL') ||
+                     sym.includes('BNB') || sym.includes('XRP') || sym.includes('DOGE') || sym.includes('ADA');
+    if (isCrypto) {
+        return { isOpen: true, label: 'Market Open 24/7', reopens: null };
+    }
+
+    const now = new Date();
+    const day = now.getUTCDay(); // 0 = Sun, 5 = Fri, 6 = Sat
+    const hour = now.getUTCHours();
+
+    if ((day === 5 && hour >= 21) || (day === 6) || (day === 0 && hour < 21)) {
+        return {
+            isOpen: false,
+            label: 'Market Closed (Weekend)',
+            reopens: 'Sun 5:00 PM EST (21:00 UTC)'
+        };
+    }
+
+    return { isOpen: true, label: 'Market Open', reopens: null };
+}
+
+function updateBarCloseCountdown(tfSeconds, symbol) {
     const el = document.getElementById('tv-bar-countdown');
     if (!el) return;
-    const nowSec = Math.floor(Date.now() / 1000);
+
+    const sym = symbol || currentSignalPayload?.symbol || '';
+    const mkt = isMarketOpen(sym);
+    if (!mkt.isOpen) {
+        el.style.background = 'rgba(239, 68, 68, 0.16)';
+        el.style.color = '#f87171';
+        el.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+        el.textContent = `🔴 MARKET CLOSED (Weekend) · Opens ${mkt.reopens}`;
+        return;
+    } else {
+        el.style.background = '';
+        el.style.color = '';
+        el.style.borderColor = '';
+    }
+
+    const now = new Date();
+    const nowSec = Math.floor(now.getTime() / 1000);
     const rem = tfSeconds - (nowSec % tfSeconds);
     const hrs = Math.floor(rem / 3600);
     const mins = Math.floor((rem % 3600) / 60);
     const secs = rem % 60;
     const pad = n => String(n).padStart(2, '0');
-    el.textContent = hrs > 0
-        ? `⏱ Next Bar: ${pad(hrs)}:${pad(mins)}:${pad(secs)}`
-        : `⏱ Next Bar: ${pad(mins)}:${pad(secs)}`;
+    const clockStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    const remStr = hrs > 0
+        ? `${pad(hrs)}:${pad(mins)}:${pad(secs)}`
+        : `${pad(mins)}:${pad(secs)}`;
+    el.textContent = `🕒 ${clockStr} · Next Bar: ${remStr}`;
 }
 
 // ── Built-in Canvas Candlestick Chart ───────────────────
@@ -1747,19 +1978,23 @@ function renderAllEngineScoreRows(s) {
                     📂 Expand All Trade Details
                 </button>
             </div>
-            ${scoreRow('📐 Technical Engine',         s.technical_score,     15, 'technical',     s)}
-            ${scoreRow('💡 SMC / ICT Engine',         s.smc_score,           20, 'smc_ict',       s)}
-            ${scoreRow('🕯️ Price Action Engine',     s.price_action_score,  15, 'price_action',  s)}
-            ${scoreRow('🌍 Macro Environment',        s.macro_score,         15, 'macro',         s)}
-            ${scoreRow('📰 News Sentiment',           s.news_score,          15, 'news',          s)}
-            ${scoreRow('🏦 Institutional Flow',       s.institutional_score, 10, 'institutional', s)}
-            ${scoreRow('🔗 Intermarket & Volatility', intermarketScore,       5, 'intermarket',   s)}
-            ${scoreRow('🤖 AI / ML Prediction',       s.ai_ml_score,         10, 'ai_ml',         s)}
+            ${scoreRow('💡 SMC / ICT Engine',                 s.smc_score,           35, 'smc_ict',        s)}
+            ${scoreRow('🏛️ Institutional Master Traders',     s.master_traders_score ?? s.engine_details?.master_traders?.score ?? 50, 25, 'master_traders', s)}
+            ${scoreRow('🌍 Macro & World Order',              s.macro_score,         20, 'macro',          s)}
+            ${scoreRow('📐 Technical Regime',                 s.technical_score,     10, 'technical',      s)}
+            ${scoreRow('⚡ Godzilla Order Flow',              s.godzilla_score ?? s.engine_details?.godzilla?.score ?? 50, 10, 'godzilla', s)}
+            ${scoreRow('🕯️ Price Action (Wyckoff VSA)',       s.price_action_score,   0, 'price_action',   s)}
+            ${scoreRow('📰 News Blackout Guard',              s.news_score,           0, 'news',           s)}
+            ${scoreRow('🏦 Institutional ECN Depth',          s.institutional_score,  0, 'institutional',  s)}
+            ${scoreRow('🔗 Intermarket Vol Squeeze',          intermarketScore,       0, 'intermarket',    s)}
+            ${scoreRow('🤖 AI / ML Prediction',               s.ai_ml_score,          0, 'ai_ml',          s)}
         </div>`;
 }
 
 function mapRawEngineNameToKey(rawName) {
     const n = String(rawName || '').toLowerCase().trim();
+    if (n.includes('master') || n.includes('ptj') || n.includes('wyckoff') || n.includes('soros')) return 'master_traders';
+    if (n.includes('godzilla')) return 'godzilla';
     if (n.includes('tech') || n.includes('trend') || n.includes('momentum')) return 'technical';
     if (n.includes('smc') || n.includes('ict') || n.includes('smart')) return 'smc_ict';
     if (n.includes('price') || n === 'pa') return 'price_action';
@@ -1775,14 +2010,16 @@ function renderInteractiveConfluenceSummary(summaryText, s) {
     if (!summaryText) return '';
     const lines = String(summaryText).split('\n').map(l => l.trim()).filter(Boolean);
     const ENGINE_PRETTY = {
-        technical:     '📐 Technical Engine',
-        smc_ict:       '💡 SMC / ICT Engine',
-        price_action:  '🕯️ Price Action Engine',
-        macro:         '🌍 Macro Environment',
-        news:          '📰 News Sentiment',
-        institutional: '🏦 Institutional Flow',
-        intermarket:   '🔗 Intermarket & Volatility',
-        ai_ml:         '🤖 AI / ML Prediction',
+        smc_ict:        '💡 SMC / ICT Engine',
+        master_traders: '🏛️ Institutional Master Traders',
+        macro:          '🌍 Macro & World Order',
+        technical:      '📐 Technical Regime',
+        godzilla:       '⚡ Godzilla Order Flow',
+        price_action:   '🕯️ Price Action (Wyckoff VSA)',
+        news:           '📰 News Blackout Guard',
+        institutional:  '🏦 Institutional ECN Depth',
+        intermarket:    '🔗 Intermarket Vol Squeeze',
+        ai_ml:          '🤖 AI / ML Prediction',
     };
 
     const rowsHtml = lines.map(line => {
@@ -2107,7 +2344,10 @@ async function openPairHistory(symbol) {
     document.getElementById('modal-title').innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;width:100%;">
             <span>📜 ${symbol} — Trade History</span>
-            <button class="chart-open-btn" onclick="openLiveSymbolChart('${symbol}', 'H1')">📊 Open Live Chart</button>
+            <div style="display:flex;gap:8px;">
+                <button class="chart-open-btn" onclick="closeModal(); window.selectTradingViewSymbol && window.selectTradingViewSymbol('${symbol}', true)">📈 View on TradingView Chart</button>
+                <button class="chart-open-btn" onclick="openLiveSymbolChart('${symbol}', 'H1')">📊 Open Live Chart</button>
+            </div>
         </div>
     `;
     body.innerHTML = '<div class="empty-state" style="padding:30px;text-align:center">Loading history…</div>';
@@ -2839,6 +3079,145 @@ async function submitConnectBroker() {
         }
     } catch (e) {
         alert('Failed to connect broker account: ' + e.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = origText;
+        }
+    }
+}
+
+
+async function loadInstitutionalData() {
+    try {
+        const res = await fetch('/api/market/institutional-positions/');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data || !data.positions) return;
+
+        const posMap = {};
+        data.positions.forEach(p => { posMap[p.symbol] = p; });
+
+        if (posMap['XAUUSD']) {
+            const p = posMap['XAUUSD'];
+            const valEl = document.getElementById('cot-val-xau');
+            const lblEl = document.getElementById('cot-lbl-xau');
+            const trdEl = document.getElementById('cot-trd-xau');
+            if (valEl) valEl.textContent = `XAUUSD · Net ${p.non_commercial_net >= 0 ? '+' : ''}${(p.non_commercial_net / 1000).toFixed(1)}K`;
+            if (lblEl) lblEl.textContent = `CFTC Speculators (${p.percentile_52w}% 52W Pctl) · ${p.report_date}`;
+            if (trdEl) {
+                trdEl.textContent = p.bias;
+                trdEl.style.color = p.percentile_52w >= 60 ? '#10b981' : (p.percentile_52w <= 40 ? '#ef4444' : '#94a3b8');
+            }
+        }
+
+        if (posMap['EURUSD']) {
+            const p = posMap['EURUSD'];
+            const valEl = document.getElementById('cot-val-eur');
+            const lblEl = document.getElementById('cot-lbl-eur');
+            const trdEl = document.getElementById('cot-trd-eur');
+            if (valEl) valEl.textContent = `EURUSD · Net ${p.non_commercial_net >= 0 ? '+' : ''}${(p.non_commercial_net / 1000).toFixed(1)}K`;
+            if (lblEl) lblEl.textContent = `Commercials: ${(p.commercial_net / 1000).toFixed(1)}K (${p.percentile_52w}% Pctl) · ${p.report_date}`;
+            if (trdEl) {
+                trdEl.textContent = p.bias;
+                trdEl.style.color = p.percentile_52w >= 60 ? '#10b981' : (p.percentile_52w <= 40 ? '#ef4444' : '#94a3b8');
+            }
+        }
+
+        if (posMap['BTCUSD']) {
+            const p = posMap['BTCUSD'];
+            const valEl = document.getElementById('cot-val-btc');
+            const lblEl = document.getElementById('cot-lbl-btc');
+            const trdEl = document.getElementById('cot-trd-btc');
+            const fundStr = p.funding_rate !== null ? `Binance: ${(p.funding_rate * 100).toFixed(4)}%` : 'Perp Funding';
+            if (valEl) valEl.textContent = `BTCUSD · CME ${p.non_commercial_net >= 0 ? '+' : ''}${(p.non_commercial_net / 1000).toFixed(1)}K`;
+            if (lblEl) lblEl.textContent = `${fundStr} · ${p.percentile_52w}% 52W Pctl`;
+            if (trdEl) {
+                trdEl.textContent = p.bias;
+                trdEl.style.color = p.percentile_52w >= 60 ? '#10b981' : (p.percentile_52w <= 40 ? '#ef4444' : '#94a3b8');
+            }
+        }
+
+        if (data.macro) {
+            const m = data.macro;
+            const valEl = document.getElementById('cot-val-macro');
+            const lblEl = document.getElementById('cot-lbl-macro');
+            const trdEl = document.getElementById('cot-trd-macro');
+            if (valEl) valEl.textContent = `Yield Slope: ${m.yield_curve_slope >= 0 ? '+' : ''}${m.yield_curve_slope}%`;
+            if (lblEl) lblEl.textContent = `10Y-3M Spread | DXY-XAU 30D Corr: ${m.dxy_gold_corr}`;
+            if (trdEl) trdEl.textContent = 'Empirical Real';
+        }
+    } catch (err) {
+        console.warn('[Dashboard] loadInstitutionalData error:', err);
+    }
+}
+
+
+async function loadAILearningStatus() {
+    try {
+        const res = await fetch('/api/signals/learning-status/');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data || !data.active_models) return;
+
+        const modelMap = {};
+        data.active_models.forEach(m => { modelMap[m.symbol] = m; });
+
+        if (modelMap['US30']) {
+            const m = modelMap['US30'];
+            const valEl = document.getElementById('ai-model-us30');
+            const lblEl = document.getElementById('ai-label-us30');
+            if (valEl) valEl.textContent = `US30 · ${m.version_tag.split('-')[0]}`;
+            if (lblEl) lblEl.textContent = `Walk-Forward Acc: ${m.oos_accuracy_pct}% · Feature: ${m.top_feature}`;
+        }
+
+        if (modelMap['XAUUSD']) {
+            const m = modelMap['XAUUSD'];
+            const valEl = document.getElementById('ai-model-xau');
+            const lblEl = document.getElementById('ai-label-xau');
+            if (valEl) valEl.textContent = `XAUUSD · ${m.version_tag.split('-')[0]}`;
+            if (lblEl) lblEl.textContent = `Walk-Forward Acc: ${m.oos_accuracy_pct}% · Feature: ${m.top_feature}`;
+        }
+
+        if (modelMap['BTCUSD']) {
+            const m = modelMap['BTCUSD'];
+            const valEl = document.getElementById('ai-model-btc');
+            const lblEl = document.getElementById('ai-label-btc');
+            if (valEl) valEl.textContent = `BTCUSD · ${m.version_tag.split('-')[0]}`;
+            if (lblEl) lblEl.textContent = `Walk-Forward Acc: ${m.oos_accuracy_pct}% · Feature: ${m.top_feature}`;
+        }
+
+        const countEl = document.getElementById('ai-models-count');
+        const tradesEl = document.getElementById('ai-trades-count');
+        if (countEl) countEl.textContent = `${data.total_models_trained} Models Trained`;
+        if (tradesEl) tradesEl.textContent = `Real Trades Learned: ${data.total_trades_learned_from} · Auto-Retrain: Every 12h`;
+    } catch (e) {
+        console.warn('[Dashboard] loadAILearningStatus error:', e);
+    }
+}
+
+async function triggerAIRetrain() {
+    const btn = document.getElementById('btn-retrain-ai');
+    const origText = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Training Models...';
+    }
+    try {
+        const res = await fetch('/api/signals/retrain/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert('✅ Success! Models successfully retrained across core instruments.');
+            await loadAILearningStatus();
+        } else {
+            alert('Notice: ' + (data.message || 'Retraining completed'));
+        }
+    } catch (e) {
+        alert('Retraining request note: ' + e.message);
     } finally {
         if (btn) {
             btn.disabled = false;

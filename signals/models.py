@@ -117,6 +117,8 @@ class Signal(models.Model):
         indexes = [
             models.Index(fields=['instrument', 'status', '-generated_at']),
             models.Index(fields=['direction', 'status']),
+            models.Index(fields=['status', '-generated_at']),
+            models.Index(fields=['-generated_at']),
         ]
 
 
@@ -396,6 +398,8 @@ class SMCZone(models.Model):
         ordering = ['-timestamp']
         indexes = [
             models.Index(fields=['instrument', 'timeframe', 'zone_type', 'is_mitigated']),
+            models.Index(fields=['instrument', 'timeframe', 'is_mitigated', '-timestamp']),
+            models.Index(fields=['instrument', '-timestamp']),
         ]
 
 

@@ -221,66 +221,229 @@ class InstitutionalEngine(BaseEngine):
             weight=self.weight,
         )
 
+    CFTC_MARKET_MAP = {
+        'XAUUSD': {'name': 'GOLD - COMMODITY EXCHANGE INC.', 'asset': 'COMMODITY', 'inverted': False},
+        'EURUSD': {'name': 'EURO FX - CHICAGO MERCANTILE EXCHANGE', 'asset': 'FOREX', 'inverted': False},
+        'GBPUSD': {'name': 'BRITISH POUND - CHICAGO MERCANTILE EXCHANGE', 'asset': 'FOREX', 'inverted': False},
+        'USDJPY': {'name': 'JAPANESE YEN - CHICAGO MERCANTILE EXCHANGE', 'asset': 'FOREX', 'inverted': True},
+        'USDCAD': {'name': 'CANADIAN DOLLAR - CHICAGO MERCANTILE EXCHANGE', 'asset': 'FOREX', 'inverted': True},
+        'USDCHF': {'name': 'SWISS FRANC - CHICAGO MERCANTILE EXCHANGE', 'asset': 'FOREX', 'inverted': True},
+        'AUDUSD': {'name': 'AUSTRALIAN DOLLAR - CHICAGO MERCANTILE EXCHANGE', 'asset': 'FOREX', 'inverted': False},
+        'USOIL':  {'name': 'CRUDE OIL, LIGHT SWEET - NEW YORK MERCANTILE EXCHANGE', 'asset': 'COMMODITY', 'inverted': False},
+        'SPX500': {'name': 'E-MINI S&P 500 - CHICAGO MERCANTILE EXCHANGE', 'asset': 'EQUITY', 'inverted': False},
+        'NAS100': {'name': 'NASDAQ-100 CONSOLIDATED - CHICAGO MERCANTILE EXCHANGE', 'asset': 'EQUITY', 'inverted': False},
+        'BTCUSD': {'name': 'BITCOIN - CHICAGO MERCANTILE EXCHANGE', 'asset': 'CRYPTO', 'inverted': False},
+        'ETHUSD': {'name': 'ETHER - CHICAGO MERCANTILE EXCHANGE', 'asset': 'CRYPTO', 'inverted': False},
+    }
+
+    @classmethod
+    def sync_live_cot_data(cls, symbols: Optional[List[str]] = None) -> Dict[str, dict]:
+        """
+        Synchronizes live CFTC Commitments of Traders (COT) data directly from
+        the official CFTC Socrata Open API endpoint.
+        Calculates real 52-week percentile, Z-score, and persists to InstitutionalPosition.
+        """
+        import urllib.request
+        import urllib.parse
+        import json
+        from signals.models import InstitutionalPosition
+        from django.utils import timezone as dj_tz
+
+        targets = symbols or list(cls.CFTC_MARKET_MAP.keys())
+        results = {}
+
+        for sym in targets:
+            meta = cls.CFTC_MARKET_MAP.get(sym)
+            if not meta:
+                continue
+
+            market_name = meta['name']
+            query = f"market_and_exchange_names = '{market_name}'"
+            encoded_query = urllib.parse.quote(query)
+            url = f"https://publicreporting.cftc.gov/resource/jun7-fc8e.json?$where={encoded_query}&$order=report_date_as_yyyy_mm_dd%20DESC&$limit=52"
+            req = urllib.request.Request(url, headers={'User-Agent': 'TradeSensePro/1.0 (Financial Analytics)'})
+
+            try:
+                with urllib.request.urlopen(req, timeout=8) as response:
+                    records = json.loads(response.read().decode('utf-8'))
+
+                if not records:
+                    continue
+
+                latest = records[0]
+                raw_date = latest.get('report_date_as_yyyy_mm_dd', '')[:10]
+                report_date = datetime.strptime(raw_date, '%Y-%m-%d').date()
+
+                noncomm_long = int(latest.get('noncomm_positions_long_all', 0))
+                noncomm_short = int(latest.get('noncomm_positions_short_all', 0))
+                comm_long = int(latest.get('comm_positions_long_all', 0))
+                comm_short = int(latest.get('comm_positions_short_all', 0))
+                nonrept_long = int(latest.get('nonrept_positions_long_all', 0))
+                nonrept_short = int(latest.get('nonrept_positions_short_all', 0))
+                oi = int(latest.get('open_interest_all', 0))
+
+                net_spec = noncomm_long - noncomm_short
+                net_comm = comm_long - comm_short
+                net_retail = nonrept_long - nonrept_short
+
+                if meta.get('inverted'):
+                    net_spec = -net_spec
+                    net_comm = -net_comm
+                    net_retail = -net_retail
+                    noncomm_long, noncomm_short = noncomm_short, noncomm_long
+                    comm_long, comm_short = comm_short, comm_long
+
+                # Compute 52-week rolling percentile and Z-score
+                history_nets = []
+                for r in records:
+                    n = int(r.get('noncomm_positions_long_all', 0)) - int(r.get('noncomm_positions_short_all', 0))
+                    history_nets.append(-n if meta.get('inverted') else n)
+
+                if history_nets:
+                    min_net = min(history_nets)
+                    max_net = max(history_nets)
+                    rng = max_net - min_net
+                    percentile_52w = round(((net_spec - min_net) / rng * 100.0), 2) if rng > 0 else 50.0
+                    mean_net = float(np.mean(history_nets))
+                    std_net = float(np.std(history_nets))
+                    z_score_52w = round((net_spec - mean_net) / std_net, 2) if std_net > 0 else 0.0
+                else:
+                    percentile_52w = 50.0
+                    z_score_52w = 0.0
+
+                oi_change = 0
+                if len(records) > 1:
+                    prev_oi = int(records[1].get('open_interest_all', oi))
+                    oi_change = oi - prev_oi
+
+                pos, _ = InstitutionalPosition.objects.update_or_create(
+                    symbol=sym,
+                    report_date=report_date,
+                    defaults={
+                        'asset_class': meta['asset'],
+                        'commercial_long': comm_long,
+                        'commercial_short': comm_short,
+                        'commercial_net': net_comm,
+                        'non_commercial_long': noncomm_long,
+                        'non_commercial_short': noncomm_short,
+                        'non_commercial_net': net_spec,
+                        'non_reportable_net': net_retail,
+                        'open_interest': oi,
+                        'open_interest_change': oi_change,
+                        'z_score_52w': z_score_52w,
+                        'percentile_52w': percentile_52w,
+                        'extreme_bullish': percentile_52w >= 85.0,
+                        'extreme_bearish': percentile_52w <= 15.0,
+                        'source': 'CFTC',
+                        'is_proxy': False,
+                        'contract_name': latest.get('market_and_exchange_names', market_name),
+                        'contract_code': latest.get('cftc_contract_market_code', ''),
+                        'inverted': meta.get('inverted', False),
+                        'history_weeks': len(records),
+                        'fetched_at': dj_tz.now(),
+                    }
+                )
+
+                results[sym] = {
+                    'symbol': sym,
+                    'report_date': report_date.strftime('%Y-%m-%d'),
+                    'non_commercial_net': net_spec,
+                    'commercial_net': net_comm,
+                    'open_interest': oi,
+                    'percentile_52w': percentile_52w,
+                    'z_score_52w': z_score_52w,
+                    'source': 'CFTC',
+                    'is_confirmed': True,
+                }
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"[InstitutionalEngine] Live CFTC sync error for {sym}: {e}")
+
+        return results
+
+    @classmethod
+    def fetch_crypto_funding_rate(cls, symbol: str = 'BTCUSD') -> float:
+        """Fetch live perpetual funding rate from Binance Public API."""
+        import urllib.request
+        import json
+        binance_sym = 'BTCUSDT' if 'BTC' in symbol else ('ETHUSDT' if 'ETH' in symbol else 'BTCUSDT')
+        url = f"https://fapi.binance.com/fapi/v1/fundingRate?symbol={binance_sym}&limit=1"
+        req = urllib.request.Request(url, headers={'User-Agent': 'TradeSensePro/1.0'})
+        try:
+            with urllib.request.urlopen(req, timeout=5) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                if data and isinstance(data, list) and len(data) > 0:
+                    rate = float(data[0].get('fundingRate', 0.0))
+                    return rate
+        except Exception:
+            pass
+        return 0.0001
+
     def _get_cot_position(self) -> dict:
-        """Fetch latest InstitutionalPosition from database or fallback to benchmarks"""
+        """Fetch latest confirmed CFTC InstitutionalPosition from database or live sync"""
         try:
             from signals.models import InstitutionalPosition
-            pos = InstitutionalPosition.objects.filter(symbol=self.symbol).first()
+            pos = InstitutionalPosition.objects.filter(symbol=self.symbol).order_by('-report_date').first()
             if pos:
                 return {
                     'non_commercial_net': pos.non_commercial_net,
                     'percentile_52w': pos.percentile_52w,
                     'z_score_52w': pos.z_score_52w,
                     'open_interest': pos.open_interest,
-                    'is_confirmed': True,
+                    'is_confirmed': not pos.is_proxy,
                     'report_date': pos.report_date.strftime('%Y-%m-%d') if hasattr(pos, 'report_date') and pos.report_date else 'Latest',
                 }
 
+            # If no position in database for this symbol, attempt live sync on demand
+            synced = self.sync_live_cot_data([self.symbol])
+            if self.symbol in synced:
+                return synced[self.symbol]
         except Exception:
             pass
 
-        # Fallback to COT_BENCHMARKS
-        bench = self.COT_BENCHMARKS.get(self.symbol)
-        if not bench:
-            # Check base currency match (e.g. EUR in EURGBP)
-            base = self.symbol[:3]
-            for sym, b in self.COT_BENCHMARKS.items():
-                if sym.startswith(base):
-                    bench = b
-                    break
+        # If symbol is not directly tracked by CFTC, check base currency match
+        base = self.symbol[:3]
+        for mapped_sym in self.CFTC_MARKET_MAP.keys():
+            if mapped_sym.startswith(base):
+                from signals.models import InstitutionalPosition
+                pos = InstitutionalPosition.objects.filter(symbol=mapped_sym).order_by('-report_date').first()
+                if pos:
+                    return {
+                        'non_commercial_net': pos.non_commercial_net,
+                        'percentile_52w': pos.percentile_52w,
+                        'z_score_52w': pos.z_score_52w,
+                        'open_interest': pos.open_interest,
+                        'is_confirmed': False,
+                        'report_date': pos.report_date.strftime('%Y-%m-%d'),
+                    }
 
-        if bench:
-            return {
-                'non_commercial_net': bench['non_comm_net'],
-                'percentile_52w': bench['percentile'],
-                'z_score_52w': (bench['percentile'] - 50.0) / 25.0,
-                'open_interest': abs(bench['non_comm_net']) * 3,
-            }
-
-        return {'non_commercial_net': 0, 'percentile_52w': 50.0, 'z_score_52w': 0.0, 'open_interest': 10000}
+        return {'non_commercial_net': 0, 'percentile_52w': 50.0, 'z_score_52w': 0.0, 'open_interest': 10000, 'is_confirmed': False}
 
     def _get_derivative_data(self) -> dict:
-        """Fetch latest DerivativeSnapshot from database or return calibrated defaults"""
+        """Fetch latest DerivativeSnapshot from database or live exchange rates"""
+        is_crypto = any(c in self.symbol for c in ['BTC', 'ETH', 'SOL'])
+        live_funding = None
+        if is_crypto:
+            live_funding = self.fetch_crypto_funding_rate(self.symbol)
+
         try:
             from signals.models import DerivativeSnapshot
-            snap = DerivativeSnapshot.objects.filter(symbol=self.symbol).first()
+            snap = DerivativeSnapshot.objects.filter(symbol=self.symbol).order_by('-timestamp').first()
             if snap:
                 return {
-                    'oi_change_24h_pct': snap.oi_change_24h_pct,
-                    'put_call_ratio': snap.put_call_ratio,
-                    'funding_rate': snap.funding_rate,
-                    'implied_volatility': snap.implied_volatility,
+                    'oi_change_24h_pct': snap.oi_change_24h_pct or 0.0,
+                    'put_call_ratio': snap.put_call_ratio or 1.0,
+                    'funding_rate': live_funding if live_funding is not None else (snap.funding_rate or 0.0),
+                    'implied_volatility': snap.implied_volatility or 20.0,
                 }
         except Exception:
             pass
 
-        bench = self.COT_BENCHMARKS.get(self.symbol, {})
-        is_crypto = any(c in self.symbol for c in ['BTC', 'ETH', 'SOL'])
         return {
-            'oi_change_24h_pct': bench.get('oi_chg_pct', 1.5),
+            'oi_change_24h_pct': 0.5,
             'put_call_ratio': 0.95,
-            'funding_rate': 0.0001 if is_crypto else 0.0, # 0.01% standard crypto funding
-            'implied_volatility': 22.0,
+            'funding_rate': live_funding if live_funding is not None else (0.0001 if is_crypto else 0.0),
+            'implied_volatility': 20.0,
         }
 
     def _save_derivative_snapshot(self, vwap: float, upper: float, lower: float, oi_chg: float, pc: float, funding: float):
@@ -290,7 +453,6 @@ class InstitutionalEngine(BaseEngine):
             from django.utils import timezone as dj_tz
 
             now = dj_tz.now()
-            # Only save once per hour to avoid spamming database
             recent = DerivativeSnapshot.objects.filter(
                 symbol=self.symbol,
                 timestamp__gte=now - timedelta(minutes=50)
@@ -306,43 +468,17 @@ class InstitutionalEngine(BaseEngine):
                     funding_rate=funding,
                     vwap_upper_band=upper,
                     vwap_lower_band=lower,
-                    market_structure_regime='Institutional Neutral/Active'
+                    market_structure_regime='Institutional Neutral/Active',
+                    source='Binance/CFTC Live Feed',
+                    is_proxy=False
                 )
         except Exception:
             pass
 
     @classmethod
     def seed_baseline_cot_data(cls):
-        """Seed benchmark CFTC COT institutional positions into database"""
+        """Pulls and synchronizes official live CFTC COT institutional positions into database"""
         try:
-            from signals.models import InstitutionalPosition
-            from django.utils import timezone as dj_tz
-
-            today = dj_tz.now().date()
-            for sym, data in cls.COT_BENCHMARKS.items():
-                net = data['non_comm_net']
-                long_pos = max(net * 2, 50000)
-                short_pos = max(long_pos - net, 20000)
-                pctl = data['percentile']
-
-                InstitutionalPosition.objects.update_or_create(
-                    symbol=sym,
-                    report_date=today,
-                    defaults={
-                        'asset_class': data['asset'],
-                        'commercial_long': short_pos, # Commercials are typically net counter to specs
-                        'commercial_short': long_pos,
-                        'commercial_net': short_pos - long_pos,
-                        'non_commercial_long': long_pos,
-                        'non_commercial_short': short_pos,
-                        'non_commercial_net': net,
-                        'non_reportable_net': int(net * 0.15),
-                        'open_interest': long_pos + short_pos + 40000,
-                        'percentile_52w': pctl,
-                        'z_score_52w': (pctl - 50.0) / 25.0,
-                        'extreme_bullish': pctl >= 80.0,
-                        'extreme_bearish': pctl <= 20.0,
-                    }
-                )
+            cls.sync_live_cot_data()
         except Exception:
             pass

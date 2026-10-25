@@ -25,6 +25,7 @@ _HTTP_SESSION.headers.update({
 })
 _LAST_DB_CACHE_TS = {}
 _MEM_OHLCV_CACHE = {}  # (symbol, timeframe) -> (timestamp, df)
+_MEM_TICK_CACHE = {}   # (symbol, timeframe) -> (timestamp, tick_dict)
 
 
 class DataFetcher:
@@ -49,15 +50,15 @@ class DataFetcher:
     }
 
     TIMEFRAME_TO_YF = {
-        'M1':  ('1m',  '3d'),
-        'M5':  ('5m',  '5d'),
-        'M15': ('15m', '10d'),
-        'M30': ('30m', '15d'),
-        'H1':  ('1h',  '30d'),
-        'H2':  ('1h',  '60d'),   # H2 assembled from H1
-        'H4':  ('1h',  '60d'),   # H4 assembled from H1
-        'D1':  ('1d',  '365d'),
-        'W1':  ('1wk', '730d'),
+        'M1':  ('1m',  '7d'),
+        'M5':  ('5m',  '30d'),
+        'M15': ('15m', '60d'),
+        'M30': ('30m', '60d'),
+        'H1':  ('1h',  '180d'),
+        'H2':  ('1h',  '365d'),  # H2 assembled from H1
+        'H4':  ('1h',  '730d'),  # H4 assembled from H1
+        'D1':  ('1d',  '5y'),
+        'W1':  ('1wk', '10y'),
     }
 
     TF_SECONDS = {
@@ -76,36 +77,39 @@ class DataFetcher:
 
         # Short 1.5s memory cache to keep rapid live chart polls instantaneous
         cached = _MEM_OHLCV_CACHE.get(cache_key)
-        if cached and (now_ts - cached[0]) < 1.5 and len(cached[1]) >= min_bars:
-            return cached[1].tail(limit).copy()
+        if cached and (now_ts - cached[0]) < 1.5 and len(cached[1]) >= min(min_bars, len(cached[1])):
+            if len(cached[1]) >= limit or limit <= 200:
+                return cached[1].tail(limit).copy()
 
-        # Primary (when installed): yfinance library
-        if _HAS_YFINANCE:
-            start_time = datetime.now()
-            df = self._fetch_via_yfinance(symbol, timeframe, limit)
-            if df is not None and len(df) >= min_bars:
-                latency = int((datetime.now() - start_time).total_seconds() * 1000)
-                from .data_quality import DataQualityValidator
-                DataQualityValidator.record_source_health('yfinance', 'HEALTHY', latency_ms=latency)
-                _MEM_OHLCV_CACHE[cache_key] = (now_ts, df)
-                self._cache_to_database_async(symbol, timeframe, df)
-                return df
+        fetch_limit = max(limit, 1000)
 
-        # Fast Direct Yahoo Finance v8 API
+        # Primary: Fast Direct Yahoo Finance v8 API (persistent HTTP session, ~2x faster)
         try:
             start_time = datetime.now()
-            df = self._fetch_from_yahoo_api(symbol, timeframe, limit)
+            df = self._fetch_from_yahoo_api(symbol, timeframe, fetch_limit)
             if df is not None and len(df) >= min_bars:
                 latency = int((datetime.now() - start_time).total_seconds() * 1000)
                 from .data_quality import DataQualityValidator
-                DataQualityValidator.record_source_health('yahoo_direct_api', 'HEALTHY', latency_ms=latency, is_fallback=not _HAS_YFINANCE)
+                DataQualityValidator.record_source_health('yahoo_direct_api', 'HEALTHY', latency_ms=latency, is_fallback=False)
                 _MEM_OHLCV_CACHE[cache_key] = (now_ts, df)
                 self._cache_to_database_async(symbol, timeframe, df)
-                return df
+                return df.tail(limit).copy()
         except Exception as e:
             from .data_quality import DataQualityValidator
-            DataQualityValidator.record_source_health('yahoo_direct_api', 'DOWN', error_message=str(e), is_fallback=True)
+            DataQualityValidator.record_source_health('yahoo_direct_api', 'DOWN', error_message=str(e), is_fallback=False)
             print(f"[DataFetcher] [ERROR] Yahoo API error for {symbol}: {e}")
+
+        # Secondary Fallback: yfinance library
+        if _HAS_YFINANCE:
+            start_time = datetime.now()
+            df = self._fetch_via_yfinance(symbol, timeframe, fetch_limit)
+            if df is not None and len(df) >= min_bars:
+                latency = int((datetime.now() - start_time).total_seconds() * 1000)
+                from .data_quality import DataQualityValidator
+                DataQualityValidator.record_source_health('yfinance', 'HEALTHY', latency_ms=latency, is_fallback=True)
+                _MEM_OHLCV_CACHE[cache_key] = (now_ts, df)
+                self._cache_to_database_async(symbol, timeframe, df)
+                return df.tail(limit).copy()
 
         # Tertiary Fallback: Cached real historical candles in database
         db_df = self._fetch_from_database(symbol, timeframe, limit)
@@ -158,9 +162,11 @@ class DataFetcher:
 
     def _normalize_trailing_live_candle(self, df: pd.DataFrame, timeframe: str, live_price: Optional[float] = None) -> pd.DataFrame:
         """
-        Yahoo Finance appends a synthetic intra-bar quote at the current second
-        with open==high==low==close and volume==0. Merge it into the active timeframe
-        bucket or connect its open to previous close so the live candle has a real body.
+        1. Merges Yahoo Finance's synthetic intra-bar quote (with unaligned seconds and flat OHLC)
+           into the active timeframe bucket or floors its timestamp to the exact candle boundary.
+        2. If the exchange feed has a 10-minute CME/COMEX delay (e.g. GC=F, CL=F, NQ=F where
+           the latest bar is <= 15 minutes behind real-time UTC), aligns the intraday timestamps
+           to the current real-time bucket so the live chart is synchronized with the real clock.
         """
         if df is None or len(df) < 2:
             return df
@@ -185,7 +191,7 @@ class DataFetcher:
             df.loc[prev_idx, 'volume'] = float(df.loc[prev_idx, 'volume']) + float(last_row.get('volume', 0.0))
             df = df.iloc[:-1]
         elif is_flat_tick:
-            # New bar just started: connect open to previous candle's close
+            # New bar just started: connect open to previous candle's close and floor its timestamp
             prev_close = float(df['close'].iloc[-2])
             price = float(live_price if live_price is not None else last_row['close'])
             last_idx = df.index[-1]
@@ -193,6 +199,25 @@ class DataFetcher:
             df.loc[last_idx, 'close'] = price
             df.loc[last_idx, 'high'] = max(prev_close, price)
             df.loc[last_idx, 'low'] = min(prev_close, price)
+            floored_ts = (last_ts // tf_sec) * tf_sec
+            if floored_ts != last_ts:
+                new_index = list(df.index[:-1]) + [pd.to_datetime(floored_ts, unit='s', utc=True)]
+                df.index = pd.DatetimeIndex(new_index)
+
+        # Align trailing bar timestamp to exact timeframe boundary
+        if len(df) >= 1 and timeframe in ('M1', 'M5', 'M15', 'M30', 'H1', 'H2', 'H4'):
+            cur_last_ts = int(df.index[-1].timestamp())
+            cur_last_bucket = (cur_last_ts // tf_sec) * tf_sec
+            now_utc = int(_time.time())
+            now_bucket = (now_utc // tf_sec) * tf_sec
+            lag_sec = now_utc - cur_last_ts
+
+            # If feed is actively trading (lag within 20 mins, e.g. 10-min CME futures delay)
+            # shift intraday timestamps so the rightmost candle sits on the real current clock bucket
+            if 0 < (now_bucket - cur_last_bucket) <= max(900, tf_sec) and 0 < lag_sec <= 1200:
+                shift_sec = now_bucket - cur_last_bucket
+                shifted_ts = [((int(ts.timestamp()) // tf_sec) * tf_sec) + shift_sec for ts in df.index]
+                df.index = pd.to_datetime(shifted_ts, unit='s', utc=True)
 
         if live_price is not None and len(df) >= 1:
             last_idx = df.index[-1]
@@ -206,14 +231,14 @@ class DataFetcher:
     def _fetch_from_yahoo_api(self, symbol: str, timeframe: str, limit: int, fast_range: Optional[str] = None) -> Optional[pd.DataFrame]:
         """Direct Yahoo Finance v8 API using persistent HTTP session"""
         yf_symbol = self.YAHOO_MAP.get(symbol, symbol)
-        interval, period = self.TIMEFRAME_TO_YF.get(timeframe, ('1h', '30d'))
+        interval, period = self.TIMEFRAME_TO_YF.get(timeframe, ('1h', '180d'))
         if fast_range:
             period = fast_range
 
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{yf_symbol}"
         params = {'interval': interval, 'range': period, 'events': 'history'}
 
-        resp = _HTTP_SESSION.get(url, params=params, timeout=4)
+        resp = _HTTP_SESSION.get(url, params=params, timeout=5)
         resp.raise_for_status()
         data = resp.json()
 
@@ -282,7 +307,14 @@ class DataFetcher:
     def get_live_tick(self, symbol: str, timeframe: str = 'H1') -> Optional[dict]:
         """
         Ultra-fast live tick & active candle fetcher for real-time TradingView-style chart streaming.
+        Uses in-memory microsecond cache (1.0s TTL) for repeated polling across widgets.
         """
+        cache_key = (symbol.upper(), timeframe.upper())
+        now = _time.time()
+        cached = _MEM_TICK_CACHE.get(cache_key)
+        if cached and (now - cached[0]) < 1.0:
+            return cached[1]
+
         fast_ranges = {
             'M1': '1d', 'M5': '2d', 'M15': '5d', 'M30': '5d',
             'H1': '5d', 'H2': '10d', 'H4': '15d', 'D1': '30d', 'W1': '90d'
@@ -307,7 +339,7 @@ class DataFetcher:
                 })
 
             last_c = candles[-1]
-            return {
+            tick_data = {
                 'symbol': symbol,
                 'timeframe': timeframe,
                 'tf_seconds': self.TF_SECONDS.get(timeframe, 3600),
@@ -316,6 +348,8 @@ class DataFetcher:
                 'recent_candles': candles,
                 'server_ts': int(_time.time()),
             }
+            _MEM_TICK_CACHE[cache_key] = (now, tick_data)
+            return tick_data
         except Exception as e:
             print(f"[DataFetcher] get_live_tick error for {symbol}: {e}")
             return None
@@ -373,28 +407,29 @@ class DataFetcher:
         ).start()
 
     def _cache_to_database(self, symbol: str, timeframe: str, df: pd.DataFrame):
-        """Cache recent real OHLCV bars into database"""
+        """Cache recent real OHLCV bars into database using fast bulk operations"""
         try:
             from market_data.models import Instrument, OHLCV
-            inst = Instrument.objects.filter(symbol=symbol).first()
+            inst = Instrument.get_cached(symbol)
             if not inst:
                 return
             recent_df = df.tail(40)
+            candles_to_create = []
             for ts, row in recent_df.iterrows():
                 dt = ts.to_pydatetime() if hasattr(ts, 'to_pydatetime') else ts
-                OHLCV.objects.update_or_create(
+                candles_to_create.append(OHLCV(
                     instrument=inst,
                     timeframe=timeframe,
                     timestamp=dt,
-                    defaults={
-                        'open_price': float(row['open']),
-                        'high_price': float(row['high']),
-                        'low_price': float(row['low']),
-                        'close_price': float(row['close']),
-                        'volume': float(row.get('volume', 0.0)),
-                        'provider': 'yfinance_cache'
-                    }
-                )
+                    open_price=float(row['open']),
+                    high_price=float(row['high']),
+                    low_price=float(row['low']),
+                    close_price=float(row['close']),
+                    volume=float(row.get('volume', 0.0)),
+                    provider='yfinance_cache'
+                ))
+            if candles_to_create:
+                OHLCV.objects.bulk_create(candles_to_create, ignore_conflicts=True, batch_size=50)
         except Exception:
             pass
 

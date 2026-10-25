@@ -1,0 +1,116 @@
+{
+  "status": "ok",
+  "generated_at": "2026-10-23T17:45:39.538303+00:00",
+  "disclaimer": "Research, not financial advice. Past performance is not indicative of future results.",
+  "signal": {
+    "symbol": "GOLD",
+    "horizon": "swing",
+    "direction": "LONG",
+    "score": 0.49353483036712226,
+    "confidence": "MEDIUM",
+    "validation_verdict": "weak",
+    "entry": 1664.4035781584723,
+    "stop": 1645.0016839949535,
+    "target": 1696.740068431004,
+    "size": 2.5770679696838306,
+    "risk_reward": 1.6666666666666783,
+    "break_even_win_rate": 0.37499999999999833,
+    "no_edge_target_before_stop": 0.278,
+    "why": {
+      "trend": 0.3384531996015067,
+      "momentum": 0.17616250029599295,
+      "stretch": -0.02291889244556983,
+      "liquidity": 0.001838022915192424
+    },
+    "warnings": []
+  },
+  "agents": {
+    "collector": {
+      "status": "ok",
+      "source": "synthetic/offline",
+      "data_gaps": [
+        "Offline synthetic data; not a tradable quote."
+      ]
+    },
+    "liquidity": {
+      "status": "ok",
+      "pressure": 0.009769091794247732,
+      "r_squared": 0.1795058033991179,
+      "data_gaps": [
+        "DXY/yield/VIX regressors are unavailable in deterministic fallback.",
+        "FRED net-liquidity is optional and not loaded."
+      ]
+    },
+    "math": {
+      "status": "ok",
+      "trend": 0.9993770866011157,
+      "momentum": 0.7202336069793864,
+      "stretch": -0.10025836489564086,
+      "liquidity": 0.009769091794247732,
+      "volatility": 0.0044084098958218215,
+      "atr": 12.934596109012618,
+      "hurst": 0.3468474394589425,
+      "zscore": 0.2011926583800329,
+      "r_squared": 0.1795058033991179
+    },
+    "chart_reader": {
+      "status": "ok",
+      "physics": {
+        "volatility": 0.0044084098958218215,
+        "energy": "normal"
+      },
+      "math": {
+        "hurst": 0.3468474394589425,
+        "trend_r_squared": 0.1795058033991179
+      },
+      "geology": {
+        "support": 1610.8370580405701,
+        "resistance": 1680.3446927376913
+      },
+      "history": {
+        "lookalike": "Not loaded: requires long daily archive."
+      },
+      "data_gaps": [
+        "No screenshot supplied; visual chart claims cannot be verified."
+      ]
+    },
+    "scenario": {
+      "status": "ok",
+      "bear_5": 1610.1305331439376,
+      "base_median": 1666.8649768311905,
+      "bull_95": 1720.8533638070305,
+      "probability_up": 0.53,
+      "one_sigma_move": 33.36281608750964,
+      "target_first": 0.278,
+      "stop_first": 0.43866666666666665
+    },
+    "risk": {
+      "status": "ok",
+      "entry": 1664.4035781584723,
+      "stop": 1645.0016839949535,
+      "target": 1696.740068431004,
+      "size": 2.5770679696838306,
+      "atr": 12.934596109012618,
+      "risk_reward": 1.6666666666666783,
+      "break_even_win_rate": 0.37499999999999833,
+      "warnings": []
+    },
+    "validator": {
+      "status": "ok",
+      "verdict": "weak",
+      "oos_sharpe": -5.0536556134635635,
+      "t_stat": -1.8160394095797243,
+      "max_drawdown": -0.21160390691518405,
+      "hit_rate": 0.4364326375711575,
+      "trade_count": 59,
+      "permutation_p_value": 0.075
+    }
+  },
+  "data_gaps": [
+    "Offline synthetic data; not a tradable quote.",
+    "No event CSV configured; event-risk filter cannot confirm upcoming releases.",
+    "DXY/yield/VIX regressors are unavailable in deterministic fallback.",
+    "FRED net-liquidity is optional and not loaded.",
+    "No screenshot supplied; visual chart claims cannot be verified."
+  ]
+}
