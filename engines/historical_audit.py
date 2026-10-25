@@ -342,7 +342,11 @@ def run_causal_walk_forward_audit():
                             risk_dist = round(sl_price - entry_price, 2)
                             tp1_price = round(entry_price - (risk_dist * 2.0), 2)  # Optimal 2:1 TP
                             
-                        risk_usd = round(current_equity * 0.01, 2)  # Fixed 1% risk per trade
+                        # Dynamic Tiered Risk: 5% SL risk when equity < $1,000, 1% when >= $1,000
+                        if current_equity < 1000.0:
+                            risk_usd = round(current_equity * 0.05, 2)
+                        else:
+                            risk_usd = round(current_equity * 0.01, 2)
                         
                         active_trade = {
                             'id': f"AUDIT-{trade_id_counter}",

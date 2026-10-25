@@ -2780,8 +2780,11 @@ function openAuthorizeModal() {
     }
 
     if (currentAutomationData && currentAutomationData.account) {
-        document.getElementById('auth-risk-pct').value = Math.min(0.5, Number(currentAutomationData.account.risk_pct) || 0.5);
-        document.getElementById('auth-max-open-risk').value = Math.min(1.5, Number(currentAutomationData.account.max_open_risk_pct) || 1.5);
+        const accBal = Number(currentAutomationData.account.balance || 0);
+        const defaultRisk = accBal > 0 && accBal < 1000 ? 5.0 : Math.min(2.0, Number(currentAutomationData.account.risk_pct) || 1.0);
+        const defaultOpenRisk = accBal > 0 && accBal < 1000 ? 15.0 : Math.min(6.0, Number(currentAutomationData.account.max_open_risk_pct) || 3.0);
+        document.getElementById('auth-risk-pct').value = defaultRisk;
+        document.getElementById('auth-max-open-risk').value = defaultOpenRisk;
     }
 
     document.getElementById('auth-explicit-confirm').checked = false;

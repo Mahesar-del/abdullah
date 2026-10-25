@@ -187,10 +187,10 @@ class AutoTraderEngine:
                     "Live authorization is locked: verified walk-forward results and paper-trading history "
                     "are not connected to the go-live gate."
                 )
-            if not 0 < float(max_risk_pct) <= 0.5:
-                raise ValueError("Per-trade risk must be greater than 0 and no more than 0.5%.")
-            if not 0 < float(max_open_risk_pct) <= 1.5:
-                raise ValueError("Combined open risk must be greater than 0 and no more than 1.5%.")
+            if not 0 < float(max_risk_pct) <= 5.0:
+                raise ValueError("Per-trade risk must be greater than 0 and no more than 5.0%.")
+            if not 0 < float(max_open_risk_pct) <= 15.0:
+                raise ValueError("Combined open risk must be greater than 0 and no more than 15.0%.")
             acc.is_authorized = True
             acc.authorized_at = timezone.now()
             acc.permission_type = 'LIVE_AUTOMATED_TRADING' if not acc.is_paper else 'PAPER_SIMULATION_TRADING'
@@ -198,6 +198,7 @@ class AutoTraderEngine:
             acc.auto_trade_enabled = True
             acc.max_risk_pct = max_risk_pct
             acc.max_open_risk_pct = max_open_risk_pct
+
             acc.disable_reason = ''
             acc.connection_status = 'CONNECTED'
             acc.last_sync_at = timezone.now()
@@ -383,20 +384,30 @@ class AutoTraderEngine:
                 logger.info(f"[AutoTrader Gate 7 FAIL] Account {account.name}: Reached max open trades ({account.max_open_trades}).")
                 continue
 
-            # Gate 8: Maximum Open Risk Check (Section 13)
-            effective_risk_pct = min(float(account.max_risk_pct), 0.5)
+            # Gate 8: Dynamic Tiered Risk Rule (Smart Capital Progression)
+            # If balance < $1,000 -> 5.0% Stop Loss risk for accelerated account growth
+            # When balance >= $1,000 -> Stop Loss risk automatically drops to safe institutional 1.0% (or user setting)
+            balance = float(account.balance)
+            if balance < 1000.0:
+                effective_risk_pct = 5.0
+                open_risk_limit = 15.0
+            else:
+                effective_risk_pct = min(float(account.max_risk_pct or 1.0), 2.0)
+                open_risk_limit = min(float(account.max_open_risk_pct or 3.0), 6.0)
+
             if effective_risk_pct <= 0:
                 logger.warning("[AutoTrader Gate 8 FAIL] Account risk must be positive.")
                 continue
+
             current_open_risk = sum(effective_risk_pct for _ in range(open_count))
             new_total_open_risk = current_open_risk + effective_risk_pct
-            open_risk_limit = min(float(account.max_open_risk_pct), 1.5)
             if open_risk_limit <= 0 or new_total_open_risk > open_risk_limit:
                 logger.warning(
                     f"[AutoTrader Gate 8 FAIL] Account {account.name}: Maximum Open Risk exceeded "
-                    f"({new_total_open_risk:.1f}% > {open_risk_limit:.1f}% hard limit). Trade rejected."
+                    f"({new_total_open_risk:.1f}% > {open_risk_limit:.1f}% limit). Trade rejected."
                 )
                 continue
+
 
             # Gate 9: Duplicate Protection Check (Section 16)
             existing_trade = AutoTradeExecution.objects.filter(

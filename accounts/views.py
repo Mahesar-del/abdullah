@@ -87,11 +87,12 @@ class LinkedAccountsView(views.APIView):
             return Response({'success': False, 'error': 'Risk limits must be numeric.'}, status=status.HTTP_400_BAD_REQUEST)
         is_authorized = bool(request.data.get('is_authorized', False))
 
-        if not 0 < max_risk_pct <= 0.5 or not 0 < max_open_risk_pct <= 1.5:
+        if not 0 < max_risk_pct <= 5.0 or not 0 < max_open_risk_pct <= 15.0:
             return Response(
-                {'success': False, 'error': 'Risk limits must be > 0; max 0.5% per trade and 1.5% combined open risk.'},
+                {'success': False, 'error': 'Risk limits must be > 0; max 5.0% per trade and 15.0% combined open risk.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
 
         if not account_number:
             if is_paper:
@@ -498,11 +499,12 @@ class AuthorizeAccountView(views.APIView):
         except (TypeError, ValueError):
             return Response({'error': 'Risk limits must be numeric.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not 0 < max_risk <= 0.5 or not 0 < max_open <= 1.5:
+        if not 0 < max_risk <= 5.0 or not 0 < max_open <= 15.0:
             return Response(
-                {'error': 'Risk limits must be > 0; max 0.5% per trade and 1.5% combined open risk.'},
+                {'error': 'Risk limits must be > 0; max 5.0% per trade and 15.0% combined open risk.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
 
         try:
             acc = AutoTraderEngine.authorize_account(account_id, max_risk_pct=max_risk, max_open_risk_pct=max_open)

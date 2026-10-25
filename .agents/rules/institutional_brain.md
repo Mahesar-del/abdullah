@@ -10,4 +10,6 @@
   - Killzones: London 07-11 UTC, NY 13-17 UTC.
   - Breakeven Shield at +1.0R.
   - 2:1 Take Profit.
+  - Dynamic Tiered Risk: 5% SL risk for balance < $1,000; 1% safe SL risk for balance >= $1,000.
 - MT5 Auto Trading: Active on MetaQuotes-Demo account `5057861405`.
+

@@ -1077,16 +1077,24 @@
                 </select>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 10px;">
                 <div>
                     <label style="display: block; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 6px; font-weight: 600;">Risk Per Trade (%)</label>
-                    <input type="number" id="auth-risk-pct" step="0.1" min="0.1" max="0.5" value="0.5" style="width: 100%; padding: 10px; background: #1e293b; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #f8fafc; font-size: 0.9rem;">
-                    <div style="font-size: 0.72rem; color: #64748b; margin-top: 3px;">Recommended: 0.5% - 1.0%</div>
+                    <input type="number" id="auth-risk-pct" step="0.1" min="0.1" max="5.0" value="1.0" style="width: 100%; padding: 10px; background: #1e293b; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #f8fafc; font-size: 0.9rem;">
+                    <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 3px;">Standard: 1.0% | Max: 5.0%</div>
                 </div>
                 <div>
                     <label style="display: block; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 6px; font-weight: 600;">Max Open Risk (%)</label>
-                    <input type="number" id="auth-max-open-risk" step="0.1" min="0.1" max="1.5" value="1.5" style="width: 100%; padding: 10px; background: #1e293b; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #f8fafc; font-size: 0.9rem;">
-                    <div style="font-size: 0.72rem; color: #64748b; margin-top: 3px;">Combined open risk cap: 1.5%</div>
+                    <input type="number" id="auth-max-open-risk" step="0.1" min="0.1" max="15.0" value="3.0" style="width: 100%; padding: 10px; background: #1e293b; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #f8fafc; font-size: 0.9rem;">
+                    <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 3px;">Standard: 3.0% | Max: 15.0%</div>
+                </div>
+            </div>
+
+            <!-- Smart Dynamic Risk Tiering Banner -->
+            <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.2rem;">⚡</span>
+                <div style="font-size: 0.76rem; color: #cbd5e1; line-height: 1.35;">
+                    <strong style="color: #38bdf8;">Smart Dynamic Tiering Active:</strong> Accounts with balance <strong>&lt; $1,000</strong> automatically execute with <strong>5.0% SL risk</strong> for rapid growth. As soon as balance reaches <strong>&ge; $1,000</strong>, Stop Loss risk automatically cuts down to <strong>1.0%</strong> safe institutional preservation.
                 </div>
             </div>
 

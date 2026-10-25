@@ -46,9 +46,10 @@
    - As soon as open profit touches **+1.0 R**, the Stop Loss is immediately locked at **Entry + Spread**.
    - If market reverses, the trade closes at **Breakeven (0 Loss)**.
 4. **Asymmetric Risk-to-Reward:**
-   - Risk: **1.0% account risk** per trade (Hard Stop Loss).
-   - Take Profit 1: **2.0:1 R:R** minimum.
-   - 1 single win recovers 2 full losses.
+   - Risk: Hard Stop Loss with minimum 2.0:1 R:R Take Profit (1 single win recovers 2 full losses).
+5. **Smart Dynamic Tiered Risk (Small Account Compounding):**
+   - **Growth Tier (Balance < $1,000):** Auto-executes with **5.0% Stop Loss risk** per trade to overcome broker micro-lot barriers and rapidly compound small deposits (e.g. $100 -> $1,000).
+   - **Wealth Preservation Tier (Balance >= $1,000):** Stop Loss risk automatically cuts down to safe institutional **1.0%** (max 2.0%) to prevent drawdowns on large capital.
 
 ---
 
