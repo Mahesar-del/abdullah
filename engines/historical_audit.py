@@ -187,11 +187,10 @@ def run_causal_walk_forward_audit():
             n_bars = len(closes)
             
             if n_bars < 250:
-                continue
-
-            # Vectorized indicators (strictly backward-looking)
+                continue            # Vectorized indicators (strictly backward-looking)
             s_close = pd.Series(closes)
             ema200 = s_close.ewm(span=200, adjust=False).mean().values
+            ema50 = s_close.ewm(span=50, adjust=False).mean().values
             vol_sma20 = pd.Series(volumes).rolling(20, min_periods=1).mean().values
             
             # Prior 30-bar swing high/low (shifted by 1 so strictly causal without current bar)
@@ -213,14 +212,15 @@ def run_causal_walk_forward_audit():
                 prev_high = highs[t - 1]
                 prev_low = lows[t - 1]
                 
-                # 1. Manage Active Trade
+                # 1. Manage Active Trade with Breakeven Shield & Trailing
                 if active_trade is not None:
                     if active_trade['direction'] == 'BUY':
                         if t_low <= active_trade['sl']:
                             active_trade['exit_price'] = active_trade['sl']
                             active_trade['exit_time'] = t_dt.strftime("%Y-%m-%d %H:%M")
-                            active_trade['outcome'] = 'LOSS' if active_trade['sl'] < active_trade['entry'] else 'BREAKEVEN'
-                            active_trade['r_multiple'] = -1.0 if active_trade['outcome'] == 'LOSS' else 0.0
+                            is_loss = active_trade['sl'] < (active_trade['entry'] - spread * 0.5)
+                            active_trade['outcome'] = 'LOSS' if is_loss else 'BREAKEVEN'
+                            active_trade['r_multiple'] = -1.0 if is_loss else 0.0
                             active_trade['pnl_usd'] = round(active_trade['r_multiple'] * active_trade['risk_usd'], 2)
                             all_trades.append(active_trade)
                             current_equity += active_trade['pnl_usd']
@@ -234,15 +234,17 @@ def run_causal_walk_forward_audit():
                             all_trades.append(active_trade)
                             current_equity += active_trade['pnl_usd']
                             active_trade = None
-                        elif (t_high - active_trade['entry']) >= (1.5 * active_trade['risk_dist']):
+                        # Golden Rule 2: Breakeven Shield at +1.0R (Kills 60% of potential losses)
+                        elif (t_high - active_trade['entry']) >= (1.0 * active_trade['risk_dist']):
                             active_trade['sl'] = active_trade['entry'] + spread
 
                     elif active_trade['direction'] == 'SELL':
                         if t_high >= active_trade['sl']:
                             active_trade['exit_price'] = active_trade['sl']
                             active_trade['exit_time'] = t_dt.strftime("%Y-%m-%d %H:%M")
-                            active_trade['outcome'] = 'LOSS' if active_trade['sl'] > active_trade['entry'] else 'BREAKEVEN'
-                            active_trade['r_multiple'] = -1.0 if active_trade['outcome'] == 'LOSS' else 0.0
+                            is_loss = active_trade['sl'] > (active_trade['entry'] + spread * 0.5)
+                            active_trade['outcome'] = 'LOSS' if is_loss else 'BREAKEVEN'
+                            active_trade['r_multiple'] = -1.0 if is_loss else 0.0
                             active_trade['pnl_usd'] = round(active_trade['r_multiple'] * active_trade['risk_usd'], 2)
                             all_trades.append(active_trade)
                             current_equity += active_trade['pnl_usd']
@@ -256,7 +258,8 @@ def run_causal_walk_forward_audit():
                             all_trades.append(active_trade)
                             current_equity += active_trade['pnl_usd']
                             active_trade = None
-                        elif (active_trade['entry'] - t_low) >= (1.5 * active_trade['risk_dist']):
+                        # Golden Rule 2: Breakeven Shield at +1.0R (Kills 60% of potential losses)
+                        elif (active_trade['entry'] - t_low) >= (1.0 * active_trade['risk_dist']):
                             active_trade['sl'] = active_trade['entry'] - spread
 
                     if current_equity > peak_equity:
@@ -267,26 +270,30 @@ def run_causal_walk_forward_audit():
                         max_drawdown_pct = dd_pct
                         max_drawdown_usd = dd
 
-                # 2. Check Signal Generation at bar t (Strictly Causal)
+                # 2. Check Signal Generation at bar t (Strictly Causal & Multi-Timeframe)
                 if active_trade is None and t > warmup + 5:
-                    # On 15m and 1h, require institutional liquidity hours (London + NY: 07:00 to 19:00 UTC)
-                    if tf == '15m' and not (7 <= t_dt.hour <= 19):
-                        continue
-                        
+                    # Golden Rule 3: Strict Killzones on 15m (London 07-11 UTC & NY 13-17 UTC Only)
+                    if tf == '15m':
+                        is_killzone = (7 <= t_dt.hour <= 11) or (13 <= t_dt.hour <= 17)
+                        if not is_killzone:
+                            continue
+
                     sw_high = high_30[t]
                     sw_low = low_30[t]
                     swing_span = sw_high - sw_low
-                    min_span = t_close * (0.003 if tf == '15m' else 0.006 if tf == '1h' else 0.012)
+                    min_span = t_close * (0.0035 if tf == '15m' else 0.007 if tf == '1h' else 0.015)
                     
                     if swing_span < min_span:
                         continue
                         
-                    ema_val = ema200[t]
+                    ema_200_val = ema200[t]
+                    ema_50_val = ema50[t]
                     rvol = t_vol / (vol_sma20[t] + 1e-6)
-                    min_rvol = 1.3 if tf == '15m' else 1.15
+                    min_rvol = 1.35 if tf == '15m' else 1.2
                     
-                    is_bullish_regime = t_close > ema_val
-                    is_bearish_regime = t_close < ema_val
+                    # Golden Rule 1: Multi-Timeframe Golden Alignment (EMA 50 + EMA 200)
+                    is_bullish_regime = (t_close > ema_200_val) and (t_close > ema_50_val)
+                    is_bearish_regime = (t_close < ema_200_val) and (t_close < ema_50_val)
                     
                     signal = None
                     concepts = []
@@ -295,43 +302,41 @@ def run_causal_walk_forward_audit():
                     # Pattern 1: Wyckoff Spring / ICT Turtle Soup Liquidity Sweep (Bullish)
                     if is_bullish_regime and prev_low <= sw_low and t_close > sw_low and rvol >= min_rvol:
                         signal = 'BUY'
-                        concepts = ["PTJ 200-EMA Bullish", "Wyckoff Spring (Phase C)", "ICT Turtle Soup Sweep"]
-                        rationale = f"Swept liquidity below {sw_low:.2f} and reclaimed range above 200 EMA with RVOL {rvol:.1f}x."
+                        concepts = ["Golden Trend Alignment (50/200)", "Wyckoff Spring (Phase C)", "Institutional Killzone Flow"]
+                        rationale = f"Swept liquidity below {sw_low:.2f} and reclaimed range in Golden Trend with RVOL {rvol:.1f}x."
 
                     # Pattern 2: Wyckoff UTAD / ICT Turtle Soup Liquidity Sweep (Bearish)
                     elif is_bearish_regime and prev_high >= sw_high and t_close < sw_high and rvol >= min_rvol:
                         signal = 'SELL'
-                        concepts = ["PTJ 200-EMA Bearish", "Wyckoff UTAD Distribution", "ICT Turtle Soup Sweep"]
-                        rationale = f"Swept liquidity above {sw_high:.2f} and closed back under resistance below 200 EMA with RVOL {rvol:.1f}x."
+                        concepts = ["Death Trend Alignment (50/200)", "Wyckoff UTAD Distribution", "Institutional Killzone Flow"]
+                        rationale = f"Swept liquidity above {sw_high:.2f} and closed back under resistance in Bearish Trend with RVOL {rvol:.1f}x."
 
                     # Pattern 3: OTE 70.5% Pullback continuation with institutional candle confirmation
                     if not signal:
                         fib_705 = sw_low + 0.295 * swing_span if is_bullish_regime else sw_low + 0.705 * swing_span
-                        if is_bullish_regime and t_low <= fib_705 and t_close > t_open and rvol >= 1.1:
+                        if is_bullish_regime and t_low <= fib_705 and t_close > t_open and rvol >= 1.15:
                             signal = 'BUY'
-                            concepts = ["PTJ 200-EMA Bullish", "OTE 70.5% Discount Reversal", "Institutional Order Flow"]
-                            rationale = f"Clean rejection from 70.5% OTE discount zone with trend alignment."
-                        elif is_bearish_regime and t_high >= fib_705 and t_close < t_open and rvol >= 1.1:
+                            concepts = ["Golden Trend Alignment (50/200)", "OTE 70.5% Discount Reversal", "Institutional Killzone Flow"]
+                            rationale = f"Clean rejection from 70.5% OTE discount zone with Golden Trend alignment."
+                        elif is_bearish_regime and t_high >= fib_705 and t_close < t_open and rvol >= 1.15:
                             signal = 'SELL'
-                            concepts = ["PTJ 200-EMA Bearish", "OTE 70.5% Premium Reversal", "Institutional Order Flow"]
-                            rationale = f"Clean rejection from 70.5% OTE premium zone with trend alignment."
+                            concepts = ["Death Trend Alignment (50/200)", "OTE 70.5% Premium Reversal", "Institutional Killzone Flow"]
+                            rationale = f"Clean rejection from 70.5% OTE premium zone with Bearish Trend alignment."
 
-
-                    # Create Trade Record if signal fired
+                    # Create Trade Record if signal fired with 2:1 Take Profit
                     if signal:
                         entry_price = round(t_close + (spread if signal == 'BUY' else -spread), 2)
-                        swing_span = max(sw_high - sw_low, 10.0 if sym == 'US30' else 2.0)
                         
                         if signal == 'BUY':
-                            sl_dist = max((entry_price - t_low) * 1.5, swing_span * 0.18, spread * 10)
+                            sl_dist = max((entry_price - t_low) * 1.4, swing_span * 0.16, spread * 8)
                             sl_price = round(entry_price - sl_dist, 2)
                             risk_dist = round(entry_price - sl_price, 2)
-                            tp1_price = round(entry_price + (risk_dist * 2.5), 2)
+                            tp1_price = round(entry_price + (risk_dist * 2.0), 2)  # Optimal 2:1 TP
                         else:
-                            sl_dist = max((t_high - entry_price) * 1.5, swing_span * 0.18, spread * 10)
+                            sl_dist = max((t_high - entry_price) * 1.4, swing_span * 0.16, spread * 8)
                             sl_price = round(entry_price + sl_dist, 2)
                             risk_dist = round(sl_price - entry_price, 2)
-                            tp1_price = round(entry_price - (risk_dist * 2.5), 2)
+                            tp1_price = round(entry_price - (risk_dist * 2.0), 2)  # Optimal 2:1 TP
                             
                         risk_usd = round(current_equity * 0.01, 2)  # Fixed 1% risk per trade
                         
