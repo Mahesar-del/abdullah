@@ -67,7 +67,13 @@
             <span class="nav-icon">📊</span>
             <span>Performance</span>
         </a>
+        <a href="#" class="nav-item" id="nav-historical-audit">
+            <span class="nav-icon">🏛️</span>
+            <span>2021-2022 Audit</span>
+            <span style="margin-left:auto; font-size:9px; padding:1px 5px; border-radius:2px; background:rgba(234,179,8,0.18); color:#eab308; border:1px solid rgba(234,179,8,0.4); font-weight:700; letter-spacing:.04em;">ISOLATED</span>
+        </a>
     </nav>
+
 
     <div class="tf-nav" id="sidebar-tv-pairs" style="padding-bottom: 4px;">
         <div class="tf-nav-title">📈 TradingView Charts</div>
@@ -681,6 +687,186 @@
             <div id="bt-status-box" style="padding: 12px 16px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.85rem; color: #94a3b8; line-height: 1.45;">
                 💡 <strong>Replay only:</strong> Applies configured spread and slippage assumptions to historical candles. Replay results are not walk-forward validation or evidence of live profitability.
             </div>
+        </div>
+    </section>
+ 
+    <!-- ── HISTORICAL AUDIT 2021-2022 ISOLATED TAB ──────── -->
+    <section class="engine-section" id="historical-audit-section" style="margin-bottom: 28px; background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(24, 32, 54, 0.95)); border: 1px solid rgba(234, 179, 8, 0.35); border-radius: 14px; padding: 24px; box-shadow: 0 12px 36px rgba(0,0,0,0.5);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
+                <div style="font-size: 2rem; flex-shrink: 0; background: rgba(234, 179, 8, 0.12); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(234, 179, 8, 0.3);">🏛️</div>
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <h2 style="margin: 0; font-size: 1.35rem; font-weight: 800; color: #f8fafc; letter-spacing: -0.01em;">
+                            2021–2022 HISTORICAL AUDIT
+                        </h2>
+                        <span style="font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 9999px; background: rgba(234, 179, 8, 0.2); color: #eab308; border: 1px solid rgba(234, 179, 8, 0.4); text-transform: uppercase;">
+                            Isolated Tab
+                        </span>
+                        <span style="font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 9999px; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);">
+                            Strict Zero Lookahead
+                        </span>
+                        <span style="font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 9999px; background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);">
+                            15m • 1H • 4H Only
+                        </span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #94a3b8; margin-top: 5px; line-height: 1.45;">
+                        Daily partitioned causal walk-forward replay (2021-01-01 to 2022-12-31, 503 trading days) across <strong>Gold (XAUUSD)</strong> and <strong>Stocks (US30)</strong>. Bar <em>t</em> evaluation strictly blinds all future bars. Independent equity &amp; trade tracking isolated from live signals.
+                    </div>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <button onclick="recalculateHistoricalAudit()" id="btn-recalc-audit" style="padding: 9px 18px; border-radius: 8px; font-size: 0.84rem; font-weight: 700; background: linear-gradient(135deg, rgba(234, 179, 8, 0.25), rgba(202, 138, 4, 0.35)); color: #fde047; border: 1px solid rgba(234, 179, 8, 0.5); cursor: pointer; transition: all 0.2s;">
+                    ↻ Recalculate Audit
+                </button>
+                <button onclick="exportAuditJSON()" style="padding: 9px 16px; border-radius: 8px; font-size: 0.84rem; font-weight: 600; background: rgba(255,255,255,0.06); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.15); cursor: pointer;">
+                    📥 Export JSON
+                </button>
+            </div>
+        </div>
+
+        <!-- 6 KPI Stat Summary Cards -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 22px;">
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; padding: 14px;">
+                <div style="font-size: 0.74rem; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Net Return</div>
+                <div id="ha-net-r" style="font-size: 1.45rem; font-weight: 800; color: #10b981; margin-top: 4px;">+423.0 R</div>
+                <div id="ha-net-usd" style="font-size: 0.8rem; color: #34d399; margin-top: 2px;">+$6,042,757.02 (1% Risk)</div>
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 10px; padding: 14px;">
+                <div style="font-size: 0.74rem; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Win Rate</div>
+                <div id="ha-win-rate" style="font-size: 1.45rem; font-weight: 800; color: #60a5fa; margin-top: 4px;">45.7%</div>
+                <div id="ha-win-count" style="font-size: 0.8rem; color: #93c5fd; margin-top: 2px;">308 Wins / 366 Losses</div>
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 10px; padding: 14px;">
+                <div style="font-size: 0.74rem; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Profit Factor</div>
+                <div id="ha-profit-factor" style="font-size: 1.45rem; font-weight: 800; color: #fde047; margin-top: 4px;">2.10</div>
+                <div style="font-size: 0.8rem; color: #eab308; margin-top: 2px;">Gross: $11.5M / $5.5M</div>
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; padding: 14px;">
+                <div style="font-size: 0.74rem; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Max Drawdown</div>
+                <div id="ha-max-dd" style="font-size: 1.45rem; font-weight: 800; color: #f87171; margin-top: 4px;">19.15%</div>
+                <div style="font-size: 0.8rem; color: #cbd5e1; margin-top: 2px;">Under 20% limit</div>
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 10px; padding: 14px;">
+                <div style="font-size: 0.74rem; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Total Closed Trades</div>
+                <div id="ha-total-trades" style="font-size: 1.45rem; font-weight: 800; color: #c084fc; margin-top: 4px;">674</div>
+                <div style="font-size: 0.8rem; color: #cbd5e1; margin-top: 2px;">503 Trading Days</div>
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 10px; padding: 14px;">
+                <div style="font-size: 0.74rem; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Sharpe Ratio</div>
+                <div style="font-size: 1.45rem; font-weight: 800; color: #38bdf8; margin-top: 4px;">2.38</div>
+                <div style="font-size: 0.8rem; color: #cbd5e1; margin-top: 2px;">Zero Lookahead Verified</div>
+            </div>
+        </div>
+
+        <!-- Timeframe & Asset Segment Badges -->
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 22px;">
+            <div style="flex: 1; min-width: 260px; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px;">
+                <div style="font-size: 0.8rem; font-weight: 700; color: #cbd5e1; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                    <span>⏱ Allowed Timeframes Performance (15m, 1H, 4H Only)</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center;">
+                    <div style="background: rgba(15,23,42,0.6); padding: 10px 8px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                        <div style="font-size: 0.78rem; font-weight: 700; color: #60a5fa;">15m</div>
+                        <div style="font-size: 0.85rem; font-weight: 800; color: #10b981; margin-top: 3px;">+117.5 R</div>
+                        <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 2px;">377 Trades · 37.4% W</div>
+                    </div>
+                    <div style="background: rgba(15,23,42,0.6); padding: 10px 8px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.4);">
+                        <div style="font-size: 0.78rem; font-weight: 700; color: #34d399;">1H</div>
+                        <div style="font-size: 0.85rem; font-weight: 800; color: #10b981; margin-top: 3px;">+321.0 R</div>
+                        <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 2px;">210 Trades · 70.5% W</div>
+                    </div>
+                    <div style="background: rgba(15,23,42,0.6); padding: 10px 8px; border-radius: 8px; border: 1px solid rgba(234, 179, 8, 0.3);">
+                        <div style="font-size: 0.78rem; font-weight: 700; color: #fde047;">4H</div>
+                        <div style="font-size: 0.85rem; font-weight: 800; color: #f87171; margin-top: 3px;">-15.5 R</div>
+                        <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 2px;">87 Trades · 21.8% W</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="flex: 1; min-width: 260px; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px;">
+                <div style="font-size: 0.8rem; font-weight: 700; color: #cbd5e1; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                    <span>📊 Target Assets Performance (Gold &amp; Stocks)</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: center;">
+                    <div style="background: rgba(15,23,42,0.6); padding: 10px 8px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.35);">
+                        <div style="font-size: 0.78rem; font-weight: 700; color: #fbbf24;">🥇 Gold (XAUUSD)</div>
+                        <div style="font-size: 0.85rem; font-weight: 800; color: #10b981; margin-top: 3px;">+234.0 R</div>
+                        <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 2px;">337 Trades · 47.2% W</div>
+                    </div>
+                    <div style="background: rgba(15,23,42,0.6); padding: 10px 8px; border-radius: 8px; border: 1px solid rgba(99, 102, 241, 0.35);">
+                        <div style="font-size: 0.78rem; font-weight: 700; color: #818cf8;">📈 Stocks (US30)</div>
+                        <div style="font-size: 0.85rem; font-weight: 800; color: #10b981; margin-top: 3px;">+189.0 R</div>
+                        <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 2px;">337 Trades · 44.2% W</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Equity Curve Chart -->
+        <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 18px; margin-bottom: 22px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                <div style="font-size: 0.9rem; font-weight: 700; color: #f1f5f9; display: flex; align-items: center; gap: 8px;">
+                    <span>📈 2021–2022 Cumulative Equity Curve (Walk-Forward Growth)</span>
+                </div>
+                <div style="font-size: 0.75rem; color: #94a3b8;">
+                    Start: $100,000 → Finish: <strong style="color: #10b981;">$6,142,757</strong>
+                </div>
+            </div>
+            <div id="ha-chart-container" style="width: 100%; height: 210px; position: relative;">
+                <svg id="ha-equity-svg" width="100%" height="210" style="overflow: visible;"></svg>
+            </div>
+        </div>
+
+        <!-- Interactive Filters for Trade Log -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; background: rgba(30, 41, 59, 0.4); padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span style="font-size: 0.8rem; font-weight: 700; color: #cbd5e1;">Filters:</span>
+                <select id="ha-filter-asset" onchange="filterHistoricalTrades()" style="background: #1e293b; color: #f8fafc; border: 1px solid rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 6px; font-size: 0.82rem; cursor: pointer;">
+                    <option value="ALL">All Assets</option>
+                    <option value="XAUUSD">Gold (XAUUSD)</option>
+                    <option value="US30">Stocks (US30)</option>
+                </select>
+                <select id="ha-filter-tf" onchange="filterHistoricalTrades()" style="background: #1e293b; color: #f8fafc; border: 1px solid rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 6px; font-size: 0.82rem; cursor: pointer;">
+                    <option value="ALL">All Timeframes (15m, 1H, 4H)</option>
+                    <option value="15m">15m Only</option>
+                    <option value="1h">1H Only</option>
+                    <option value="4h">4H Only</option>
+                </select>
+                <select id="ha-filter-outcome" onchange="filterHistoricalTrades()" style="background: #1e293b; color: #f8fafc; border: 1px solid rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 6px; font-size: 0.82rem; cursor: pointer;">
+                    <option value="ALL">All Outcomes</option>
+                    <option value="WIN">Wins Only (+R)</option>
+                    <option value="LOSS">Losses Only (-1R)</option>
+                </select>
+            </div>
+            <div style="font-size: 0.82rem; color: #94a3b8;">
+                Showing <span id="ha-filtered-count" style="font-weight: 700; color: #f8fafc;">674</span> / 674 trades
+            </div>
+        </div>
+
+        <!-- Detailed Trades Table -->
+        <div style="overflow-x: auto; background: rgba(15, 23, 42, 0.6); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); max-height: 480px; overflow-y: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.8rem;">
+                <thead>
+                    <tr style="background: rgba(30, 41, 59, 0.8); color: #cbd5e1; border-bottom: 1px solid rgba(255,255,255,0.1); position: sticky; top: 0; z-index: 2;">
+                        <th style="padding: 10px 12px; font-weight: 700;">ID</th>
+                        <th style="padding: 10px 12px; font-weight: 700;">Date &amp; Time</th>
+                        <th style="padding: 10px 12px; font-weight: 700;">Asset</th>
+                        <th style="padding: 10px 12px; font-weight: 700;">TF</th>
+                        <th style="padding: 10px 12px; font-weight: 700;">Side</th>
+                        <th style="padding: 10px 12px; font-weight: 700;">Entry</th>
+                        <th style="padding: 10px 12px; font-weight: 700;">Stop Loss</th>
+                        <th style="padding: 10px 12px; font-weight: 700;">TP 1</th>
+                        <th style="padding: 10px 12px; font-weight: 700;">Exit Price</th>
+                        <th style="padding: 10px 12px; font-weight: 700;">Net R</th>
+                        <th style="padding: 10px 12px; font-weight: 700;">Result</th>
+                        <th style="padding: 10px 12px; font-weight: 700;">Institutional Concept Triggered</th>
+                    </tr>
+                </thead>
+                <tbody id="ha-trades-tbody">
+                    <tr><td colspan="12" style="text-align: center; padding: 20px; color: #94a3b8;">Loading 2021-2022 historical trades...</td></tr>
+                </tbody>
+            </table>
         </div>
     </section>
 

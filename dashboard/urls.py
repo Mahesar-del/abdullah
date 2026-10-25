@@ -8,5 +8,7 @@ urlpatterns = [
     path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
     path('api/agents/status/', agent_views.agent_status, name='agent-status'),
     path('api/copilot/chat/', copilot_views.copilot_chat, name='copilot-chat'),
+    path('api/historical-audit/results/', views.historical_audit_results, name='historical-audit-results'),
 ]
+
 

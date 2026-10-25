@@ -27,6 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupSidebarNav();
     setupAgentStudio();
     setupCopilot();
+    loadHistoricalAuditData();
+
 
     // Restore Automated Trading console collapse state (opened if previously toggled open)
     const savedAutoState = localStorage.getItem('ts_auto_console_open');
@@ -112,8 +114,13 @@ function setupSidebarNav() {
             if (id === 'nav-agents')      target = document.getElementById('agent-studio');
             if (id === 'nav-news')        target = document.getElementById('news-section') || document.querySelector('.news-section');
             if (id === 'nav-performance') target = document.querySelector('.r-multiple-section');
+            if (id === 'nav-historical-audit') {
+                target = document.getElementById('historical-audit-section');
+                if (typeof loadHistoricalAuditData === 'function') loadHistoricalAuditData();
+            }
             
             closeMobileSidebar();
+
 
             if (target) {
                 target.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -3225,6 +3232,214 @@ async function triggerAIRetrain() {
         }
     }
 }
+
+// ── HISTORICAL AUDIT (2021-2022) ENGINE JS ───────────────────────────
+window._historicalTrades = [];
+window._historicalAuditData = null;
+
+async function loadHistoricalAuditData(forceRecalc = false) {
+    const tbody = document.getElementById('ha-trades-tbody');
+    const recalcBtn = document.getElementById('btn-recalc-audit');
+    if (forceRecalc && recalcBtn) {
+        recalcBtn.disabled = true;
+        recalcBtn.innerHTML = '↻ Recalculating 2021-2022...';
+    }
+
+    try {
+        const url = `/api/historical-audit/results/${forceRecalc ? '?recalculate=true' : ''}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.status !== 'SUCCESS') {
+            if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:#ef4444;padding:16px;">Failed loading audit results: ${data.message || 'Unknown error'}</td></tr>`;
+            return;
+        }
+
+        window._historicalAuditData = data;
+        window._historicalTrades = data.trades || [];
+
+        const s = data.summary || {};
+        const netREl = document.getElementById('ha-net-r');
+        const netUsdEl = document.getElementById('ha-net-usd');
+        const winRateEl = document.getElementById('ha-win-rate');
+        const winCountEl = document.getElementById('ha-win-count');
+        const pfEl = document.getElementById('ha-profit-factor');
+        const maxDdEl = document.getElementById('ha-max-dd');
+        const totalTradesEl = document.getElementById('ha-total-trades');
+
+        if (netREl) netREl.textContent = `+${s.net_r_multiple || 0} R`;
+        if (netUsdEl) netUsdEl.textContent = `+$${(s.net_pnl_usd || 0).toLocaleString()} (1% Risk)`;
+        if (winRateEl) winRateEl.textContent = `${s.win_rate_pct || 0}%`;
+        if (winCountEl) winCountEl.textContent = `${s.winning_trades || 0} Wins / ${s.losing_trades || 0} Losses`;
+        if (pfEl) pfEl.textContent = `${s.profit_factor || 0}`;
+        if (maxDdEl) maxDdEl.textContent = `${s.max_drawdown_pct || 0}%`;
+        if (totalTradesEl) totalTradesEl.textContent = `${s.total_trades || 0}`;
+
+        renderHistoricalEquityCurve(data.equity_curve || []);
+        filterHistoricalTrades();
+
+    } catch (err) {
+        console.error('Error fetching historical audit:', err);
+        if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:#ef4444;padding:16px;">Error connecting to audit engine: ${err.message}</td></tr>`;
+    } finally {
+        if (recalcBtn) {
+            recalcBtn.disabled = false;
+            recalcBtn.innerHTML = '↻ Recalculate Audit';
+        }
+    }
+}
+
+function renderHistoricalEquityCurve(curve) {
+    const svg = document.getElementById('ha-equity-svg');
+    if (!svg || !curve || curve.length < 2) return;
+
+    const width = svg.clientWidth || svg.parentElement.clientWidth || 900;
+    const height = 210;
+    const padding = { top: 20, right: 30, bottom: 30, left: 70 };
+
+    const equities = curve.map(p => p.equity);
+    const minEq = Math.min(...equities) * 0.95;
+    const maxEq = Math.max(...equities) * 1.05;
+
+    const xScale = (i) => padding.left + (i / (curve.length - 1)) * (width - padding.left - padding.right);
+    const yScale = (val) => height - padding.bottom - ((val - minEq) / (maxEq - minEq || 1)) * (height - padding.top - padding.bottom);
+
+    let pathD = `M ${xScale(0)} ${yScale(curve[0].equity)}`;
+    let areaD = `M ${xScale(0)} ${height - padding.bottom} L ${xScale(0)} ${yScale(curve[0].equity)}`;
+
+    for (let i = 1; i < curve.length; i++) {
+        const x = xScale(i);
+        const y = yScale(curve[i].equity);
+        pathD += ` L ${x} ${y}`;
+        areaD += ` L ${x} ${y}`;
+    }
+
+    areaD += ` L ${xScale(curve.length - 1)} ${height - padding.bottom} Z`;
+
+    const gridLines = [];
+    for (let g = 0; g <= 4; g++) {
+        const gVal = minEq + (g / 4) * (maxEq - minEq);
+        const gy = yScale(gVal);
+        gridLines.push(`
+            <line x1="${padding.left}" y1="${gy}" x2="${width - padding.right}" y2="${gy}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="3,3" />
+            <text x="${padding.left - 8}" y="${gy + 4}" fill="#64748b" font-size="10" text-anchor="end" font-family="monospace">$${Math.round(gVal / 1000)}k</text>
+        `);
+    }
+
+    const dateLabels = [];
+    const step = Math.floor(curve.length / 5);
+    for (let i = 0; i < curve.length; i += step) {
+        const pt = curve[i];
+        const gx = xScale(i);
+        dateLabels.push(`
+            <text x="${gx}" y="${height - 8}" fill="#64748b" font-size="10" text-anchor="middle" font-family="monospace">${pt.date}</text>
+        `);
+    }
+
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.innerHTML = `
+        <defs>
+            <linearGradient id="ha-grad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#10b981" stop-opacity="0.35"/>
+                <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+            </linearGradient>
+        </defs>
+        ${gridLines.join('')}
+        ${dateLabels.join('')}
+        <path d="${areaD}" fill="url(#ha-grad)" />
+        <path d="${pathD}" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+    `;
+}
+
+function filterHistoricalTrades() {
+    const assetFilter = document.getElementById('ha-filter-asset')?.value || 'ALL';
+    const tfFilter = document.getElementById('ha-filter-tf')?.value || 'ALL';
+    const outcomeFilter = document.getElementById('ha-filter-outcome')?.value || 'ALL';
+    const tbody = document.getElementById('ha-trades-tbody');
+    const countEl = document.getElementById('ha-filtered-count');
+
+    if (!tbody || !window._historicalTrades) return;
+
+    const filtered = window._historicalTrades.filter(t => {
+        if (assetFilter !== 'ALL' && t.symbol !== assetFilter) return false;
+        if (tfFilter !== 'ALL' && t.timeframe !== tfFilter) return false;
+        if (outcomeFilter !== 'ALL' && t.outcome !== outcomeFilter) return false;
+        return true;
+    });
+
+    if (countEl) countEl.textContent = filtered.length;
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;padding:24px;color:#94a3b8;">No historical trades match the selected filter criteria.</td></tr>`;
+        return;
+    }
+
+    // Render up to 200 trades for smooth fast DOM performance
+    const renderList = filtered.slice(0, 200);
+    const rowsHtml = renderList.map(t => {
+        const isWin = t.outcome === 'WIN';
+        const isBE = t.outcome === 'BREAKEVEN';
+        const outcomeBadge = isWin
+            ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;background:rgba(16,185,129,0.2);color:#10b981;font-weight:700;font-size:0.75rem;">WIN</span>`
+            : isBE
+            ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;background:rgba(148,163,184,0.2);color:#cbd5e1;font-weight:700;font-size:0.75rem;">BE</span>`
+            : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;background:rgba(239,68,68,0.2);color:#f87171;font-weight:700;font-size:0.75rem;">LOSS</span>`;
+
+        const sideBadge = t.direction === 'BUY'
+            ? `<span style="display:inline-block;padding:2px 7px;border-radius:4px;background:rgba(16,185,129,0.15);color:#34d399;font-weight:700;font-size:0.75rem;">BUY</span>`
+            : `<span style="display:inline-block;padding:2px 7px;border-radius:4px;background:rgba(239,68,68,0.15);color:#f87171;font-weight:700;font-size:0.75rem;">SELL</span>`;
+
+        const tfBadge = `<span style="display:inline-block;padding:2px 6px;border-radius:4px;background:rgba(59,130,246,0.18);color:#60a5fa;font-weight:700;font-size:0.72rem;">${t.timeframe}</span>`;
+        const symIcon = t.symbol === 'XAUUSD' ? '🥇 Gold' : '📈 US30';
+
+        const netRColor = t.r_multiple > 0 ? '#10b981' : t.r_multiple < 0 ? '#f87171' : '#94a3b8';
+        const netRText = t.r_multiple > 0 ? `+${t.r_multiple} R` : `${t.r_multiple} R`;
+
+        const conceptsBadges = (t.concepts || []).map(c =>
+            `<span style="display:inline-block;padding:1px 6px;margin:1px 2px;border-radius:4px;background:rgba(255,255,255,0.06);color:#cbd5e1;font-size:0.68rem;border:1px solid rgba(255,255,255,0.08);">${c}</span>`
+        ).join('');
+
+        return `
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+                <td style="padding:8px 12px;font-family:monospace;color:#94a3b8;">${t.id}</td>
+                <td style="padding:8px 12px;white-space:nowrap;color:#cbd5e1;">${t.date}</td>
+                <td style="padding:8px 12px;font-weight:700;white-space:nowrap;color:#f8fafc;">${symIcon}</td>
+                <td style="padding:8px 12px;">${tfBadge}</td>
+                <td style="padding:8px 12px;">${sideBadge}</td>
+                <td style="padding:8px 12px;font-family:monospace;color:#f1f5f9;">${t.entry.toFixed(2)}</td>
+                <td style="padding:8px 12px;font-family:monospace;color:#f87171;">${t.sl.toFixed(2)}</td>
+                <td style="padding:8px 12px;font-family:monospace;color:#34d399;">${t.tp1.toFixed(2)}</td>
+                <td style="padding:8px 12px;font-family:monospace;color:#cbd5e1;">${(t.exit_price || 0).toFixed(2)}</td>
+                <td style="padding:8px 12px;font-weight:800;color:${netRColor};font-family:monospace;">${netRText}</td>
+                <td style="padding:8px 12px;">${outcomeBadge}</td>
+                <td style="padding:8px 12px;max-width:280px;line-height:1.3;" title="${t.rationale || ''}">${conceptsBadges}</td>
+            </tr>
+        `;
+    }).join('');
+
+    tbody.innerHTML = rowsHtml;
+}
+
+function recalculateHistoricalAudit() {
+    loadHistoricalAuditData(true);
+}
+
+function exportAuditJSON() {
+    if (!window._historicalAuditData) {
+        alert('Historical audit data is still loading.');
+        return;
+    }
+    const blob = new Blob([JSON.stringify(window._historicalAuditData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'historical_audit_2021_2022_results.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 
 
 
