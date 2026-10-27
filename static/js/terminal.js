@@ -150,6 +150,55 @@
     let btmHovering = false;
     let btmLivePriceLine = null;
     let btmCurrentMarkers = [];
+    let btmChartStats = { avgVolume: 100, avgRange: 1 };
+
+    function computeCandleAverages(candles) {
+        if (!candles || candles.length === 0) return { avgVolume: 100, avgRange: 1 };
+        let totalVol = 0;
+        let totalRange = 0;
+        let count = 0;
+        for (let i = 0; i < candles.length; i++) {
+            const c = candles[i];
+            const v = Number(c.volume) || 0;
+            const r = Math.max(0, (Number(c.high) || 0) - (Number(c.low) || 0));
+            if (v > 0) {
+                totalVol += v;
+                count++;
+            }
+            totalRange += r;
+        }
+        const avgVol = count > 0 ? (totalVol / count) : 100;
+        const avgRange = candles.length > 0 ? (totalRange / candles.length) : 1;
+        return { avgVolume: avgVol, avgRange: avgRange };
+    }
+
+    function classifyCandleLiquidity(c, avgVolume, avgRange) {
+        if (!c) return { label: '🎯 Retailers', isBank: false, text: 'Retailers' };
+        const vol = Number(c.volume) || 0;
+        const high = Number(c.high) || 0;
+        const low = Number(c.low) || 0;
+        const open = Number(c.open) || 0;
+        const close = Number(c.close) || 0;
+        const range = Math.max(0, high - low);
+        const body = Math.abs(close - open);
+
+        const rvol = (avgVolume && avgVolume > 0) ? (vol / avgVolume) : 1.0;
+        const rRange = (avgRange && avgRange > 0) ? (range / avgRange) : 1.0;
+
+        // Institutional Bank Footprint:
+        // 1. High Relative Volume (rvol >= 1.25)
+        // 2. High Displacement / Expansion with volume (rRange >= 1.30 && rvol >= 0.95)
+        // 3. Strong directional body (> 65% of range) with elevated volume (rvol >= 1.10)
+        const isBank = (rvol >= 1.25) || (rRange >= 1.30 && rvol >= 0.95) || (range > 0 && (body / range) > 0.65 && rvol >= 1.10);
+
+        return {
+            isBank: isBank,
+            label: isBank ? '🏦 Banks' : '🎯 Retailers',
+            badge: isBank ? 'Banks' : 'Retailers',
+            color: isBank ? (close >= open ? '#2ebd85' : '#f6465d') : '#94a3b8',
+            overlayText: isBank ? '🏦 Banks (Institutional Flow)' : '🎯 Retailers (Chop / Traps)',
+        };
+    }
 
     function fmtPrice(val, sym) {
         const num = Number(val);
@@ -265,26 +314,17 @@
             `;
         }
         if (ohlcRow2) {
-            const sym = (symbol || '').toUpperCase();
-            let realDollars = Number(bar.volume || 0);
-            if (sym.includes('XAU') || sym.includes('GOLD')) realDollars *= Number(bar.close || 1) * 100;
-            else if (sym.includes('US30') || sym.includes('DJI')) realDollars *= Number(bar.close || 1) * 5;
-            else if (!sym.includes('BTC') && !sym.includes('ETH')) realDollars *= Number(bar.close || 1);
-
-            let moneyStr = '$' + Math.round(realDollars).toLocaleString();
-            if (realDollars >= 1e9) moneyStr = '$' + (realDollars / 1e9).toFixed(2) + 'B';
-            else if (realDollars >= 1e6) moneyStr = '$' + (realDollars / 1e6).toFixed(1) + 'M';
-            else if (realDollars >= 1e3) moneyStr = '$' + (realDollars / 1e3).toFixed(0) + 'K';
-
-            const flowTag = isUp 
-                ? `<span style="color:#2ebd85;font-weight:700">🟢 Real Traded Money: ${moneyStr} Buy Flow</span>`
-                : `<span style="color:#f6465d;font-weight:700">🔴 Real Traded Money: ${moneyStr} Sell Flow</span>`;
+            const stats = btmChartStats || { avgVolume: 100, avgRange: 1 };
+            const liq = classifyCandleLiquidity(bar, stats.avgVolume, stats.avgRange);
+            const flowTag = liq.isBank
+                ? `<span style="color:#38bdf8;font-weight:700">💧 Liquidity: <b>🏦 Banks (Institutional Flow)</b></span>`
+                : `<span style="color:#94a3b8;font-weight:700">💧 Liquidity: <b>🎯 Retailers (Chop / Traps)</b></span>`;
 
             ohlcRow2.innerHTML = `
                 <span style="color:#3b82f6">EMA 20: <b>${e20Val ? fmtPrice(e20Val, symbol) : '—'}</b></span>
                 <span style="color:#f59e0b">EMA 50: <b>${e50Val ? fmtPrice(e50Val, symbol) : '—'}</b></span>
                 ${flowTag}
-                <span style="color:#8b95a7">Units: <b>${Math.round(bar.volume || 0).toLocaleString()}</b></span>
+                <span style="color:#8b95a7">Volume: <b>${Math.round(bar.volume || 0).toLocaleString()}</b></span>
             `;
         }
     }
@@ -372,33 +412,25 @@
 
             // Finalize previous candle marker
             if (btmCurrentMarkers && btmCurrentMarkers.length) {
-                let prevDollars = Number(lastBar.volume || 0);
-                const sym = (symbol || '').toUpperCase();
-                if (sym.includes('XAU') || sym.includes('GOLD')) prevDollars *= Number(lastBar.close || 1) * 100;
-                else if (sym.includes('US30') || sym.includes('DJI')) prevDollars *= Number(lastBar.close || 1) * 5;
-                else if (!sym.includes('BTC') && !sym.includes('ETH')) prevDollars *= Number(lastBar.close || 1);
-                let prevMoney = '';
-                if (prevDollars > 0) {
-                    if (prevDollars >= 1e9) prevMoney = '$' + (prevDollars / 1e9).toFixed(2) + 'B';
-                    else if (prevDollars >= 1e6) prevMoney = '$' + (prevDollars / 1e6).toFixed(1) + 'M';
-                    else if (prevDollars >= 1e3) prevMoney = '$' + (prevDollars / 1e3).toFixed(0) + 'K';
-                }
+                const stats = btmChartStats || { avgVolume: 100, avgRange: 1 };
+                const prevLiq = classifyCandleLiquidity(lastBar, stats.avgVolume, stats.avgRange);
                 const altPos = ((btmCandles.length - 2) % 2 === 0) ? 'belowBar' : 'aboveBar';
                 btmCurrentMarkers[btmCurrentMarkers.length - 1] = {
                     time: lastBar.time,
                     position: altPos,
-                    color: lastBar.close >= lastBar.open ? '#2ebd85' : '#f6465d',
+                    color: prevLiq.isBank ? (lastBar.close >= lastBar.open ? '#2ebd85' : '#f6465d') : 'rgba(148, 163, 184, 0.75)',
                     shape: 'circle',
-                    size: 0.1,
-                    text: prevMoney,
+                    size: prevLiq.isBank ? 0.15 : 0.08,
+                    text: prevLiq.label,
                 };
+                const newLiq = classifyCandleLiquidity(newBar, stats.avgVolume, stats.avgRange);
                 btmCurrentMarkers.push({
                     time: newBar.time,
                     position: 'aboveBar',
                     color: '#2ebd85',
                     shape: 'arrowUp',
                     size: 0.8,
-                    text: '● LIVE',
+                    text: `● LIVE [${newLiq.label}]`,
                 });
                 candleSeries.setMarkers(btmCurrentMarkers);
             }
@@ -451,18 +483,9 @@
             if (btmCurrentMarkers && btmCurrentMarkers.length) {
                 const lastMarker = btmCurrentMarkers[btmCurrentMarkers.length - 1];
                 if (lastMarker && lastMarker.time === lastBar.time) {
-                    let realDollars = Number(lastBar.volume || 0);
-                    const sym = (symbol || '').toUpperCase();
-                    if (sym.includes('XAU') || sym.includes('GOLD')) realDollars *= Number(lastBar.close || 1) * 100;
-                    else if (sym.includes('US30') || sym.includes('DJI')) realDollars *= Number(lastBar.close || 1) * 5;
-                    else if (!sym.includes('BTC') && !sym.includes('ETH')) realDollars *= Number(lastBar.close || 1);
-                    let moneyStr = '';
-                    if (realDollars > 0) {
-                        if (realDollars >= 1e9) moneyStr = '$' + (realDollars / 1e9).toFixed(2) + 'B';
-                        else if (realDollars >= 1e6) moneyStr = '$' + (realDollars / 1e6).toFixed(1) + 'M';
-                        else if (realDollars >= 1e3) moneyStr = '$' + (realDollars / 1e3).toFixed(0) + 'K';
-                    }
-                    lastMarker.text = `● LIVE ${moneyStr ? '[' + moneyStr + ']' : ''}`;
+                    const stats = btmChartStats || { avgVolume: 100, avgRange: 1 };
+                    const liveLiq = classifyCandleLiquidity(lastBar, stats.avgVolume, stats.avgRange);
+                    lastMarker.text = `● LIVE [${liveLiq.label}]`;
                     lastMarker.color = isBull ? '#2ebd85' : '#f6465d';
                     lastMarker.position = isBull ? 'aboveBar' : 'belowBar';
                     lastMarker.shape = isBull ? 'arrowUp' : 'arrowDown';
@@ -652,24 +675,14 @@
                 title: `● LIVE: ${fmtPrice(lastBar.close, symbol)}`,
             });
 
-            // ── Real Traded Capital & Price Markers on ALL Past Candles (100% Real Exchange Data) ──
+            // ── Institutional Liquidity Classification on ALL Candles (Banks vs Retailers) ──
+            const { avgVolume: btmAvgVol, avgRange: btmAvgRange } = computeCandleAverages(btmCandles);
+            btmChartStats = { avgVolume: btmAvgVol, avgRange: btmAvgRange };
+
             const btmMarkers = [];
             for (let i = 0; i < btmCandles.length; i++) {
                 const c = btmCandles[i];
-                let realDollars = Number(c.volume || 0);
-                const sym = (symbol || '').toUpperCase();
-                if (sym.includes('XAU') || sym.includes('GOLD')) realDollars *= Number(c.close || 1) * 100;
-                else if (sym.includes('US30') || sym.includes('DJI')) realDollars *= Number(c.close || 1) * 5;
-                else if (!sym.includes('BTC') && !sym.includes('ETH')) realDollars *= Number(c.close || 1);
-
-                let moneyStr = '';
-                if (realDollars > 0) {
-                    if (realDollars >= 1e9) moneyStr = '$' + (realDollars / 1e9).toFixed(2) + 'B';
-                    else if (realDollars >= 1e6) moneyStr = '$' + (realDollars / 1e6).toFixed(1) + 'M';
-                    else if (realDollars >= 1e3) moneyStr = '$' + (realDollars / 1e3).toFixed(0) + 'K';
-                    else moneyStr = '$' + Math.round(realDollars).toLocaleString();
-                }
-
+                const liq = classifyCandleLiquidity(c, btmAvgVol, btmAvgRange);
                 const isUp = c.close >= c.open;
                 const isLiveBar = (i === btmCandles.length - 1);
                 const isSignalBar = isLiveBar && payload && (payload.direction === 'BUY' || payload.direction === 'SELL') && payload.entry_price;
@@ -678,10 +691,10 @@
                     btmMarkers.push({
                         time: c.time,
                         position: isUp ? 'aboveBar' : 'belowBar',
-                        color: isUp ? '#2ebd85' : '#f6465d',
+                        color: liq.isBank ? (isUp ? '#2ebd85' : '#f6465d') : '#94a3b8',
                         shape: isUp ? 'arrowUp' : 'arrowDown',
                         size: 0.8,
-                        text: `● LIVE ${moneyStr ? '[' + moneyStr + ']' : ''}`,
+                        text: `● LIVE [${liq.label}]`,
                     });
                 } else if (isSignalBar) {
                     btmMarkers.push({
@@ -690,17 +703,17 @@
                         color: payload.direction === 'BUY' ? '#2ebd85' : '#f6465d',
                         shape: payload.direction === 'BUY' ? 'arrowUp' : 'arrowDown',
                         size: 1.2,
-                        text: `${payload.direction} @ ${fmtPrice(payload.entry_price, symbol)}${moneyStr ? ' [' + moneyStr + ']' : ''}`,
+                        text: `${payload.direction} @ ${fmtPrice(payload.entry_price, symbol)} [🏦 Banks]`,
                     });
-                } else if (moneyStr) {
+                } else {
                     const altPos = (i % 2 === 0) ? 'belowBar' : 'aboveBar';
                     btmMarkers.push({
                         time: c.time,
                         position: altPos,
-                        color: isUp ? '#2ebd85' : '#f6465d',
+                        color: liq.isBank ? (isUp ? '#2ebd85' : '#f6465d') : 'rgba(148, 163, 184, 0.75)',
                         shape: 'circle',
-                        size: 0.1, // clean microscopic dot
-                        text: moneyStr,
+                        size: liq.isBank ? 0.15 : 0.08,
+                        text: liq.label,
                     });
                 }
             }

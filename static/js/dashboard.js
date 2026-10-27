@@ -811,6 +811,56 @@ function formatRealCandleMoney(dollarAmt) {
     return '$' + dollarAmt.toFixed(0);
 }
 
+let currentChartStats = { avgVolume: 100, avgRange: 1 };
+
+function computeCandleAverages(candles) {
+    if (!candles || candles.length === 0) return { avgVolume: 100, avgRange: 1 };
+    let totalVol = 0;
+    let totalRange = 0;
+    let count = 0;
+    for (let i = 0; i < candles.length; i++) {
+        const c = candles[i];
+        const v = Number(c.volume) || 0;
+        const r = Math.max(0, (Number(c.high) || 0) - (Number(c.low) || 0));
+        if (v > 0) {
+            totalVol += v;
+            count++;
+        }
+        totalRange += r;
+    }
+    const avgVol = count > 0 ? (totalVol / count) : 100;
+    const avgRange = candles.length > 0 ? (totalRange / candles.length) : 1;
+    return { avgVolume: avgVol, avgRange: avgRange };
+}
+
+function classifyCandleLiquidity(c, avgVolume, avgRange) {
+    if (!c) return { label: '🎯 Retailers', isBank: false, text: 'Retailers' };
+    const vol = Number(c.volume) || 0;
+    const high = Number(c.high) || 0;
+    const low = Number(c.low) || 0;
+    const open = Number(c.open) || 0;
+    const close = Number(c.close) || 0;
+    const range = Math.max(0, high - low);
+    const body = Math.abs(close - open);
+
+    const rvol = (avgVolume && avgVolume > 0) ? (vol / avgVolume) : 1.0;
+    const rRange = (avgRange && avgRange > 0) ? (range / avgRange) : 1.0;
+
+    // Institutional Bank Footprint:
+    // 1. High Relative Volume (rvol >= 1.25)
+    // 2. High Displacement / Expansion with volume (rRange >= 1.30 && rvol >= 0.95)
+    // 3. Strong directional body (> 65% of range) with elevated volume (rvol >= 1.10)
+    const isBank = (rvol >= 1.25) || (rRange >= 1.30 && rvol >= 0.95) || (range > 0 && (body / range) > 0.65 && rvol >= 1.10);
+
+    return {
+        isBank: isBank,
+        label: isBank ? '🏦 Banks' : '🎯 Retailers',
+        badge: isBank ? 'Banks' : 'Retailers',
+        color: isBank ? (close >= open ? '#10b981' : '#ef4444') : '#94a3b8',
+        overlayText: isBank ? '🏦 Banks (Institutional Order Flow)' : '🎯 Retailers (Chop / Traps)',
+    };
+}
+
 function computeEMASeries(candles, period) {
     if (!candles || candles.length === 0) return [];
     const k = 2 / (period + 1);
@@ -1404,11 +1454,13 @@ function renderSignalCandleChart(s) {
                 }
             }
 
-            // Loop through all candles: Display Clean, Staggered, Non-Overlapping Traded Money
+            // ── Institutional Liquidity Classification on ALL Candles (Banks vs Retailers) ──
+            const { avgVolume: chartAvgVol, avgRange: chartAvgRange } = computeCandleAverages(candleData);
+            currentChartStats = { avgVolume: chartAvgVol, avgRange: chartAvgRange };
+
             for (let i = 0; i < candleData.length; i++) {
                 const c = candleData[i];
-                const realDollars = getRealCandleDollarVolume(c, s.symbol);
-                const moneyTag = realDollars > 0 ? formatRealCandleMoney(realDollars) : '';
+                const liq = classifyCandleLiquidity(c, chartAvgVol, chartAvgRange);
                 const isUp = c.close >= c.open;
                 const isSignalBar = markerCandle && c.time === markerCandle.time;
                 const isLiveBar = (i === candleData.length - 1);
@@ -1417,10 +1469,10 @@ function renderSignalCandleChart(s) {
                     allMarkers.push({
                         time: c.time,
                         position: isUp ? 'aboveBar' : 'belowBar',
-                        color: isUp ? '#10b981' : '#ef4444',
+                        color: liq.isBank ? (isUp ? '#10b981' : '#ef4444') : '#94a3b8',
                         shape: isUp ? 'arrowUp' : 'arrowDown',
                         size: 0.8,
-                        text: `● LIVE ${moneyTag ? '[' + moneyTag + ']' : ''}`,
+                        text: `● LIVE [${liq.label}]`,
                     });
                 } else if (isSignalBar && (s.direction === 'BUY' || s.direction === 'SELL')) {
                     allMarkers.push({
@@ -1429,18 +1481,18 @@ function renderSignalCandleChart(s) {
                         color: s.direction === 'BUY' ? '#10b981' : '#ef4444',
                         shape: s.direction === 'BUY' ? 'arrowUp' : 'arrowDown',
                         size: 1.2,
-                        text: `${s.direction} @ ${formatChartPrice(s.entry_price, s.symbol)}${moneyTag ? ' [' + moneyTag + ']' : ''}`,
+                        text: `${s.direction} @ ${formatChartPrice(s.entry_price, s.symbol)} [🏦 Banks]`,
                     });
-                } else if (moneyTag) {
+                } else {
                     // Stagger even and odd to guarantee adjacent candle labels NEVER overlap
                     const altPos = (i % 2 === 0) ? 'belowBar' : 'aboveBar';
                     allMarkers.push({
                         time: c.time,
                         position: altPos,
-                        color: isUp ? '#10b981' : '#ef4444',
+                        color: liq.isBank ? (isUp ? '#10b981' : '#ef4444') : 'rgba(148, 163, 184, 0.75)',
                         shape: 'circle',
-                        size: 0.1, // Clean microscopic dot - eliminates giant clunky circles
-                        text: moneyTag,
+                        size: liq.isBank ? 0.15 : 0.08,
+                        text: liq.label,
                     });
                 }
             }
@@ -1677,9 +1729,9 @@ function syncServerCandlesToChart(recentCandles, tfSeconds) {
             if (currentChartMarkers && currentChartMarkers.length) {
                 const lastMarker = currentChartMarkers[currentChartMarkers.length - 1];
                 if (lastMarker && lastMarker.time === lastLocal.time) {
-                    const liveDollars = getRealCandleDollarVolume(lastLocal, sym);
-                    const liveMoney = liveDollars > 0 ? formatRealCandleMoney(liveDollars) : '';
-                    lastMarker.text = `● LIVE ${liveMoney ? '[' + liveMoney + ']' : ''}`;
+                    const stats = currentChartStats || { avgVolume: 100, avgRange: 1 };
+                    const liveLiq = classifyCandleLiquidity(lastLocal, stats.avgVolume, stats.avgRange);
+                    lastMarker.text = `● LIVE [${liveLiq.label}]`;
                     lastMarker.color = isBull ? '#10b981' : '#ef4444';
                     lastMarker.position = isBull ? 'aboveBar' : 'belowBar';
                     lastMarker.shape = isBull ? 'arrowUp' : 'arrowDown';
@@ -1737,25 +1789,26 @@ function applyLivePriceTickToChart(rawPrice, tfSeconds, addedVolume = 0) {
 
         // Finalize previous candle's marker
         if (currentChartMarkers && currentChartMarkers.length) {
-            const prevDollars = getRealCandleDollarVolume(lastBar, sym);
-            const prevMoney = prevDollars > 0 ? formatRealCandleMoney(prevDollars) : '';
+            const stats = currentChartStats || { avgVolume: 100, avgRange: 1 };
+            const prevLiq = classifyCandleLiquidity(lastBar, stats.avgVolume, stats.avgRange);
             const prevAltPos = ((currentChartData.length - 2) % 2 === 0) ? 'belowBar' : 'aboveBar';
             currentChartMarkers[currentChartMarkers.length - 1] = {
                 time: lastBar.time,
                 position: prevAltPos,
-                color: lastBar.close >= lastBar.open ? '#10b981' : '#ef4444',
+                color: prevLiq.isBank ? (lastBar.close >= lastBar.open ? '#10b981' : '#ef4444') : 'rgba(148, 163, 184, 0.75)',
                 shape: 'circle',
-                size: 0.1,
-                text: prevMoney,
+                size: prevLiq.isBank ? 0.15 : 0.08,
+                text: prevLiq.label,
             };
             // Append new active live candle marker
+            const newLiq = classifyCandleLiquidity(newBar, stats.avgVolume, stats.avgRange);
             currentChartMarkers.push({
                 time: newBar.time,
                 position: 'aboveBar',
                 color: '#10b981',
                 shape: 'arrowUp',
                 size: 0.8,
-                text: '● LIVE',
+                text: `● LIVE [${newLiq.label}]`,
             });
             candleSeries.setMarkers(currentChartMarkers);
         }
@@ -1805,8 +1858,9 @@ function applyLivePriceTickToChart(rawPrice, tfSeconds, addedVolume = 0) {
         if (currentChartMarkers && currentChartMarkers.length) {
             const lastMarker = currentChartMarkers[currentChartMarkers.length - 1];
             if (lastMarker && lastMarker.time === lastBar.time) {
-                const liveDollars = getRealCandleDollarVolume(lastBar, sym);
-                lastMarker.text = `● LIVE ${liveMoney ? '[' + liveMoney + ']' : ''}`;
+                const stats = currentChartStats || { avgVolume: 100, avgRange: 1 };
+                const liveLiq = classifyCandleLiquidity(lastBar, stats.avgVolume, stats.avgRange);
+                lastMarker.text = `● LIVE [${liveLiq.label}]`;
                 lastMarker.color = isBullish ? '#10b981' : '#ef4444';
                 lastMarker.position = isBullish ? 'aboveBar' : 'belowBar';
                 lastMarker.shape = isBullish ? 'arrowUp' : 'arrowDown';
@@ -1856,18 +1910,17 @@ function updateTvOhlcOverlay(symbol, bar, prevClose, ema20Val, ema50Val) {
     `;
 
     if (emaEl) {
-        const realDollars = getRealCandleDollarVolume(bar, symbol);
-        const moneyTag = formatRealCandleMoney(realDollars);
-        const isUp = bar.close >= bar.open;
-        const flowLabel = isUp 
-            ? `<span style="color:#10b981;font-weight:700">🟢 Real Traded Money: <b>${moneyTag} Buy Flow</b></span>`
-            : `<span style="color:#ef4444;font-weight:700">🔴 Real Traded Money: <b>${moneyTag} Sell Flow</b></span>`;
+        const stats = currentChartStats || { avgVolume: 100, avgRange: 1 };
+        const liq = classifyCandleLiquidity(bar, stats.avgVolume, stats.avgRange);
+        const flowLabel = liq.isBank
+            ? `<span style="color:#38bdf8;font-weight:700">💧 Liquidity: <b>🏦 Banks (Institutional Order Flow)</b></span>`
+            : `<span style="color:#94a3b8;font-weight:700">💧 Liquidity: <b>🎯 Retailers (Chop / Traps)</b></span>`;
 
         emaEl.innerHTML = `
             <span style="color:#60a5fa">EMA 20: <b>${ema20Val ? formatChartPrice(ema20Val, symbol) : '—'}</b></span>
             <span style="color:#fbbf24">EMA 50: <b>${ema50Val ? formatChartPrice(ema50Val, symbol) : '—'}</b></span>
             ${flowLabel}
-            <span style="color:#94a3b8">Units: <b>${Number(bar.volume || 0).toLocaleString()}</b></span>
+            <span style="color:#94a3b8">Volume: <b>${Number(bar.volume || 0).toLocaleString()}</b></span>
         `;
     }
 }
@@ -2069,17 +2122,17 @@ function renderCanvasCandlestickChart(container, candles, s) {
         const bodyH = Math.max(1, Math.abs(closeY - openY));
         ctx.fillRect(x - candleW / 2, topY, candleW, bodyH);
 
-        // Real Price & Traded Money Label on candles (100% Real Exchange Data)
-        const realDollars = getRealCandleDollarVolume(c, s.symbol);
+        // Liquidity classification label on candles (Banks vs Retailers)
+        const stats = currentChartStats || { avgVolume: 100, avgRange: 1 };
+        const liq = classifyCandleLiquidity(c, stats.avgVolume, stats.avgRange);
         if (candleW >= 3) {
             ctx.save();
-            const moneyTag = realDollars > 0 ? formatRealCandleMoney(realDollars) : '';
             const isLive = (i === count - 1);
-            const labelText = isLive ? `● LIVE ${moneyTag ? '[' + moneyTag + ']' : ''}` : moneyTag;
+            const labelText = isLive ? `● LIVE [${liq.label}]` : liq.label;
             if (labelText) {
                 ctx.font = 'bold 8px JetBrains Mono, monospace';
                 ctx.textAlign = 'center';
-                ctx.fillStyle = isUp ? 'rgba(16, 185, 129, 0.95)' : 'rgba(239, 68, 68, 0.95)';
+                ctx.fillStyle = liq.isBank ? (isUp ? 'rgba(16, 185, 129, 0.95)' : 'rgba(239, 68, 68, 0.95)') : 'rgba(148, 163, 184, 0.85)';
                 const labelY = (i % 2 === 0) ? lowY + 11 : highY - 5;
                 ctx.fillText(labelText, x, labelY);
             }
