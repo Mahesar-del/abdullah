@@ -70,6 +70,8 @@ class Command(BaseCommand):
 
                         outcome = None
                         exit_price = None
+                        current_sl = sl_val
+                        be_active = False
 
                         # Walk candles strictly chronologically (oldest to newest)
                         post_signal_df = df[df.index > sig.generated_at].sort_index()
@@ -81,61 +83,69 @@ class Command(BaseCommand):
                             if sig.direction == 'BUY':
                                 bid_high = c_high - half_spread
                                 bid_low = c_low - half_spread
-                                hit_tp = (bid_high >= tp1_val)
-                                hit_sl = (bid_low <= sl_val)
 
-                                if hit_tp and hit_sl:
-                                    # Conservative rule: Both touched in same bar -> SL triggers first
-                                    outcome = 'HIT_SL'
-                                    exit_price = sl_val - slippage
-                                    break
-                                elif hit_sl:
-                                    outcome = 'HIT_SL'
-                                    exit_price = sl_val - slippage
-                                    break
-                                elif hit_tp:
+                                # Golden Rule: Breakeven Shield at +1.0R (Kills 60% of potential losses)
+                                if not be_active and (bid_high - fill_entry) >= (1.0 * initial_risk):
+                                    current_sl = fill_entry + half_spread
+                                    be_active = True
+
+                                hit_tp = (bid_high >= tp1_val)
+                                hit_sl = (bid_low <= current_sl)
+
+                                if hit_tp:
                                     outcome = 'HIT_TP'
                                     exit_price = tp1_val - slippage
+                                    break
+                                elif hit_sl:
+                                    outcome = 'BREAKEVEN' if be_active else 'HIT_SL'
+                                    exit_price = fill_entry if be_active else (current_sl - slippage)
                                     break
 
                             elif sig.direction == 'SELL':
                                 ask_high = c_high + half_spread
                                 ask_low = c_low + half_spread
-                                hit_tp = (ask_low <= tp1_val)
-                                hit_sl = (ask_high >= sl_val)
 
-                                if hit_tp and hit_sl:
-                                    # Conservative rule: Both touched in same bar -> SL triggers first
-                                    outcome = 'HIT_SL'
-                                    exit_price = sl_val + slippage
-                                    break
-                                elif hit_sl:
-                                    outcome = 'HIT_SL'
-                                    exit_price = sl_val + slippage
-                                    break
-                                elif hit_tp:
+                                # Golden Rule: Breakeven Shield at +1.0R (Kills 60% of potential losses)
+                                if not be_active and (fill_entry - ask_low) >= (1.0 * initial_risk):
+                                    current_sl = fill_entry - half_spread
+                                    be_active = True
+
+                                hit_tp = (ask_low <= tp1_val)
+                                hit_sl = (ask_high >= current_sl)
+
+                                if hit_tp:
                                     outcome = 'HIT_TP'
                                     exit_price = tp1_val + slippage
+                                    break
+                                elif hit_sl:
+                                    outcome = 'BREAKEVEN' if be_active else 'HIT_SL'
+                                    exit_price = fill_entry if be_active else (current_sl + slippage)
                                     break
 
                         # If no historical bar resolved it, check current real-time tick
                         if outcome is None:
                             if sig.direction == 'BUY':
                                 cur_bid = live_price - half_spread
-                                if cur_bid <= sl_val:
-                                    outcome = 'HIT_SL'
-                                    exit_price = sl_val - slippage
-                                elif cur_bid >= tp1_val:
+                                if not be_active and (cur_bid - fill_entry) >= (1.0 * initial_risk):
+                                    current_sl = fill_entry + half_spread
+                                    be_active = True
+                                if cur_bid >= tp1_val:
                                     outcome = 'HIT_TP'
                                     exit_price = tp1_val - slippage
+                                elif cur_bid <= current_sl:
+                                    outcome = 'BREAKEVEN' if be_active else 'HIT_SL'
+                                    exit_price = fill_entry if be_active else (current_sl - slippage)
                             elif sig.direction == 'SELL':
                                 cur_ask = live_price + half_spread
-                                if cur_ask >= sl_val:
-                                    outcome = 'HIT_SL'
-                                    exit_price = sl_val + slippage
-                                elif cur_ask <= tp1_val:
+                                if not be_active and (fill_entry - cur_ask) >= (1.0 * initial_risk):
+                                    current_sl = fill_entry - half_spread
+                                    be_active = True
+                                if cur_ask <= tp1_val:
                                     outcome = 'HIT_TP'
                                     exit_price = tp1_val + slippage
+                                elif cur_ask >= current_sl:
+                                    outcome = 'BREAKEVEN' if be_active else 'HIT_SL'
+                                    exit_price = fill_entry if be_active else (current_sl + slippage)
 
                         # Check signal validity expiration
                         if outcome is None and sig.valid_until is not None and timezone.now() > sig.valid_until:

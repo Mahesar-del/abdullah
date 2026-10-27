@@ -137,6 +137,7 @@ class AutoTradeExecution(models.Model):
     EXIT_CHOICES = [
         ('TP_HIT', 'Take Profit Hit (Target Achieved)'),
         ('SL_HIT', 'Stop Loss Hit (Risk Protected)'),
+        ('BREAKEVEN', 'Breakeven Shield Hit (0 Loss)'),
         ('MANUAL', 'Manual Close by User'),
         ('KILL_SWITCH', 'Emergency Kill Switch Triggered'),
         ('EXPIRED', 'Signal Expired'),

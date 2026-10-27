@@ -1,6 +1,7 @@
 """
 Market Data Views
 """
+import time
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
 from .models import Instrument, OHLCV, MarketSession
@@ -225,16 +226,24 @@ class LiveSymbolChartView(generics.GenericAPIView):
         })
 
 
+_INST_CACHE = {"at": 0.0, "data": None}
+
+
 class InstitutionalOverviewView(generics.GenericAPIView):
     """
     GET /api/market/institutional-positions/
     Returns real CFTC Commitments of Traders positions, real Binance derivatives funding rates,
-    and empirical intermarket snapshot data.
+    and empirical intermarket snapshot data (cached for 300s for instantaneous page refreshes).
     """
     permission_classes = [AllowAny]
 
     def get(self, request):
         from rest_framework.response import Response
+
+        now = time.monotonic()
+        if _INST_CACHE["data"] is not None and (now - _INST_CACHE["at"]) < 300:
+            return Response(_INST_CACHE["data"])
+
         from signals.models import InstitutionalPosition
         from engines.institutional import InstitutionalEngine
         from engines.intermarket import IntermarketEngine
@@ -278,7 +287,7 @@ class InstitutionalOverviewView(generics.GenericAPIView):
 
         macro = IntermarketEngine.get_real_intermarket_metrics('XAUUSD')
 
-        return Response({
+        payload = {
             'success': True,
             'source': 'CFTC Official Socrata Feed & Binance Derivatives',
             'positions': positions_data,
@@ -288,7 +297,9 @@ class InstitutionalOverviewView(generics.GenericAPIView):
                 'spx_gold_corr': macro.get('spx', 0.43),
                 'oil_gold_corr': macro.get('oil', -0.07),
             }
-        })
+        }
+        _INST_CACHE.update(at=now, data=payload)
+        return Response(payload)
 
 
 class InstitutionalLiquidityView(generics.GenericAPIView):

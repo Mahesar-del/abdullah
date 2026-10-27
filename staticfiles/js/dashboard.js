@@ -716,6 +716,8 @@ let lastDisplayedPrice = null;
 let wsInitialPrice = null;
 let wsAnchorChartPrice = null;
 let isHoveringCrosshair = false;
+let currentLivePriceLine = null;
+let currentChartMarkers = [];
 
 const BINANCE_WS_MAP = {
     BTCUSD: 'btcusdt',
@@ -778,6 +780,35 @@ function formatVolumeCompact(val) {
     if (v >= 1e6) return (v / 1e6).toFixed(2) + 'M';
     if (v >= 1e3) return (v / 1e3).toFixed(1) + 'K';
     return v > 0 ? v.toFixed(0) : '—';
+}
+
+function getRealCandleDollarVolume(c, symbol) {
+    if (!c) return 0;
+    const v = Number(c.volume) || 0;
+    const p = Number(c.close) || 1;
+    if (v <= 0) return 0;
+
+    const sym = (symbol || '').toUpperCase();
+    if (sym.includes('BTC') || sym.includes('ETH')) {
+        return v;
+    } else if (sym.includes('XAU') || sym.includes('GOLD')) {
+        return v * p * 100;
+    } else if (sym.includes('US30') || sym.includes('DJI')) {
+        return v * p * 5;
+    } else if (sym.includes('USOIL') || sym.includes('CL')) {
+        return v * p * 1000;
+    } else {
+        return v * p;
+    }
+}
+
+function formatRealCandleMoney(dollarAmt) {
+    if (!dollarAmt || dollarAmt <= 0) return '—';
+    if (dollarAmt >= 1e12) return '$' + (dollarAmt / 1e12).toFixed(2) + 'T';
+    if (dollarAmt >= 1e9) return '$' + (dollarAmt / 1e9).toFixed(2) + 'B';
+    if (dollarAmt >= 1e6) return '$' + (dollarAmt / 1e6).toFixed(1) + 'M';
+    if (dollarAmt >= 1e3) return '$' + (dollarAmt / 1e3).toFixed(0) + 'K';
+    return '$' + dollarAmt.toFixed(0);
 }
 
 function computeEMASeries(candles, period) {
@@ -1349,27 +1380,74 @@ function renderSignalCandleChart(s) {
                 });
             }
 
-            // ── Trade Marker at Signal Point ────────────────
-            if (s.direction === 'BUY' || s.direction === 'SELL') {
-                const signalTs = s.generated_ts || candleData[candleData.length - 1].time;
-                let markerCandle = candleData[candleData.length - 1];
-                for (let i = candleData.length - 1; i >= 0; i--) {
-                    if (candleData[i].time <= signalTs) {
-                        markerCandle = candleData[i];
-                        break;
-                    }
-                }
+            // ── Prominent LIVE Price Line (Moves Live in Real Time with Price Action) ──
+            const lastBar = candleData[candleData.length - 1];
+            const prevBar = candleData.length > 1 ? candleData[candleData.length - 2] : lastBar;
+            const initBull = lastBar.close >= prevBar.close;
+            currentLivePriceLine = candleSeries.createPriceLine({
+                price: lastBar.close,
+                color: initBull ? '#10b981' : '#ef4444',
+                lineWidth: 2,
+                lineStyle: LightweightCharts.LineStyle.Dashed,
+                axisLabelVisible: true,
+                title: `● LIVE: ${formatChartPrice(lastBar.close, s.symbol)}`,
+            });
 
-                candleSeries.setMarkers([
-                    {
-                        time: markerCandle.time,
+            // ── Real Traded Capital & Price Markers on ALL Past Candles (100% Real Exchange Data) ──
+            const allMarkers = [];
+            const signalTs = s.generated_ts || candleData[candleData.length - 1].time;
+            let markerCandle = candleData[candleData.length - 1];
+            for (let i = candleData.length - 1; i >= 0; i--) {
+                if (candleData[i].time <= signalTs) {
+                    markerCandle = candleData[i];
+                    break;
+                }
+            }
+
+            // Loop through all candles: Display Clean, Staggered, Non-Overlapping Traded Money
+            for (let i = 0; i < candleData.length; i++) {
+                const c = candleData[i];
+                const realDollars = getRealCandleDollarVolume(c, s.symbol);
+                const moneyTag = realDollars > 0 ? formatRealCandleMoney(realDollars) : '';
+                const isUp = c.close >= c.open;
+                const isSignalBar = markerCandle && c.time === markerCandle.time;
+                const isLiveBar = (i === candleData.length - 1);
+
+                if (isLiveBar) {
+                    allMarkers.push({
+                        time: c.time,
+                        position: isUp ? 'aboveBar' : 'belowBar',
+                        color: isUp ? '#10b981' : '#ef4444',
+                        shape: isUp ? 'arrowUp' : 'arrowDown',
+                        size: 0.8,
+                        text: `● LIVE ${moneyTag ? '[' + moneyTag + ']' : ''}`,
+                    });
+                } else if (isSignalBar && (s.direction === 'BUY' || s.direction === 'SELL')) {
+                    allMarkers.push({
+                        time: c.time,
                         position: s.direction === 'BUY' ? 'belowBar' : 'aboveBar',
                         color: s.direction === 'BUY' ? '#10b981' : '#ef4444',
                         shape: s.direction === 'BUY' ? 'arrowUp' : 'arrowDown',
-                        text: `${s.direction} @ ${s.entry_price}`,
-                    }
-                ]);
+                        size: 1.2,
+                        text: `${s.direction} @ ${formatChartPrice(s.entry_price, s.symbol)}${moneyTag ? ' [' + moneyTag + ']' : ''}`,
+                    });
+                } else if (moneyTag) {
+                    // Stagger even and odd to guarantee adjacent candle labels NEVER overlap
+                    const altPos = (i % 2 === 0) ? 'belowBar' : 'aboveBar';
+                    allMarkers.push({
+                        time: c.time,
+                        position: altPos,
+                        color: isUp ? '#10b981' : '#ef4444',
+                        shape: 'circle',
+                        size: 0.1, // Clean microscopic dot - eliminates giant clunky circles
+                        text: moneyTag,
+                    });
+                }
             }
+
+            allMarkers.sort((a, b) => a.time - b.time);
+            currentChartMarkers = allMarkers;
+            candleSeries.setMarkers(allMarkers);
 
             // Position view on recent ~70 candles + right offset like TradingView
             const visibleCount = Math.min(75, candleData.length);
@@ -1382,8 +1460,6 @@ function renderSignalCandleChart(s) {
             currentChartSeries = { candleSeries, volumeSeries, ema20Series, ema50Series };
 
             // Initial OHLCV header render
-            const lastBar = candleData[candleData.length - 1];
-            const prevBar = candleData.length > 1 ? candleData[candleData.length - 2] : lastBar;
             updateTvOhlcOverlay(
                 s.symbol,
                 lastBar,
@@ -1586,6 +1662,32 @@ function syncServerCandlesToChart(recentCandles, tfSeconds) {
             value: lastLocal.volume,
             color: lastLocal.close >= lastLocal.open ? 'rgba(16, 185, 129, 0.28)' : 'rgba(239, 68, 68, 0.28)',
         });
+
+        // Sync live price line and active candle marker
+        if (currentSignalPayload) {
+            const sym = currentSignalPayload.symbol || '';
+            const isBull = lastLocal.close >= lastLocal.open;
+            if (currentLivePriceLine) {
+                currentLivePriceLine.applyOptions({
+                    price: lastLocal.close,
+                    color: isBull ? '#10b981' : '#ef4444',
+                    title: `● LIVE: ${formatChartPrice(lastLocal.close, sym)}`,
+                });
+            }
+            if (currentChartMarkers && currentChartMarkers.length) {
+                const lastMarker = currentChartMarkers[currentChartMarkers.length - 1];
+                if (lastMarker && lastMarker.time === lastLocal.time) {
+                    const liveDollars = getRealCandleDollarVolume(lastLocal, sym);
+                    const liveMoney = liveDollars > 0 ? formatRealCandleMoney(liveDollars) : '';
+                    lastMarker.text = `● LIVE ${liveMoney ? '[' + liveMoney + ']' : ''}`;
+                    lastMarker.color = isBull ? '#10b981' : '#ef4444';
+                    lastMarker.position = isBull ? 'aboveBar' : 'belowBar';
+                    lastMarker.shape = isBull ? 'arrowUp' : 'arrowDown';
+                    lastMarker.size = 0.8;
+                    candleSeries.setMarkers(currentChartMarkers);
+                }
+            }
+        }
     }
 
     const e20 = computeEMASeries(currentChartData, 20).at(-1);
@@ -1632,6 +1734,32 @@ function applyLivePriceTickToChart(rawPrice, tfSeconds, addedVolume = 0) {
             volume: addedVolume > 0 ? addedVolume : Math.max(1, (lastBar.volume || 100) * 0.02),
         };
         currentChartData.push(newBar);
+
+        // Finalize previous candle's marker
+        if (currentChartMarkers && currentChartMarkers.length) {
+            const prevDollars = getRealCandleDollarVolume(lastBar, sym);
+            const prevMoney = prevDollars > 0 ? formatRealCandleMoney(prevDollars) : '';
+            const prevAltPos = ((currentChartData.length - 2) % 2 === 0) ? 'belowBar' : 'aboveBar';
+            currentChartMarkers[currentChartMarkers.length - 1] = {
+                time: lastBar.time,
+                position: prevAltPos,
+                color: lastBar.close >= lastBar.open ? '#10b981' : '#ef4444',
+                shape: 'circle',
+                size: 0.1,
+                text: prevMoney,
+            };
+            // Append new active live candle marker
+            currentChartMarkers.push({
+                time: newBar.time,
+                position: 'aboveBar',
+                color: '#10b981',
+                shape: 'arrowUp',
+                size: 0.8,
+                text: '● LIVE',
+            });
+            candleSeries.setMarkers(currentChartMarkers);
+        }
+
         lastBar = newBar;
         candleSeries.update(newBar);
         volumeSeries.update({
@@ -1639,6 +1767,13 @@ function applyLivePriceTickToChart(rawPrice, tfSeconds, addedVolume = 0) {
             value: newBar.volume,
             color: newBar.close >= newBar.open ? 'rgba(16, 185, 129, 0.28)' : 'rgba(239, 68, 68, 0.28)',
         });
+        if (currentLivePriceLine) {
+            currentLivePriceLine.applyOptions({
+                price: price,
+                color: '#10b981',
+                title: `● LIVE: ${formatChartPrice(price, sym)}`,
+            });
+        }
     } else {
         lastBar.close = price;
         if (price > lastBar.high) lastBar.high = price;
@@ -1656,6 +1791,29 @@ function applyLivePriceTickToChart(rawPrice, tfSeconds, addedVolume = 0) {
             value: lastBar.volume,
             color: isBullish ? 'rgba(16, 185, 129, 0.28)' : 'rgba(239, 68, 68, 0.28)',
         });
+
+        // ── Real-Time LIVE Price Line (Moves live with each tick) ──
+        if (currentLivePriceLine) {
+            currentLivePriceLine.applyOptions({
+                price: price,
+                color: isBullish ? '#10b981' : '#ef4444',
+                title: `● LIVE: ${formatChartPrice(price, sym)}`,
+            });
+        }
+
+        // ── Real-Time LIVE Marker on Active Candle (Pulsing and moving live with price) ──
+        if (currentChartMarkers && currentChartMarkers.length) {
+            const lastMarker = currentChartMarkers[currentChartMarkers.length - 1];
+            if (lastMarker && lastMarker.time === lastBar.time) {
+                const liveDollars = getRealCandleDollarVolume(lastBar, sym);
+                lastMarker.text = `● LIVE ${liveMoney ? '[' + liveMoney + ']' : ''}`;
+                lastMarker.color = isBullish ? '#10b981' : '#ef4444';
+                lastMarker.position = isBullish ? 'aboveBar' : 'belowBar';
+                lastMarker.shape = isBullish ? 'arrowUp' : 'arrowDown';
+                lastMarker.size = 0.8;
+                candleSeries.setMarkers(currentChartMarkers);
+            }
+        }
     }
 
     const e20 = computeEMASeries(currentChartData, 20).at(-1);
@@ -1698,11 +1856,18 @@ function updateTvOhlcOverlay(symbol, bar, prevClose, ema20Val, ema50Val) {
     `;
 
     if (emaEl) {
+        const realDollars = getRealCandleDollarVolume(bar, symbol);
+        const moneyTag = formatRealCandleMoney(realDollars);
+        const isUp = bar.close >= bar.open;
+        const flowLabel = isUp 
+            ? `<span style="color:#10b981;font-weight:700">🟢 Real Traded Money: <b>${moneyTag} Buy Flow</b></span>`
+            : `<span style="color:#ef4444;font-weight:700">🔴 Real Traded Money: <b>${moneyTag} Sell Flow</b></span>`;
+
         emaEl.innerHTML = `
             <span style="color:#60a5fa">EMA 20: <b>${ema20Val ? formatChartPrice(ema20Val, symbol) : '—'}</b></span>
             <span style="color:#fbbf24">EMA 50: <b>${ema50Val ? formatChartPrice(ema50Val, symbol) : '—'}</b></span>
-            <span style="color:#94a3b8">Vol: <b>${formatVolumeCompact(bar.volume)}</b></span>
-            <span style="color:#10b981">📜 ${currentChartData.length} Real Past Bars</span>
+            ${flowLabel}
+            <span style="color:#94a3b8">Units: <b>${Number(bar.volume || 0).toLocaleString()}</b></span>
         `;
     }
 }
@@ -1903,6 +2068,23 @@ function renderCanvasCandlestickChart(container, candles, s) {
         const topY = Math.min(openY, closeY);
         const bodyH = Math.max(1, Math.abs(closeY - openY));
         ctx.fillRect(x - candleW / 2, topY, candleW, bodyH);
+
+        // Real Price & Traded Money Label on candles (100% Real Exchange Data)
+        const realDollars = getRealCandleDollarVolume(c, s.symbol);
+        if (candleW >= 3) {
+            ctx.save();
+            const moneyTag = realDollars > 0 ? formatRealCandleMoney(realDollars) : '';
+            const isLive = (i === count - 1);
+            const labelText = isLive ? `● LIVE ${moneyTag ? '[' + moneyTag + ']' : ''}` : moneyTag;
+            if (labelText) {
+                ctx.font = 'bold 8px JetBrains Mono, monospace';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = isUp ? 'rgba(16, 185, 129, 0.95)' : 'rgba(239, 68, 68, 0.95)';
+                const labelY = (i % 2 === 0) ? lowY + 11 : highY - 5;
+                ctx.fillText(labelText, x, labelY);
+            }
+            ctx.restore();
+        }
     });
 
     // ── Helper to draw level line ─────────────────────────

@@ -16,13 +16,11 @@ logger = logging.getLogger(__name__)
 # Minimum confidence required to create and display a signal
 MIN_CONFIDENCE_THRESHOLD = 75.0
 
-# Supported symbols and timeframes for automatic continuous scanning:
-# - M15: Intraday Scalps & Liquidity Sweeps
-# - H1: Day Trading & London/NY Session Momentum
-# - H4: Institutional Swing Setups
-# - D1: Macro Trend & Positional Wave Trades
-DEFAULT_SCAN_SYMBOLS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'BTCUSD', 'US30']
-DEFAULT_SCAN_TIMEFRAMES = ['M15', 'H1', 'H4', 'D1']
+# Supported symbols and timeframes strictly adhering to Institutional Brain (AGENTS.md):
+# - Target Assets: Gold (XAUUSD), Indices (US30, SPX500)
+# - Timeframes: 15m (Timing & Killzones), 1H (Structure & Trend), 4H (Macro Filter)
+DEFAULT_SCAN_SYMBOLS = ['XAUUSD', 'US30', 'SPX500']
+DEFAULT_SCAN_TIMEFRAMES = ['M15', 'H1', 'H4']
 
 SCAN_INTERVAL_SEC = 45  # Scan cycle interval
 _lock = threading.Lock()
@@ -34,14 +32,10 @@ def _get_validity(timeframe: str) -> timedelta:
     tf = timeframe.upper()
     if tf == 'M15':
         return timedelta(hours=4)
-    elif tf == 'M30':
-        return timedelta(hours=8)
     elif tf == 'H1':
         return timedelta(hours=24)
     elif tf == 'H4':
         return timedelta(days=2)
-    elif tf == 'D1':
-        return timedelta(days=7)
     return timedelta(hours=24)
 
 
@@ -49,7 +43,9 @@ def scan_single(symbol: str, timeframe: str):
     """
     Scans a single symbol + timeframe.
     Strictly enforces:
-    - Multi-timeframe institutional alignment (M15, H1, H4, D1)
+    - Institutional Killzones (15m strictly 07-11 UTC London & 13-17 UTC NY)
+    - Multi-Timeframe Golden Trend Alignment (EMA 50 & EMA 200)
+    - Minimum Asymmetric Risk-to-Reward >= 2.0:1
     - Price sanity & non-stale data verification
     - Direction must be BUY or SELL (never WAIT)
     - Confidence must be >= 75.0%
@@ -61,6 +57,18 @@ def scan_single(symbol: str, timeframe: str):
     from quant.data import validate_price_sanity
 
     try:
+        # Golden Rule 2: Institutional Killzone Gate on 15m
+        tf_norm = timeframe.upper()
+        if tf_norm == 'M15':
+            now_utc = timezone.now()
+            is_killzone = (7 <= now_utc.hour <= 11) or (13 <= now_utc.hour <= 17)
+            if not is_killzone:
+                logger.info(
+                    "[AUTO-SCANNER] Blocked %s %s: Outside Institutional Killzones (%s UTC). Blocking Asian/late-session traps.",
+                    symbol, timeframe, now_utc.strftime('%H:%M')
+                )
+                return None
+
         instrument = Instrument.objects.filter(symbol=symbol).first()
         if not instrument:
             return None
@@ -92,6 +100,35 @@ def scan_single(symbol: str, timeframe: str):
 
         if float(unified.confidence) < MIN_CONFIDENCE_THRESHOLD:
             return None
+
+        # Golden Rule 4: Asymmetric Risk-to-Reward Gate (Strictly >= 2.00)
+        if float(unified.risk_reward) < 2.00:
+            logger.info(
+                "[AUTO-SCANNER] Rejected %s %s: Risk:Reward %.2f below required minimum 2.00R.",
+                symbol, timeframe, float(unified.risk_reward)
+            )
+            return None
+
+        # Golden Rule 1: Multi-Timeframe Golden Alignment Gate (EMA 50 & EMA 200)
+        close_series = df['close']
+        ema50 = float(close_series.ewm(span=50, adjust=False).mean().iloc[-1])
+        ema200 = float(close_series.ewm(span=200, adjust=False).mean().iloc[-1])
+        curr_close = float(close_series.iloc[-1])
+
+        if unified.direction == 'BUY':
+            if not (curr_close > ema50 and curr_close > ema200):
+                logger.info(
+                    "[AUTO-SCANNER] Vetoed BUY on %s %s: Counter-trend trap! Price (%.2f) not above EMA50 (%.2f) and EMA200 (%.2f).",
+                    symbol, timeframe, curr_close, ema50, ema200
+                )
+                return None
+        elif unified.direction == 'SELL':
+            if not (curr_close < ema50 and curr_close < ema200):
+                logger.info(
+                    "[AUTO-SCANNER] Vetoed SELL on %s %s: Counter-trend trap! Price (%.2f) not below EMA50 (%.2f) and EMA200 (%.2f).",
+                    symbol, timeframe, curr_close, ema50, ema200
+                )
+                return None
 
         # Prevent duplicate active signals for the same pair/timeframe/direction
         if Signal.objects.filter(

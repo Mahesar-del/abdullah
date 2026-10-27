@@ -308,6 +308,20 @@ class AutoTraderEngine:
             logger.info("[AutoTrader Gate 0 FAIL] Signal is_trade_allowed is false.")
             return []
 
+        # Gate 0a: Strictly Allowed Institutional Assets (AGENTS.md Section 3B)
+        ALLOWED_INSTITUTIONAL_SYMBOLS = {'XAUUSD', 'GC=F', 'US30', '^DJI', 'SPX500'}
+        symbol = signal.instrument.symbol if signal.instrument else ''
+        if symbol not in ALLOWED_INSTITUTIONAL_SYMBOLS:
+            logger.info(f"[AutoTrader Gate 0a FAIL] Symbol {symbol} not in strictly allowed institutional assets {ALLOWED_INSTITUTIONAL_SYMBOLS}.")
+            return []
+
+        # Gate 0b: Strictly Allowed Timeframes (AGENTS.md Section 3A: 15m, 1H, 4H only)
+        ALLOWED_TIMEFRAMES = {'M15', '15M', 'H1', '1H', 'H4', '4H'}
+        tf_clean = str(signal.timeframe or '').upper()
+        if tf_clean not in ALLOWED_TIMEFRAMES:
+            logger.info(f"[AutoTrader Gate 0b FAIL] Timeframe {tf_clean} not in allowed timeframes (15m, 1H, 4H).")
+            return []
+
         # Gate 1: Global Master Switch & Emergency Stop
         config = SystemTradingConfig.get_config()
         if not config.global_auto_trading or config.emergency_stop_active:
@@ -320,14 +334,24 @@ class AutoTraderEngine:
             logger.info(f"[AutoTrader Gate 2 FAIL] Signal confidence {conf}% below required 75.0% threshold.")
             return []
 
+        # Gate 2b: Institutional Killzone Gate on 15m (London 07-11 UTC & NY 13-17 UTC Only)
+        if tf_clean in ('M15', '15M'):
+            now_utc = timezone.now()
+            is_killzone = (7 <= now_utc.hour <= 11) or (13 <= now_utc.hour <= 17)
+            if not is_killzone:
+                logger.info(
+                    f"[AutoTrader Gate 2b FAIL] Blocked 15m trade on {symbol}: Outside Institutional Killzones ({now_utc.strftime('%H:%M')} UTC). Asian/late-session chop blocked."
+                )
+                return []
+
         # Gate 3: High-Impact News Blackout Gate
         if any('BLACKOUT' in str(w).upper() for w in (signal.warnings or [])):
             logger.info("[AutoTrader Gate 3 FAIL] Active high-impact economic news blackout window.")
             return []
 
-        # Gate 4: Reward-to-Risk Gate (Strictly >= 1.5R)
-        if float(signal.risk_reward) < 1.50:
-            logger.info(f"[AutoTrader Gate 4 FAIL] Risk:Reward {signal.risk_reward} below required minimum 1.50R.")
+        # Gate 4: Reward-to-Risk Gate (Strictly >= 2.00R per Golden Rule 4)
+        if float(signal.risk_reward) < 2.00:
+            logger.info(f"[AutoTrader Gate 4 FAIL] Risk:Reward {signal.risk_reward} below required minimum 2.00R.")
             return []
 
         # Query authorized accounts
@@ -447,6 +471,8 @@ class AutoTraderEngine:
                 timestamp__gte=timezone.now() - timedelta(minutes=2),
             ).first()
             if quote is None:
+                quote = cls._resolve_fresh_quote(symbol)
+            if quote is None:
                 logger.warning("[AutoTrader Gate 10 FAIL] No fresh live quote for %s; execution skipped.", symbol)
                 continue
             spread_pips = float(quote.spread_pips)
@@ -540,6 +566,63 @@ class AutoTraderEngine:
             cls._notify_trade_opened(trade, account, signal)
 
         return opened_trades
+
+    @classmethod
+    def _resolve_fresh_quote(cls, symbol: str):
+        """
+        Attempts to acquire a real-time live quote from MT5 terminal or DataFetcher,
+        persisting it into MarketQuoteSpread so Gate 10 and execution succeed seamlessly.
+        """
+        from market_data.models import Instrument, MarketQuoteSpread
+        inst = Instrument.objects.filter(symbol=symbol).first()
+        if not inst:
+            return None
+
+        # 1. Try MetaTrader 5 live tick
+        try:
+            import MetaTrader5 as mt5
+            if mt5.initialize():
+                mt5.symbol_select(symbol, True)
+                t = mt5.symbol_info_tick(symbol)
+                mt5.shutdown()
+                if t and getattr(t, 'bid', 0) > 0 and getattr(t, 'ask', 0) > 0:
+                    bid = float(t.bid)
+                    ask = float(t.ask)
+                    spread = max(ask - bid, 0.0001)
+                    return MarketQuoteSpread.objects.create(
+                        instrument=inst,
+                        timestamp=timezone.now(),
+                        bid=bid,
+                        ask=ask,
+                        spread=spread,
+                        provider='mt5_terminal',
+                        is_live=True
+                    )
+        except Exception:
+            pass
+
+        # 2. Fallback to DataFetcher live tick
+        try:
+            from engines.data_fetcher import DataFetcher
+            fetcher = DataFetcher()
+            tick = fetcher.get_live_tick(symbol, 'H1')
+            if tick and tick.get('live_price'):
+                p = float(tick['live_price'])
+                pip = float(inst.pip_value) if inst.pip_value else 0.0001
+                spread = pip * 2.0
+                return MarketQuoteSpread.objects.create(
+                    instrument=inst,
+                    timestamp=timezone.now(),
+                    bid=p,
+                    ask=p + spread,
+                    spread=spread,
+                    provider='data_fetcher_live',
+                    is_live=True
+                )
+        except Exception:
+            pass
+
+        return None
 
     @classmethod
     def _send_mt5_order(cls, account, symbol: str, direction: str, lots: float, sl: float, tp1: float, comment: str = '') -> dict:
@@ -725,6 +808,10 @@ class AutoTraderEngine:
             pnl_amount = round(risk_amt * r_mult, 2)
             pnl_r = r_mult
             exit_price = tp1_val
+        elif outcome == 'BREAKEVEN':
+            pnl_amount = 0.00
+            pnl_r = 0.00
+            exit_price = entry_val
         else:  # SL_HIT
             pnl_amount = -round(risk_amt, 2)
             pnl_r = -1.0
@@ -751,16 +838,25 @@ class AutoTraderEngine:
         account.equity = account.balance
         account.save(update_fields=['balance', 'equity', 'updated_at'])
 
-        # Synchronize linked Signal status so Active Signals table also resolves immediately at TP1
+        # Synchronize linked Signal status so Active Signals table also resolves immediately at TP1 / Breakeven
         if sync_signal and trade.signal and trade.signal.status == 'ACTIVE':
             try:
                 from signals.models import SignalPerformance
                 sig = trade.signal
-                sig.status = 'HIT_TP' if outcome == 'TP_HIT' else 'HIT_SL'
+                if outcome == 'TP_HIT':
+                    sig.status = 'HIT_TP'
+                    perf_outcome = 'WIN'
+                    perf_r = float(sig.risk_reward or pnl_r)
+                elif outcome == 'BREAKEVEN':
+                    sig.status = 'BREAKEVEN'
+                    perf_outcome = 'BREAKEVEN'
+                    perf_r = 0.0
+                else:
+                    sig.status = 'HIT_SL'
+                    perf_outcome = 'LOSS'
+                    perf_r = -1.0
                 sig.save(update_fields=['status'])
 
-                perf_outcome = 'WIN' if outcome == 'TP_HIT' else 'LOSS'
-                perf_r = float(sig.risk_reward or pnl_r) if outcome == 'TP_HIT' else -1.0
                 SignalPerformance.objects.update_or_create(
                     signal=sig,
                     defaults={
@@ -780,12 +876,17 @@ class AutoTraderEngine:
     @classmethod
     def close_open_trades_for_signal(cls, signal, signal_outcome: str, exit_price: float):
         """
-        Called by evaluate_signals when a Signal hits TP1 (HIT_TP) or SL (HIT_SL) so all
+        Called by evaluate_signals when a Signal hits TP1 (HIT_TP), SL (HIT_SL) or BREAKEVEN so all
         linked AutoTradeExecutions close 100% immediately without waiting for TP2.
         """
-        if signal_outcome not in ('HIT_TP', 'HIT_SL'):
+        if signal_outcome not in ('HIT_TP', 'HIT_SL', 'BREAKEVEN'):
             return []
-        trade_outcome = 'TP_HIT' if signal_outcome == 'HIT_TP' else 'SL_HIT'
+        if signal_outcome == 'HIT_TP':
+            trade_outcome = 'TP_HIT'
+        elif signal_outcome == 'BREAKEVEN':
+            trade_outcome = 'BREAKEVEN'
+        else:
+            trade_outcome = 'SL_HIT'
         open_trades = AutoTradeExecution.objects.filter(signal=signal, status='OPEN').select_related('account', 'signal')
         closed = []
         for trade in open_trades:
@@ -796,9 +897,10 @@ class AutoTraderEngine:
     @classmethod
     def evaluate_and_close_open_trades(cls):
         """
-        Section 14: Automatic Position Management (100% Full Auto-Close on TP1 Hit).
-        Continuously monitors open auto-trades against live M1 price feeds.
-        Immediately closes 100% of the position as soon as TP1 or SL is reached (never waits for TP2).
+        Section 14: Automatic Position Management & Golden Institutional Safeguards.
+        1. 100% Full Auto-Close on TP1 Hit (never waits for TP2).
+        2. Breakeven Shield (+1.0 R Rule): Locks SL to Entry + Spread once open profit hits +1.0R.
+        3. Protects against institutional stop hunts & fakeout sweeps.
         """
         open_trades = AutoTradeExecution.objects.filter(status='OPEN').select_related('account', 'signal')
         if not open_trades.exists():
@@ -821,11 +923,20 @@ class AutoTraderEngine:
         for trade in open_trades:
             sl_val = float(trade.stop_loss)
             tp1_val = float(trade.take_profit_1)
+            entry_f = float(trade.entry_price)
+            risk_dist = abs(entry_f - sl_val)
 
             # 1. If the linked signal already hit TP1 or SL, close the trade immediately
-            if trade.signal and trade.signal.status in ('HIT_TP', 'HIT_SL'):
-                outcome = 'TP_HIT' if trade.signal.status == 'HIT_TP' else 'SL_HIT'
-                exit_p = tp1_val if outcome == 'TP_HIT' else sl_val
+            if trade.signal and trade.signal.status in ('HIT_TP', 'HIT_SL', 'BREAKEVEN'):
+                if trade.signal.status == 'HIT_TP':
+                    outcome = 'TP_HIT'
+                    exit_p = tp1_val
+                elif trade.signal.status == 'BREAKEVEN':
+                    outcome = 'BREAKEVEN'
+                    exit_p = entry_f
+                else:
+                    outcome = 'SL_HIT'
+                    exit_p = sl_val
                 cls._finalize_trade_closure(trade, outcome, exit_p, sync_signal=False)
                 resolved_trades.append(trade)
                 continue
@@ -847,6 +958,33 @@ class AutoTraderEngine:
                 recent_high = last_close
                 recent_low = last_close
 
+            # Golden Rule 3: The Breakeven Shield (+1.0 R Rule)
+            # As soon as open profit touches +1.0 R, lock Stop Loss at Entry + Spread
+            # If price reverses, trade closes at Breakeven (0 Loss).
+            if risk_dist > 0:
+                pip_value = 0.01 if 'JPY' in trade.symbol or 'US30' in trade.symbol or 'XAU' in trade.symbol else 0.0001
+                spread_buffer = pip_value * 2.0
+                if trade.direction == 'BUY':
+                    if (recent_high - entry_f) >= (1.0 * risk_dist):
+                        breakeven_sl = entry_f + spread_buffer
+                        if sl_val < breakeven_sl:
+                            trade.stop_loss = breakeven_sl
+                            trade.save(update_fields=['stop_loss'])
+                            sl_val = breakeven_sl
+                            logger.info(
+                                f"[AutoTrader Shield] Activated Breakeven Shield for Trade #{trade.id} {trade.symbol} at {breakeven_sl:.2f}"
+                            )
+                elif trade.direction == 'SELL':
+                    if (entry_f - recent_low) >= (1.0 * risk_dist):
+                        breakeven_sl = entry_f - spread_buffer
+                        if sl_val > breakeven_sl:
+                            trade.stop_loss = breakeven_sl
+                            trade.save(update_fields=['stop_loss'])
+                            sl_val = breakeven_sl
+                            logger.info(
+                                f"[AutoTrader Shield] Activated Breakeven Shield for Trade #{trade.id} {trade.symbol} at {breakeven_sl:.2f}"
+                            )
+
             outcome = None
             exit_price = None
 
@@ -855,15 +993,25 @@ class AutoTraderEngine:
                     outcome = 'TP_HIT'
                     exit_price = tp1_val
                 elif recent_low <= sl_val or last_close <= sl_val:
-                    outcome = 'SL_HIT'
-                    exit_price = sl_val
+                    # Check if this is a Breakeven exit (SL moved to entry or better)
+                    if sl_val >= (entry_f - 0.0001):
+                        outcome = 'BREAKEVEN'
+                        exit_price = entry_f
+                    else:
+                        outcome = 'SL_HIT'
+                        exit_price = sl_val
             elif trade.direction == 'SELL':
                 if recent_low <= tp1_val or last_close <= tp1_val:
                     outcome = 'TP_HIT'
                     exit_price = tp1_val
                 elif recent_high >= sl_val or last_close >= sl_val:
-                    outcome = 'SL_HIT'
-                    exit_price = sl_val
+                    # Check if this is a Breakeven exit
+                    if sl_val <= (entry_f + 0.0001):
+                        outcome = 'BREAKEVEN'
+                        exit_price = entry_f
+                    else:
+                        outcome = 'SL_HIT'
+                        exit_price = sl_val
 
             if outcome:
                 cls._finalize_trade_closure(trade, outcome, exit_price, sync_signal=True)

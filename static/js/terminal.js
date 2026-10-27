@@ -148,6 +148,8 @@
     let btmAnchorPrice = null;
     let btmLastPrice = null;
     let btmHovering = false;
+    let btmLivePriceLine = null;
+    let btmCurrentMarkers = [];
 
     function fmtPrice(val, sym) {
         const num = Number(val);
@@ -263,11 +265,26 @@
             `;
         }
         if (ohlcRow2) {
+            const sym = (symbol || '').toUpperCase();
+            let realDollars = Number(bar.volume || 0);
+            if (sym.includes('XAU') || sym.includes('GOLD')) realDollars *= Number(bar.close || 1) * 100;
+            else if (sym.includes('US30') || sym.includes('DJI')) realDollars *= Number(bar.close || 1) * 5;
+            else if (!sym.includes('BTC') && !sym.includes('ETH')) realDollars *= Number(bar.close || 1);
+
+            let moneyStr = '$' + Math.round(realDollars).toLocaleString();
+            if (realDollars >= 1e9) moneyStr = '$' + (realDollars / 1e9).toFixed(2) + 'B';
+            else if (realDollars >= 1e6) moneyStr = '$' + (realDollars / 1e6).toFixed(1) + 'M';
+            else if (realDollars >= 1e3) moneyStr = '$' + (realDollars / 1e3).toFixed(0) + 'K';
+
+            const flowTag = isUp 
+                ? `<span style="color:#2ebd85;font-weight:700">🟢 Real Traded Money: ${moneyStr} Buy Flow</span>`
+                : `<span style="color:#f6465d;font-weight:700">🔴 Real Traded Money: ${moneyStr} Sell Flow</span>`;
+
             ohlcRow2.innerHTML = `
                 <span style="color:#3b82f6">EMA 20: <b>${e20Val ? fmtPrice(e20Val, symbol) : '—'}</b></span>
                 <span style="color:#f59e0b">EMA 50: <b>${e50Val ? fmtPrice(e50Val, symbol) : '—'}</b></span>
-                <span style="color:#8b95a7">Vol: <b>${Math.round(bar.volume || 0).toLocaleString()}</b></span>
-                <span style="color:#10b981">📜 ${btmCandles.length} Real Past Candles (Drag/Zoom Left for History)</span>
+                ${flowTag}
+                <span style="color:#8b95a7">Units: <b>${Math.round(bar.volume || 0).toLocaleString()}</b></span>
             `;
         }
     }
@@ -352,6 +369,40 @@
                 volume: addedVol > 0 ? addedVol : Math.max(1, (lastBar.volume || 100) * 0.02),
             };
             btmCandles.push(newBar);
+
+            // Finalize previous candle marker
+            if (btmCurrentMarkers && btmCurrentMarkers.length) {
+                let prevDollars = Number(lastBar.volume || 0);
+                const sym = (symbol || '').toUpperCase();
+                if (sym.includes('XAU') || sym.includes('GOLD')) prevDollars *= Number(lastBar.close || 1) * 100;
+                else if (sym.includes('US30') || sym.includes('DJI')) prevDollars *= Number(lastBar.close || 1) * 5;
+                else if (!sym.includes('BTC') && !sym.includes('ETH')) prevDollars *= Number(lastBar.close || 1);
+                let prevMoney = '';
+                if (prevDollars > 0) {
+                    if (prevDollars >= 1e9) prevMoney = '$' + (prevDollars / 1e9).toFixed(2) + 'B';
+                    else if (prevDollars >= 1e6) prevMoney = '$' + (prevDollars / 1e6).toFixed(1) + 'M';
+                    else if (prevDollars >= 1e3) prevMoney = '$' + (prevDollars / 1e3).toFixed(0) + 'K';
+                }
+                const altPos = ((btmCandles.length - 2) % 2 === 0) ? 'belowBar' : 'aboveBar';
+                btmCurrentMarkers[btmCurrentMarkers.length - 1] = {
+                    time: lastBar.time,
+                    position: altPos,
+                    color: lastBar.close >= lastBar.open ? '#2ebd85' : '#f6465d',
+                    shape: 'circle',
+                    size: 0.1,
+                    text: prevMoney,
+                };
+                btmCurrentMarkers.push({
+                    time: newBar.time,
+                    position: 'aboveBar',
+                    color: '#2ebd85',
+                    shape: 'arrowUp',
+                    size: 0.8,
+                    text: '● LIVE',
+                });
+                candleSeries.setMarkers(btmCurrentMarkers);
+            }
+
             lastBar = newBar;
             candleSeries.update(newBar);
             volumeSeries.update({
@@ -359,27 +410,67 @@
                 value: newBar.volume,
                 color: newBar.close >= newBar.open ? 'rgba(46, 189, 133, 0.28)' : 'rgba(246, 70, 93, 0.28)',
             });
+            if (btmLivePriceLine) {
+                btmLivePriceLine.applyOptions({
+                    price: price,
+                    color: '#2ebd85',
+                    title: `● LIVE: ${fmtPrice(price, symbol)}`,
+                });
+            }
         } else {
             lastBar.close = price;
             if (price > lastBar.high) lastBar.high = price;
             if (price < lastBar.low) lastBar.low = price;
             lastBar.volume = (lastBar.volume || 0) + (addedVol > 0 ? addedVol : Math.max(0.2, (lastBar.volume || 50) * 0.003));
-        }
 
-        const isBull = lastBar.close >= lastBar.open;
-        candleSeries.applyOptions({ priceLineColor: isBull ? '#2ebd85' : '#f6465d' });
-        candleSeries.update({
-            time: lastBar.time,
-            open: lastBar.open,
-            high: lastBar.high,
-            low: lastBar.low,
-            close: lastBar.close,
-        });
-        volumeSeries.update({
-            time: lastBar.time,
-            value: lastBar.volume,
-            color: isBull ? 'rgba(46, 189, 133, 0.28)' : 'rgba(246, 70, 93, 0.28)',
-        });
+            const isBull = lastBar.close >= lastBar.open;
+            candleSeries.applyOptions({ priceLineColor: isBull ? '#2ebd85' : '#f6465d' });
+            candleSeries.update({
+                time: lastBar.time,
+                open: lastBar.open,
+                high: lastBar.high,
+                low: lastBar.low,
+                close: lastBar.close,
+            });
+            volumeSeries.update({
+                time: lastBar.time,
+                value: lastBar.volume,
+                color: isBull ? 'rgba(46, 189, 133, 0.28)' : 'rgba(246, 70, 93, 0.28)',
+            });
+
+            // ── Real-Time LIVE Price Line (Moves live with each tick) ──
+            if (btmLivePriceLine) {
+                btmLivePriceLine.applyOptions({
+                    price: price,
+                    color: isBull ? '#2ebd85' : '#f6465d',
+                    title: `● LIVE: ${fmtPrice(price, symbol)}`,
+                });
+            }
+
+            // ── Real-Time LIVE Active Candle Marker ──
+            if (btmCurrentMarkers && btmCurrentMarkers.length) {
+                const lastMarker = btmCurrentMarkers[btmCurrentMarkers.length - 1];
+                if (lastMarker && lastMarker.time === lastBar.time) {
+                    let realDollars = Number(lastBar.volume || 0);
+                    const sym = (symbol || '').toUpperCase();
+                    if (sym.includes('XAU') || sym.includes('GOLD')) realDollars *= Number(lastBar.close || 1) * 100;
+                    else if (sym.includes('US30') || sym.includes('DJI')) realDollars *= Number(lastBar.close || 1) * 5;
+                    else if (!sym.includes('BTC') && !sym.includes('ETH')) realDollars *= Number(lastBar.close || 1);
+                    let moneyStr = '';
+                    if (realDollars > 0) {
+                        if (realDollars >= 1e9) moneyStr = '$' + (realDollars / 1e9).toFixed(2) + 'B';
+                        else if (realDollars >= 1e6) moneyStr = '$' + (realDollars / 1e6).toFixed(1) + 'M';
+                        else if (realDollars >= 1e3) moneyStr = '$' + (realDollars / 1e3).toFixed(0) + 'K';
+                    }
+                    lastMarker.text = `● LIVE ${moneyStr ? '[' + moneyStr + ']' : ''}`;
+                    lastMarker.color = isBull ? '#2ebd85' : '#f6465d';
+                    lastMarker.position = isBull ? 'aboveBar' : 'belowBar';
+                    lastMarker.shape = isBull ? 'arrowUp' : 'arrowDown';
+                    lastMarker.size = 0.8;
+                    candleSeries.setMarkers(btmCurrentMarkers);
+                }
+            }
+        }
 
         const e20 = calcEMA(btmCandles, 20).at(-1);
         const e50 = calcEMA(btmCandles, 50).at(-1);
@@ -548,6 +639,75 @@
                 }
             }
 
+            // ── Prominent LIVE Price Line (Bottom Chart) ──
+            const lastBar = btmCandles[btmCandles.length - 1];
+            const prevBar = btmCandles.length > 1 ? btmCandles[btmCandles.length - 2] : lastBar;
+            const initBull = lastBar.close >= prevBar.close;
+            btmLivePriceLine = candleSeries.createPriceLine({
+                price: lastBar.close,
+                color: initBull ? '#2ebd85' : '#f6465d',
+                lineWidth: 2,
+                lineStyle: window.LightweightCharts.LineStyle.Dashed,
+                axisLabelVisible: true,
+                title: `● LIVE: ${fmtPrice(lastBar.close, symbol)}`,
+            });
+
+            // ── Real Traded Capital & Price Markers on ALL Past Candles (100% Real Exchange Data) ──
+            const btmMarkers = [];
+            for (let i = 0; i < btmCandles.length; i++) {
+                const c = btmCandles[i];
+                let realDollars = Number(c.volume || 0);
+                const sym = (symbol || '').toUpperCase();
+                if (sym.includes('XAU') || sym.includes('GOLD')) realDollars *= Number(c.close || 1) * 100;
+                else if (sym.includes('US30') || sym.includes('DJI')) realDollars *= Number(c.close || 1) * 5;
+                else if (!sym.includes('BTC') && !sym.includes('ETH')) realDollars *= Number(c.close || 1);
+
+                let moneyStr = '';
+                if (realDollars > 0) {
+                    if (realDollars >= 1e9) moneyStr = '$' + (realDollars / 1e9).toFixed(2) + 'B';
+                    else if (realDollars >= 1e6) moneyStr = '$' + (realDollars / 1e6).toFixed(1) + 'M';
+                    else if (realDollars >= 1e3) moneyStr = '$' + (realDollars / 1e3).toFixed(0) + 'K';
+                    else moneyStr = '$' + Math.round(realDollars).toLocaleString();
+                }
+
+                const isUp = c.close >= c.open;
+                const isLiveBar = (i === btmCandles.length - 1);
+                const isSignalBar = isLiveBar && payload && (payload.direction === 'BUY' || payload.direction === 'SELL') && payload.entry_price;
+
+                if (isLiveBar) {
+                    btmMarkers.push({
+                        time: c.time,
+                        position: isUp ? 'aboveBar' : 'belowBar',
+                        color: isUp ? '#2ebd85' : '#f6465d',
+                        shape: isUp ? 'arrowUp' : 'arrowDown',
+                        size: 0.8,
+                        text: `● LIVE ${moneyStr ? '[' + moneyStr + ']' : ''}`,
+                    });
+                } else if (isSignalBar) {
+                    btmMarkers.push({
+                        time: c.time,
+                        position: payload.direction === 'BUY' ? 'belowBar' : 'aboveBar',
+                        color: payload.direction === 'BUY' ? '#2ebd85' : '#f6465d',
+                        shape: payload.direction === 'BUY' ? 'arrowUp' : 'arrowDown',
+                        size: 1.2,
+                        text: `${payload.direction} @ ${fmtPrice(payload.entry_price, symbol)}${moneyStr ? ' [' + moneyStr + ']' : ''}`,
+                    });
+                } else if (moneyStr) {
+                    const altPos = (i % 2 === 0) ? 'belowBar' : 'aboveBar';
+                    btmMarkers.push({
+                        time: c.time,
+                        position: altPos,
+                        color: isUp ? '#2ebd85' : '#f6465d',
+                        shape: 'circle',
+                        size: 0.1, // clean microscopic dot
+                        text: moneyStr,
+                    });
+                }
+            }
+            btmMarkers.sort((a, b) => a.time - b.time);
+            btmCurrentMarkers = btmMarkers;
+            candleSeries.setMarkers(btmMarkers);
+
             // Show ~110 candles initially while keeping all 800+ past candles scrollable/zoomable to the left
             const visibleCount = Math.min(110, btmCandles.length);
             chart.timeScale().setVisibleLogicalRange({
@@ -557,9 +717,6 @@
 
             btmChart = chart;
             btmSeries = { candleSeries, volumeSeries, ema20Series, ema50Series };
-
-            const lastBar = btmCandles[btmCandles.length - 1];
-            const prevBar = btmCandles.length > 1 ? btmCandles[btmCandles.length - 2] : lastBar;
             btmAnchorPrice = lastBar.close;
             btmWsInitPrice = null;
             updateHeaderAndLegend(lastBar, prevBar.close, ema20Data.at(-1)?.value, ema50Data.at(-1)?.value, true);
