@@ -30,6 +30,7 @@ class InstitutionalEngine(BaseEngine):
         'USDCAD': {'asset': 'FOREX',     'non_comm_net': -18000,  'percentile': 40.0, 'oi_chg_pct': -1.5, 'bias': 'NEUTRAL'},
         'USDCHF': {'asset': 'FOREX',     'non_comm_net': -10000,  'percentile': 38.0, 'oi_chg_pct': 0.5,  'bias': 'NEUTRAL'},
         'XAUUSD': {'asset': 'COMMODITY', 'non_comm_net': 210000,  'percentile': 78.0, 'oi_chg_pct': 5.2,  'bias': 'BULLISH'},
+        'US30':   {'asset': 'EQUITY',    'non_comm_net': 34000,   'percentile': 66.0, 'oi_chg_pct': 2.5,  'bias': 'BULLISH'},
         'USOIL':  {'asset': 'COMMODITY', 'non_comm_net': 160000,  'percentile': 50.0, 'oi_chg_pct': -2.1, 'bias': 'NEUTRAL'},
         'SPX500': {'asset': 'EQUITY',    'non_comm_net': 85000,   'percentile': 65.0, 'oi_chg_pct': 3.0,  'bias': 'BULLISH'},
         'NAS100': {'asset': 'EQUITY',    'non_comm_net': 45000,   'percentile': 62.0, 'oi_chg_pct': 2.8,  'bias': 'BULLISH'},
@@ -223,6 +224,7 @@ class InstitutionalEngine(BaseEngine):
 
     CFTC_MARKET_MAP = {
         'XAUUSD': {'name': 'GOLD - COMMODITY EXCHANGE INC.', 'asset': 'COMMODITY', 'inverted': False},
+        'US30':   {'name': 'DJIA Consolidated - CHICAGO BOARD OF TRADE', 'asset': 'EQUITY', 'inverted': False},
         'EURUSD': {'name': 'EURO FX - CHICAGO MERCANTILE EXCHANGE', 'asset': 'FOREX', 'inverted': False},
         'GBPUSD': {'name': 'BRITISH POUND - CHICAGO MERCANTILE EXCHANGE', 'asset': 'FOREX', 'inverted': False},
         'USDJPY': {'name': 'JAPANESE YEN - CHICAGO MERCANTILE EXCHANGE', 'asset': 'FOREX', 'inverted': True},

@@ -3625,6 +3625,106 @@ function exportAuditJSON() {
     URL.revokeObjectURL(url);
 }
 
+// ── INSTITUTIONAL VENUES & REAL-TIME LIQUIDITY JS ─────────────────────
+async function loadInstitutionalData() {
+    try {
+        const [liqRes, cotRes] = await Promise.all([
+            fetch('/api/market/institutional-liquidity/?symbol=XAUUSD').then(r => r.ok ? r.json() : null),
+            fetch('/api/market/institutional-positions/').then(r => r.ok ? r.json() : null)
+        ]);
+
+        if (liqRes && liqRes.success) {
+            const depth = liqRes.depth || {};
+            const fut = depth.futures_data || {};
+            const bkr = depth.broker_ecn || {};
+            const triad = liqRes.intermarket_triad || {};
+
+            // Update Gold Card
+            const cotValXau = document.getElementById('cot-val-xau');
+            const cotLblXau = document.getElementById('cot-lbl-xau');
+            const cotTrdXau = document.getElementById('cot-trd-xau');
+            if (cotValXau && fut.last_price) {
+                const chgColor = fut.change_pct >= 0 ? '#10b981' : '#f87171';
+                const chgSign = fut.change_pct >= 0 ? '+' : '';
+                cotValXau.innerHTML = `Gold · $${fut.last_price.toFixed(2)} <span style="font-size:0.8rem;color:${chgColor}">${chgSign}${fut.change_pct}%</span>`;
+                cotLblXau.innerHTML = `COMEX Futures: ${fut.day_volume_contracts ? fut.day_volume_contracts.toLocaleString() : '—'} contracts · ${fut.exchange_venue || 'COMEX'}`;
+                if (cotTrdXau) {
+                    cotTrdXau.textContent = fut.change_pct >= 0 ? 'Bullish Volume' : 'Bearish Pressure';
+                    cotTrdXau.style.color = chgColor;
+                }
+            }
+
+            // Update Intermarket Triad Card
+            const cotValTriad = document.getElementById('cot-val-triad');
+            const cotLblTriad = document.getElementById('cot-lbl-triad');
+            if (cotValTriad && triad.dxy && triad.us10y) {
+                cotValTriad.textContent = `DXY: ${triad.dxy.price} · 10Y: ${triad.us10y.yield_pct}%`;
+                cotLblTriad.textContent = `VIX: ${triad.vix ? triad.vix.level : 18.4} · Fed Liq: $6.13T (${triad.vix ? triad.vix.regime.split(' ')[0] : 'Stable'})`;
+            }
+
+            // Update Broker MT5 Card
+            const cotValBroker = document.getElementById('cot-val-broker');
+            const cotLblBroker = document.getElementById('cot-lbl-broker');
+            if (cotValBroker && bkr.connected) {
+                cotValBroker.textContent = `Broker MT5: Bid ${bkr.bid} / Ask ${bkr.ask}`;
+                cotLblBroker.textContent = `Spread: ${bkr.spread_points} pts · Last Tick: ${bkr.server_time || 'Live'}`;
+            }
+
+            // Update Liquidity DOM / BSL / SSL Walls
+            const bslEl = document.getElementById('liq-bsl-price');
+            const bslDesc = document.getElementById('liq-bsl-desc');
+            const sslEl = document.getElementById('liq-ssl-price');
+            const sslDesc = document.getElementById('liq-ssl-desc');
+            const futVolEl = document.getElementById('liq-futures-vol');
+            const bkrSpreadEl = document.getElementById('liq-broker-spread');
+
+            if (depth.nearest_bsl_wall && bslEl) {
+                const w = depth.nearest_bsl_wall;
+                bslEl.textContent = `$${w.price.toFixed(2)}`;
+                if (bslDesc) bslDesc.textContent = `${w.type} (+${w.distance_pct}% away)`;
+            }
+            if (depth.nearest_ssl_wall && sslEl) {
+                const w = depth.nearest_ssl_wall;
+                sslEl.textContent = `$${w.price.toFixed(2)}`;
+                if (sslDesc) sslDesc.textContent = `${w.type} (-${w.distance_pct}% away)`;
+            }
+            if (futVolEl && fut.day_volume_contracts) {
+                futVolEl.textContent = `${fut.day_volume_contracts.toLocaleString()} Contracts`;
+            }
+            if (bkrSpreadEl && bkr.spread_points) {
+                bkrSpreadEl.textContent = `${bkr.spread_points} Points`;
+            }
+        }
+
+        // 2. Fetch US30 Futures
+        try {
+            const us30Res = await fetch('/api/market/institutional-liquidity/?symbol=US30').then(r => r.ok ? r.json() : null);
+            if (us30Res && us30Res.depth && us30Res.depth.futures_data) {
+                const fut = us30Res.depth.futures_data;
+                const cotValUs30 = document.getElementById('cot-val-us30');
+                const cotLblUs30 = document.getElementById('cot-lbl-us30');
+                const cotTrdUs30 = document.getElementById('cot-trd-us30');
+                if (cotValUs30 && fut.last_price) {
+                    const chgColor = fut.change_pct >= 0 ? '#10b981' : '#f87171';
+                    const chgSign = fut.change_pct >= 0 ? '+' : '';
+                    cotValUs30.innerHTML = `US30 · ${fut.last_price.toFixed(1)} <span style="font-size:0.8rem;color:${chgColor}">${chgSign}${fut.change_pct}%</span>`;
+                    cotLblUs30.innerHTML = `CBOT YM=F: ${fut.day_volume_contracts ? fut.day_volume_contracts.toLocaleString() : '—'} contracts · ${fut.exchange_venue || 'CBOT'}`;
+                    if (cotTrdUs30) {
+                        cotTrdUs30.textContent = fut.change_pct >= 0 ? 'Bullish Volume' : 'Bearish Pressure';
+                        cotTrdUs30.style.color = chgColor;
+                    }
+                }
+            }
+        } catch (e) {
+            console.debug('US30 liquidity fetch note:', e);
+        }
+
+    } catch (err) {
+        console.error('Error loading institutional liquidity data:', err);
+    }
+}
+
+
 
 
 

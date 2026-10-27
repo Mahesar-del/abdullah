@@ -248,7 +248,7 @@ class InstitutionalOverviewView(generics.GenericAPIView):
         from engines.institutional import InstitutionalEngine
         from engines.intermarket import IntermarketEngine
 
-        target_symbols = ['XAUUSD', 'EURUSD', 'BTCUSD', 'USOIL', 'GBPUSD', 'SPX500']
+        target_symbols = ['XAUUSD', 'US30', 'SPX500', 'BTCUSD', 'EURUSD', 'USOIL']
         positions_data = []
 
         for sym in target_symbols:
@@ -289,7 +289,7 @@ class InstitutionalOverviewView(generics.GenericAPIView):
 
         payload = {
             'success': True,
-            'source': 'CFTC Official Socrata Feed & Binance Derivatives',
+            'source': 'CFTC Official Socrata Feed, COMEX/CME Futures & Binance Derivatives',
             'positions': positions_data,
             'macro': {
                 'yield_curve_slope': macro.get('yield_curve_slope', 0.96),
@@ -303,7 +303,7 @@ class InstitutionalOverviewView(generics.GenericAPIView):
 
 
 class InstitutionalLiquidityView(generics.GenericAPIView):
-    """GET /api/market/institutional-liquidity/?symbol=BTCUSD — Live Level 2 Depth, Open Interest & Fed Net Liquidity"""
+    """GET /api/market/institutional-liquidity/?symbol=XAUUSD — Live Exchange Futures, Level 2 Depth & Intermarket Triad"""
     permission_classes = [AllowAny]
 
     def get(self, request):
@@ -311,18 +311,20 @@ class InstitutionalLiquidityView(generics.GenericAPIView):
         from engines.institutional_liquidity import InstitutionalLiquidityEngine
         from engines.data_fetcher import DataFetcher
 
-        symbol = request.query_params.get('symbol', 'BTCUSD').upper()
+        symbol = request.query_params.get('symbol', 'XAUUSD').upper()
         fetcher = DataFetcher()
         cur_p = fetcher.get_current_price(symbol) or 0.0
 
         depth = InstitutionalLiquidityEngine.get_order_book_depth(symbol, cur_price=cur_p)
         macro_net = InstitutionalLiquidityEngine.get_macro_net_liquidity()
+        triad = InstitutionalLiquidityEngine.get_intermarket_triad()
 
         return Response({
             'success': True,
             'symbol': symbol,
             'current_price': cur_p,
             'depth': depth,
-            'macro_liquidity': macro_net
+            'macro_liquidity': macro_net,
+            'intermarket_triad': triad
         })
 

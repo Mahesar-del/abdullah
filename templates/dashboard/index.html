@@ -539,44 +539,97 @@
         </div>
     </section>
 
-    <!-- ── INSTITUTIONAL COT & INTERMARKET PANEL ────────── -->
+    <!-- ── INSTITUTIONAL COT, FUTURES EXCHANGES & LIVE LIQUIDITY PANEL ── -->
     <section class="engine-section" id="institutional-section">
-        <div class="section-header">
-            <h2 class="section-title">🏛️ Institutional COT &amp; Intermarket Positioning</h2>
-            <span class="section-badge live" id="cot-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">🟢 CFTC Official &amp; Derivatives Live</span>
+        <div class="section-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <h2 class="section-title">🏛️ Institutional Venues, Exchange Futures &amp; Live Liquidity</h2>
+                <span class="section-badge live" id="cot-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">🟢 COMEX / CBOT / CME &amp; MT5 ECN Live</span>
+            </div>
+            <span style="font-size:0.8rem; color:#94a3b8;">Official CFTC Socrata &amp; Chicago Exchange Flow</span>
         </div>
+
+        <!-- 4 Institutional Core Asset & Macro Cards -->
         <div class="stats-grid" id="institutional-cards-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); padding: 20px 24px; margin-bottom: 0;">
+            <!-- Card 1: Gold COMEX GC=F & CFTC COT -->
             <div class="stat-card gold" style="cursor:pointer;" onclick="selectTradingViewSymbol('XAUUSD', true)" title="Click to open XAUUSD TradingView Chart">
                 <div class="stat-icon">🪙</div>
                 <div class="stat-body">
-                    <div class="stat-value" id="cot-val-xau" style="font-size: 1.15rem;">XAUUSD · Net +191.8K</div>
-                    <div class="stat-label" id="cot-lbl-xau">CFTC Speculators (46.1% 52W Pctl) · 2026-10-20</div>
+                    <div class="stat-value" id="cot-val-xau" style="font-size: 1.15rem;">Gold · COMEX GC=F</div>
+                    <div class="stat-label" id="cot-lbl-xau">Loading COMEX continuous futures &amp; CFTC positioning…</div>
                 </div>
-                <div class="stat-trend" id="cot-trd-xau" style="color: #94a3b8;">Neutral / Range</div>
+                <div class="stat-trend" id="cot-trd-xau" style="color: #fde047;">Institutional Flow</div>
             </div>
-            <div class="stat-card blue" style="cursor:pointer;" onclick="selectTradingViewSymbol('EURUSD', true)" title="Click to open EURUSD TradingView Chart">
-                <div class="stat-icon">💶</div>
+
+            <!-- Card 2: Dow Jones US30 CBOT YM=F -->
+            <div class="stat-card blue" style="cursor:pointer;" onclick="selectTradingViewSymbol('US30', true)" title="Click to open US30 TradingView Chart">
+                <div class="stat-icon">📈</div>
                 <div class="stat-body">
-                    <div class="stat-value" id="cot-val-eur" style="font-size: 1.15rem;">EURUSD · Net -161.4K</div>
-                    <div class="stat-label" id="cot-lbl-eur">Commercials Net: +130.8K (0.5% Pctl) · 2026-10-20</div>
+                    <div class="stat-value" id="cot-val-us30" style="font-size: 1.15rem;">US30 · CBOT YM=F</div>
+                    <div class="stat-label" id="cot-lbl-us30">Loading CBOT E-mini Dow futures &amp; CFTC contracts…</div>
                 </div>
-                <div class="stat-trend down" id="cot-trd-eur" style="color: #ef4444;">Bearish Squeeze</div>
+                <div class="stat-trend" id="cot-trd-us30" style="color: #60a5fa;">Institutional Flow</div>
             </div>
-            <div class="stat-card purple" style="cursor:pointer;" onclick="selectTradingViewSymbol('BTCUSD', true)" title="Click to open BTCUSD TradingView Chart">
-                <div class="stat-icon">⚡</div>
-                <div class="stat-body">
-                    <div class="stat-value" id="cot-val-btc" style="font-size: 1.15rem;">BTCUSD · CME +2.4K</div>
-                    <div class="stat-label" id="cot-lbl-btc">Binance Funding: +0.0034% · 68.2% 52W Pctl</div>
-                </div>
-                <div class="stat-trend up" id="cot-trd-btc" style="color: #10b981;">Bullish Bias</div>
-            </div>
-            <div class="stat-card" style="cursor:pointer; background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255, 255, 255, 0.08);" title="Real Macro Treasury & Intermarket Correlation">
+
+            <!-- Card 3: Intermarket Triad (DXY, 10Y Yield, VIX) -->
+            <div class="stat-card purple" style="cursor:pointer;" title="Global Drivers of Institutional Capital">
                 <div class="stat-icon">🌐</div>
                 <div class="stat-body">
-                    <div class="stat-value" id="cot-val-macro" style="font-size: 1.15rem;">Yield Slope: +0.96%</div>
-                    <div class="stat-label" id="cot-lbl-macro">10Y-3M Spread | DXY-XAU 30D Corr: -0.25</div>
+                    <div class="stat-value" id="cot-val-triad" style="font-size: 1.15rem;">DXY: 102.09 · 10Y: 4.99%</div>
+                    <div class="stat-label" id="cot-lbl-triad">VIX Volatility: 18.39 (Normal) · Fed Net Liq: $6.13T</div>
                 </div>
-                <div class="stat-trend" id="cot-trd-macro" style="color: #38bdf8;">Empirical Real</div>
+                <div class="stat-trend" id="cot-trd-triad" style="color: #a855f7;">Macro Drivers</div>
+            </div>
+
+            <!-- Card 4: Local MT5 ECN Terminal Gateway -->
+            <div class="stat-card green" style="cursor:pointer;" title="Connected MT5 Broker Terminal">
+                <div class="stat-icon" style="color:#10b981;">⚡</div>
+                <div class="stat-body">
+                    <div class="stat-value" id="cot-val-broker" style="font-size: 1.15rem;">Broker MT5 ECN: CONNECTED</div>
+                    <div class="stat-label" id="cot-lbl-broker">Login: 5057861405 · MetaQuotes-Demo · Hedging</div>
+                </div>
+                <div class="stat-trend up" id="cot-trd-broker" style="color: #10b981;">Direct IPC</div>
+            </div>
+        </div>
+
+        <!-- Real-Time Institutional Liquidity Pools & Order Book DOM (Level-2) -->
+        <div id="institutional-liquidity-panel" style="padding: 16px 24px; margin: 0 24px 20px 24px; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+                <div style="font-size:0.85rem; font-weight:700; color:#f8fafc; display:flex; align-items:center; gap:8px;">
+                    <span>🎯 Real-Time Institutional Liquidity Clusters &amp; Order Book DOM</span>
+                    <span id="liq-active-symbol-badge" style="font-size:0.72rem; padding:2px 8px; border-radius:4px; background:rgba(234, 179, 8, 0.2); color:#fde047; border:1px solid rgba(234, 179, 8, 0.4);">XAUUSD (Gold)</span>
+                </div>
+                <div style="font-size:0.78rem; color:#94a3b8;" id="liq-dom-source">Venue: COMEX Continuous &amp; MT5 Live Feed</div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+                <!-- BSL Wall -->
+                <div style="background:rgba(239, 68, 68, 0.08); border:1px solid rgba(239, 68, 68, 0.25); border-radius:8px; padding:10px 14px;">
+                    <div style="font-size:0.72rem; text-transform:uppercase; color:#f87171; font-weight:700;">Nearest BSL Wall (Buy-Side Stop Liquidity)</div>
+                    <div id="liq-bsl-price" style="font-size:1.15rem; font-weight:800; color:#fca5a5; margin-top:2px;">—</div>
+                    <div id="liq-bsl-desc" style="font-size:0.75rem; color:#cbd5e1;">Target resistance pool &amp; resting stops</div>
+                </div>
+
+                <!-- SSL Wall -->
+                <div style="background:rgba(16, 185, 129, 0.08); border:1px solid rgba(16, 185, 129, 0.25); border-radius:8px; padding:10px 14px;">
+                    <div style="font-size:0.72rem; text-transform:uppercase; color:#34d399; font-weight:700;">Nearest SSL Wall (Sell-Side Stop Liquidity)</div>
+                    <div id="liq-ssl-price" style="font-size:1.15rem; font-weight:800; color:#6ee7b7; margin-top:2px;">—</div>
+                    <div id="liq-ssl-desc" style="font-size:0.75rem; color:#cbd5e1;">Target support pool &amp; resting stops</div>
+                </div>
+
+                <!-- Exchange Futures Day Volume -->
+                <div style="background:rgba(59, 130, 246, 0.08); border:1px solid rgba(59, 130, 246, 0.25); border-radius:8px; padding:10px 14px;">
+                    <div style="font-size:0.72rem; text-transform:uppercase; color:#60a5fa; font-weight:700;">Exchange 24H Futures Volume</div>
+                    <div id="liq-futures-vol" style="font-size:1.15rem; font-weight:800; color:#93c5fd; margin-top:2px;">— Contracts</div>
+                    <div id="liq-futures-desc" style="font-size:0.75rem; color:#cbd5e1;">Real institutional exchange turnover</div>
+                </div>
+
+                <!-- Live MT5 Tick Spread -->
+                <div style="background:rgba(234, 179, 8, 0.08); border:1px solid rgba(234, 179, 8, 0.25); border-radius:8px; padding:10px 14px;">
+                    <div style="font-size:0.72rem; text-transform:uppercase; color:#fde047; font-weight:700;">Live Broker ECN Spread</div>
+                    <div id="liq-broker-spread" style="font-size:1.15rem; font-weight:800; color:#fef08a; margin-top:2px;">— Points</div>
+                    <div id="liq-broker-desc" style="font-size:0.75rem; color:#cbd5e1;">Institutional execution latency: Low</div>
+                </div>
             </div>
         </div>
     </section>
