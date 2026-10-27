@@ -861,6 +861,140 @@ function classifyCandleLiquidity(c, avgVolume, avgRange) {
     };
 }
 
+function drawVerticalPillBadge(ctx, text, isBank, x, wickY, isAbove) {
+    ctx.save();
+    ctx.font = 'bold 9px "JetBrains Mono", Inter, monospace';
+    const textWidth = ctx.measureText(text).width;
+    const pillHeight = Math.ceil(textWidth + 8);
+    const pillWidth = 14;
+    const stemLength = 8;
+
+    let pillTopY;
+    if (isAbove) {
+        // Vertical dashed stem from wickY going UP
+        ctx.beginPath();
+        ctx.strokeStyle = isBank ? 'rgba(16, 185, 129, 0.7)' : 'rgba(148, 163, 184, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 2]);
+        ctx.moveTo(x, wickY - 1);
+        ctx.lineTo(x, wickY - stemLength);
+        ctx.stroke();
+
+        pillTopY = wickY - stemLength - pillHeight;
+        if (pillTopY < 6) pillTopY = 6;
+    } else {
+        // Vertical dashed stem from wickY going DOWN
+        ctx.beginPath();
+        ctx.strokeStyle = isBank ? 'rgba(16, 185, 129, 0.7)' : 'rgba(148, 163, 184, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 2]);
+        ctx.moveTo(x, wickY + 1);
+        ctx.lineTo(x, wickY + stemLength);
+        ctx.stroke();
+
+        pillTopY = wickY + stemLength;
+        const maxBottom = 422;
+        if (pillTopY + pillHeight > maxBottom) pillTopY = maxBottom - pillHeight;
+    }
+
+    const pillX = Math.round(x - pillWidth / 2);
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    if (ctx.roundRect) {
+        ctx.roundRect(pillX, pillTopY, pillWidth, pillHeight, 3);
+    } else {
+        ctx.rect(pillX, pillTopY, pillWidth, pillHeight);
+    }
+    ctx.fillStyle = isBank ? 'rgba(6, 78, 59, 0.92)' : 'rgba(15, 23, 42, 0.92)';
+    ctx.fill();
+    ctx.strokeStyle = isBank ? 'rgba(52, 211, 153, 0.85)' : 'rgba(148, 163, 184, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Rotated text: runs vertically inside the pill, pointing upwards
+    ctx.save();
+    ctx.translate(x, pillTopY + pillHeight - 4);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = isBank ? '#34d399' : '#cbd5e1';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 0, 0);
+    ctx.restore();
+
+    ctx.restore();
+}
+
+function renderVerticalLiquidityOverlay() {
+    if (!currentChartInstance || !currentChartSeries?.candleSeries || !currentChartData || !currentChartData.length) return;
+    const container = document.getElementById('signal-chart-viewport');
+    if (!container) return;
+
+    let overlay = document.getElementById('signal-chart-liq-overlay');
+    if (!overlay) {
+        overlay = document.createElement('canvas');
+        overlay.id = 'signal-chart-liq-overlay';
+        overlay.style.position = 'absolute';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.pointerEvents = 'none';
+        overlay.style.zIndex = '2';
+        container.style.position = 'relative';
+        container.appendChild(overlay);
+    }
+
+    const dpr = window.devicePixelRatio || 1;
+    const w = container.clientWidth || 860;
+    const h = container.clientHeight || 430;
+    if (w <= 0 || h <= 0) return;
+
+    if (overlay.width !== Math.floor(w * dpr) || overlay.height !== Math.floor(h * dpr)) {
+        overlay.width = Math.floor(w * dpr);
+        overlay.height = Math.floor(h * dpr);
+    }
+    const ctx = overlay.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    const timeScale = currentChartInstance.timeScale();
+    const candleSeries = currentChartSeries.candleSeries;
+    const stats = currentChartStats || { avgVolume: 100, avgRange: 1 };
+
+    let lastRetailerX = -999;
+    let lastBankX = -999;
+
+    for (let i = 0; i < currentChartData.length; i++) {
+        const c = currentChartData[i];
+        const x = timeScale.timeToCoordinate(c.time);
+        if (x === null || x < 15 || x > w - 15) continue;
+
+        const highY = candleSeries.priceToCoordinate(c.high);
+        const lowY = candleSeries.priceToCoordinate(c.low);
+        if (highY === null || lowY === null) continue;
+
+        const liq = classifyCandleLiquidity(c, stats.avgVolume, stats.avgRange);
+        const isLive = (i === currentChartData.length - 1);
+
+        if (isLive) {
+            // Live bar: vertical live indicator above high wick
+            drawVerticalPillBadge(ctx, `● LIVE [${liq.badge}]`, liq.isBank, x, highY, true);
+        } else if (liq.isBank) {
+            // Institutional Banks: strictly vertical above high wick (min 15px spacing)
+            if (x - lastBankX >= 15) {
+                drawVerticalPillBadge(ctx, '🏦 Banks', true, x, highY, true);
+                lastBankX = x;
+            }
+        } else {
+            // Retailers: strictly vertical below low wick (min 22px spacing so no collision is possible)
+            if (x - lastRetailerX >= 22) {
+                drawVerticalPillBadge(ctx, '🎯 Retailers', false, x, lowY, false);
+                lastRetailerX = x;
+            }
+        }
+    }
+}
+
 function computeEMASeries(candles, period) {
     if (!candles || candles.length === 0) return [];
     const k = 2 / (period + 1);
@@ -898,6 +1032,10 @@ function stopLiveChartStream() {
     if (currentChartInstance) {
         try { currentChartInstance.remove(); } catch (e) {}
         currentChartInstance = null;
+    }
+    const oldOverlay = document.getElementById('signal-chart-liq-overlay');
+    if (oldOverlay) {
+        try { oldOverlay.remove(); } catch (e) {}
     }
     currentChartSeries = null;
     wsInitialPrice = null;
@@ -1458,46 +1596,19 @@ function renderSignalCandleChart(s) {
             const { avgVolume: chartAvgVol, avgRange: chartAvgRange } = computeCandleAverages(candleData);
             currentChartStats = { avgVolume: chartAvgVol, avgRange: chartAvgRange };
 
-            for (let i = 0; i < candleData.length; i++) {
-                const c = candleData[i];
-                const liq = classifyCandleLiquidity(c, chartAvgVol, chartAvgRange);
-                const isUp = c.close >= c.open;
-                const isSignalBar = markerCandle && c.time === markerCandle.time;
-                const isLiveBar = (i === candleData.length - 1);
-
-                if (isLiveBar) {
-                    allMarkers.push({
-                        time: c.time,
-                        position: isUp ? 'aboveBar' : 'belowBar',
-                        color: liq.isBank ? (isUp ? '#10b981' : '#ef4444') : '#94a3b8',
-                        shape: isUp ? 'arrowUp' : 'arrowDown',
-                        size: 0.8,
-                        text: `● LIVE [${liq.label}]`,
-                    });
-                } else if (isSignalBar && (s.direction === 'BUY' || s.direction === 'SELL')) {
-                    allMarkers.push({
-                        time: c.time,
-                        position: s.direction === 'BUY' ? 'belowBar' : 'aboveBar',
-                        color: s.direction === 'BUY' ? '#10b981' : '#ef4444',
-                        shape: s.direction === 'BUY' ? 'arrowUp' : 'arrowDown',
-                        size: 1.2,
-                        text: `${s.direction} @ ${formatChartPrice(s.entry_price, s.symbol)} [🏦 Banks]`,
-                    });
-                } else {
-                    // Stagger even and odd to guarantee adjacent candle labels NEVER overlap
-                    const altPos = (i % 2 === 0) ? 'belowBar' : 'aboveBar';
-                    allMarkers.push({
-                        time: c.time,
-                        position: altPos,
-                        color: liq.isBank ? (isUp ? '#10b981' : '#ef4444') : 'rgba(148, 163, 184, 0.75)',
-                        shape: 'circle',
-                        size: liq.isBank ? 0.15 : 0.08,
-                        text: liq.label,
-                    });
-                }
+            // ── Clean Series Markers: Signal Entry Point Only (No horizontal text clutter on candles) ──
+            const allMarkers = [];
+            if (markerCandle && (s.direction === 'BUY' || s.direction === 'SELL')) {
+                allMarkers.push({
+                    time: markerCandle.time,
+                    position: s.direction === 'BUY' ? 'belowBar' : 'aboveBar',
+                    color: s.direction === 'BUY' ? '#10b981' : '#ef4444',
+                    shape: s.direction === 'BUY' ? 'arrowUp' : 'arrowDown',
+                    size: 1.2,
+                    text: `${s.direction} @ ${formatChartPrice(s.entry_price, s.symbol)}`,
+                });
             }
 
-            allMarkers.sort((a, b) => a.time - b.time);
             currentChartMarkers = allMarkers;
             candleSeries.setMarkers(allMarkers);
 
@@ -1510,6 +1621,13 @@ function renderSignalCandleChart(s) {
 
             currentChartInstance = chart;
             currentChartSeries = { candleSeries, volumeSeries, ema20Series, ema50Series };
+
+            // Hook up visible range and crosshair listeners for real-time vertical overlay rendering
+            chart.timeScale().subscribeVisibleLogicalRangeChange(() => renderVerticalLiquidityOverlay());
+            chart.timeScale().subscribeVisibleTimeRangeChange(() => renderVerticalLiquidityOverlay());
+            chart.subscribeCrosshairMove(() => renderVerticalLiquidityOverlay());
+            setTimeout(renderVerticalLiquidityOverlay, 60);
+            setTimeout(renderVerticalLiquidityOverlay, 250);
 
             // Initial OHLCV header render
             updateTvOhlcOverlay(
@@ -1726,19 +1844,7 @@ function syncServerCandlesToChart(recentCandles, tfSeconds) {
                     title: `● LIVE: ${formatChartPrice(lastLocal.close, sym)}`,
                 });
             }
-            if (currentChartMarkers && currentChartMarkers.length) {
-                const lastMarker = currentChartMarkers[currentChartMarkers.length - 1];
-                if (lastMarker && lastMarker.time === lastLocal.time) {
-                    const stats = currentChartStats || { avgVolume: 100, avgRange: 1 };
-                    const liveLiq = classifyCandleLiquidity(lastLocal, stats.avgVolume, stats.avgRange);
-                    lastMarker.text = `● LIVE [${liveLiq.label}]`;
-                    lastMarker.color = isBull ? '#10b981' : '#ef4444';
-                    lastMarker.position = isBull ? 'aboveBar' : 'belowBar';
-                    lastMarker.shape = isBull ? 'arrowUp' : 'arrowDown';
-                    lastMarker.size = 0.8;
-                    candleSeries.setMarkers(currentChartMarkers);
-                }
-            }
+            renderVerticalLiquidityOverlay();
         }
     }
 
@@ -1787,32 +1893,6 @@ function applyLivePriceTickToChart(rawPrice, tfSeconds, addedVolume = 0) {
         };
         currentChartData.push(newBar);
 
-        // Finalize previous candle's marker
-        if (currentChartMarkers && currentChartMarkers.length) {
-            const stats = currentChartStats || { avgVolume: 100, avgRange: 1 };
-            const prevLiq = classifyCandleLiquidity(lastBar, stats.avgVolume, stats.avgRange);
-            const prevAltPos = ((currentChartData.length - 2) % 2 === 0) ? 'belowBar' : 'aboveBar';
-            currentChartMarkers[currentChartMarkers.length - 1] = {
-                time: lastBar.time,
-                position: prevAltPos,
-                color: prevLiq.isBank ? (lastBar.close >= lastBar.open ? '#10b981' : '#ef4444') : 'rgba(148, 163, 184, 0.75)',
-                shape: 'circle',
-                size: prevLiq.isBank ? 0.15 : 0.08,
-                text: prevLiq.label,
-            };
-            // Append new active live candle marker
-            const newLiq = classifyCandleLiquidity(newBar, stats.avgVolume, stats.avgRange);
-            currentChartMarkers.push({
-                time: newBar.time,
-                position: 'aboveBar',
-                color: '#10b981',
-                shape: 'arrowUp',
-                size: 0.8,
-                text: `● LIVE [${newLiq.label}]`,
-            });
-            candleSeries.setMarkers(currentChartMarkers);
-        }
-
         lastBar = newBar;
         candleSeries.update(newBar);
         volumeSeries.update({
@@ -1827,6 +1907,7 @@ function applyLivePriceTickToChart(rawPrice, tfSeconds, addedVolume = 0) {
                 title: `● LIVE: ${formatChartPrice(price, sym)}`,
             });
         }
+        renderVerticalLiquidityOverlay();
     } else {
         lastBar.close = price;
         if (price > lastBar.high) lastBar.high = price;
@@ -1854,20 +1935,7 @@ function applyLivePriceTickToChart(rawPrice, tfSeconds, addedVolume = 0) {
             });
         }
 
-        // ── Real-Time LIVE Marker on Active Candle (Pulsing and moving live with price) ──
-        if (currentChartMarkers && currentChartMarkers.length) {
-            const lastMarker = currentChartMarkers[currentChartMarkers.length - 1];
-            if (lastMarker && lastMarker.time === lastBar.time) {
-                const stats = currentChartStats || { avgVolume: 100, avgRange: 1 };
-                const liveLiq = classifyCandleLiquidity(lastBar, stats.avgVolume, stats.avgRange);
-                lastMarker.text = `● LIVE [${liveLiq.label}]`;
-                lastMarker.color = isBullish ? '#10b981' : '#ef4444';
-                lastMarker.position = isBullish ? 'aboveBar' : 'belowBar';
-                lastMarker.shape = isBullish ? 'arrowUp' : 'arrowDown';
-                lastMarker.size = 0.8;
-                candleSeries.setMarkers(currentChartMarkers);
-            }
-        }
+        renderVerticalLiquidityOverlay();
     }
 
     const e20 = computeEMASeries(currentChartData, 20).at(-1);
@@ -2122,21 +2190,18 @@ function renderCanvasCandlestickChart(container, candles, s) {
         const bodyH = Math.max(1, Math.abs(closeY - openY));
         ctx.fillRect(x - candleW / 2, topY, candleW, bodyH);
 
-        // Liquidity classification label on candles (Banks vs Retailers)
+        // Liquidity classification label on candles (Banks vs Retailers - strictly vertical)
         const stats = currentChartStats || { avgVolume: 100, avgRange: 1 };
         const liq = classifyCandleLiquidity(c, stats.avgVolume, stats.avgRange);
-        if (candleW >= 3) {
-            ctx.save();
-            const isLive = (i === count - 1);
-            const labelText = isLive ? `● LIVE [${liq.label}]` : liq.label;
-            if (labelText) {
-                ctx.font = 'bold 8px JetBrains Mono, monospace';
-                ctx.textAlign = 'center';
-                ctx.fillStyle = liq.isBank ? (isUp ? 'rgba(16, 185, 129, 0.95)' : 'rgba(239, 68, 68, 0.95)') : 'rgba(148, 163, 184, 0.85)';
-                const labelY = (i % 2 === 0) ? lowY + 11 : highY - 5;
-                ctx.fillText(labelText, x, labelY);
+        const isLive = (i === count - 1);
+        if (candleW >= 4) {
+            if (isLive) {
+                drawVerticalPillBadge(ctx, `● LIVE [${liq.badge}]`, liq.isBank, x, highY, true);
+            } else if (liq.isBank) {
+                drawVerticalPillBadge(ctx, '🏦 Banks', true, x, highY, true);
+            } else if (i % 2 === 0) {
+                drawVerticalPillBadge(ctx, '🎯 Retailers', false, x, lowY, false);
             }
-            ctx.restore();
         }
     });
 

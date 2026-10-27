@@ -200,6 +200,134 @@
         };
     }
 
+    function drawBtmVerticalPillBadge(ctx, text, isBank, x, wickY, isAbove) {
+        ctx.save();
+        ctx.font = 'bold 9px "JetBrains Mono", Inter, monospace';
+        const textWidth = ctx.measureText(text).width;
+        const pillHeight = Math.ceil(textWidth + 8);
+        const pillWidth = 14;
+        const stemLength = 8;
+
+        let pillTopY;
+        if (isAbove) {
+            ctx.beginPath();
+            ctx.strokeStyle = isBank ? 'rgba(46, 189, 133, 0.7)' : 'rgba(148, 163, 184, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 2]);
+            ctx.moveTo(x, wickY - 1);
+            ctx.lineTo(x, wickY - stemLength);
+            ctx.stroke();
+
+            pillTopY = wickY - stemLength - pillHeight;
+            if (pillTopY < 6) pillTopY = 6;
+        } else {
+            ctx.beginPath();
+            ctx.strokeStyle = isBank ? 'rgba(46, 189, 133, 0.7)' : 'rgba(148, 163, 184, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 2]);
+            ctx.moveTo(x, wickY + 1);
+            ctx.lineTo(x, wickY + stemLength);
+            ctx.stroke();
+
+            pillTopY = wickY + stemLength;
+            const maxBottom = 550;
+            if (pillTopY + pillHeight > maxBottom) pillTopY = maxBottom - pillHeight;
+        }
+
+        const pillX = Math.round(x - pillWidth / 2);
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        if (ctx.roundRect) {
+            ctx.roundRect(pillX, pillTopY, pillWidth, pillHeight, 3);
+        } else {
+            ctx.rect(pillX, pillTopY, pillWidth, pillHeight);
+        }
+        ctx.fillStyle = isBank ? 'rgba(6, 78, 59, 0.92)' : 'rgba(15, 23, 42, 0.92)';
+        ctx.fill();
+        ctx.strokeStyle = isBank ? 'rgba(46, 189, 133, 0.85)' : 'rgba(148, 163, 184, 0.45)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(x, pillTopY + pillHeight - 4);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillStyle = isBank ? '#2ebd85' : '#cbd5e1';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 0, 0);
+        ctx.restore();
+
+        ctx.restore();
+    }
+
+    function renderBtmVerticalLiquidityOverlay() {
+        if (!btmChart || !btmSeries?.candleSeries || !btmCandles || !btmCandles.length) return;
+        const box = document.getElementById('tv_main_single_chart');
+        if (!box) return;
+
+        let overlay = document.getElementById('terminal-chart-liq-overlay');
+        if (!overlay) {
+            overlay = document.createElement('canvas');
+            overlay.id = 'terminal-chart-liq-overlay';
+            overlay.style.position = 'absolute';
+            overlay.style.top = '0';
+            overlay.style.left = '0';
+            overlay.style.width = '100%';
+            overlay.style.height = '100%';
+            overlay.style.pointerEvents = 'none';
+            overlay.style.zIndex = '2';
+            box.style.position = 'relative';
+            box.appendChild(overlay);
+        }
+
+        const dpr = window.devicePixelRatio || 1;
+        const w = box.clientWidth || 960;
+        const h = box.clientHeight || 560;
+        if (w <= 0 || h <= 0) return;
+
+        if (overlay.width !== Math.floor(w * dpr) || overlay.height !== Math.floor(h * dpr)) {
+            overlay.width = Math.floor(w * dpr);
+            overlay.height = Math.floor(h * dpr);
+        }
+        const ctx = overlay.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+
+        const timeScale = btmChart.timeScale();
+        const candleSeries = btmSeries.candleSeries;
+        const stats = btmChartStats || { avgVolume: 100, avgRange: 1 };
+
+        let lastRetailerX = -999;
+        let lastBankX = -999;
+
+        for (let i = 0; i < btmCandles.length; i++) {
+            const c = btmCandles[i];
+            const x = timeScale.timeToCoordinate(c.time);
+            if (x === null || x < 15 || x > w - 15) continue;
+
+            const highY = candleSeries.priceToCoordinate(c.high);
+            const lowY = candleSeries.priceToCoordinate(c.low);
+            if (highY === null || lowY === null) continue;
+
+            const liq = classifyCandleLiquidity(c, stats.avgVolume, stats.avgRange);
+            const isLive = (i === btmCandles.length - 1);
+
+            if (isLive) {
+                drawBtmVerticalPillBadge(ctx, `● LIVE [${liq.badge}]`, liq.isBank, x, highY, true);
+            } else if (liq.isBank) {
+                if (x - lastBankX >= 15) {
+                    drawBtmVerticalPillBadge(ctx, '🏦 Banks', true, x, highY, true);
+                    lastBankX = x;
+                }
+            } else {
+                if (x - lastRetailerX >= 22) {
+                    drawBtmVerticalPillBadge(ctx, '🎯 Retailers', false, x, lowY, false);
+                    lastRetailerX = x;
+                }
+            }
+        }
+    }
+
     function fmtPrice(val, sym) {
         const num = Number(val);
         if (!Number.isFinite(num)) return '—';
@@ -251,6 +379,10 @@
         if (btmChart) {
             try { btmChart.remove(); } catch (e) {}
             btmChart = null;
+        }
+        const oldOverlay = document.getElementById('terminal-chart-liq-overlay');
+        if (oldOverlay) {
+            try { oldOverlay.remove(); } catch (e) {}
         }
         btmSeries = null;
     }
@@ -410,31 +542,6 @@
             };
             btmCandles.push(newBar);
 
-            // Finalize previous candle marker
-            if (btmCurrentMarkers && btmCurrentMarkers.length) {
-                const stats = btmChartStats || { avgVolume: 100, avgRange: 1 };
-                const prevLiq = classifyCandleLiquidity(lastBar, stats.avgVolume, stats.avgRange);
-                const altPos = ((btmCandles.length - 2) % 2 === 0) ? 'belowBar' : 'aboveBar';
-                btmCurrentMarkers[btmCurrentMarkers.length - 1] = {
-                    time: lastBar.time,
-                    position: altPos,
-                    color: prevLiq.isBank ? (lastBar.close >= lastBar.open ? '#2ebd85' : '#f6465d') : 'rgba(148, 163, 184, 0.75)',
-                    shape: 'circle',
-                    size: prevLiq.isBank ? 0.15 : 0.08,
-                    text: prevLiq.label,
-                };
-                const newLiq = classifyCandleLiquidity(newBar, stats.avgVolume, stats.avgRange);
-                btmCurrentMarkers.push({
-                    time: newBar.time,
-                    position: 'aboveBar',
-                    color: '#2ebd85',
-                    shape: 'arrowUp',
-                    size: 0.8,
-                    text: `● LIVE [${newLiq.label}]`,
-                });
-                candleSeries.setMarkers(btmCurrentMarkers);
-            }
-
             lastBar = newBar;
             candleSeries.update(newBar);
             volumeSeries.update({
@@ -449,6 +556,7 @@
                     title: `● LIVE: ${fmtPrice(price, symbol)}`,
                 });
             }
+            renderBtmVerticalLiquidityOverlay();
         } else {
             lastBar.close = price;
             if (price > lastBar.high) lastBar.high = price;
@@ -479,20 +587,7 @@
                 });
             }
 
-            // ── Real-Time LIVE Active Candle Marker ──
-            if (btmCurrentMarkers && btmCurrentMarkers.length) {
-                const lastMarker = btmCurrentMarkers[btmCurrentMarkers.length - 1];
-                if (lastMarker && lastMarker.time === lastBar.time) {
-                    const stats = btmChartStats || { avgVolume: 100, avgRange: 1 };
-                    const liveLiq = classifyCandleLiquidity(lastBar, stats.avgVolume, stats.avgRange);
-                    lastMarker.text = `● LIVE [${liveLiq.label}]`;
-                    lastMarker.color = isBull ? '#2ebd85' : '#f6465d';
-                    lastMarker.position = isBull ? 'aboveBar' : 'belowBar';
-                    lastMarker.shape = isBull ? 'arrowUp' : 'arrowDown';
-                    lastMarker.size = 0.8;
-                    candleSeries.setMarkers(btmCurrentMarkers);
-                }
-            }
+            renderBtmVerticalLiquidityOverlay();
         }
 
         const e20 = calcEMA(btmCandles, 20).at(-1);
@@ -679,45 +774,19 @@
             const { avgVolume: btmAvgVol, avgRange: btmAvgRange } = computeCandleAverages(btmCandles);
             btmChartStats = { avgVolume: btmAvgVol, avgRange: btmAvgRange };
 
+            // ── Clean Series Markers: Signal Entry Point Only (No horizontal text clutter on candles) ──
             const btmMarkers = [];
-            for (let i = 0; i < btmCandles.length; i++) {
-                const c = btmCandles[i];
-                const liq = classifyCandleLiquidity(c, btmAvgVol, btmAvgRange);
-                const isUp = c.close >= c.open;
-                const isLiveBar = (i === btmCandles.length - 1);
-                const isSignalBar = isLiveBar && payload && (payload.direction === 'BUY' || payload.direction === 'SELL') && payload.entry_price;
-
-                if (isLiveBar) {
-                    btmMarkers.push({
-                        time: c.time,
-                        position: isUp ? 'aboveBar' : 'belowBar',
-                        color: liq.isBank ? (isUp ? '#2ebd85' : '#f6465d') : '#94a3b8',
-                        shape: isUp ? 'arrowUp' : 'arrowDown',
-                        size: 0.8,
-                        text: `● LIVE [${liq.label}]`,
-                    });
-                } else if (isSignalBar) {
-                    btmMarkers.push({
-                        time: c.time,
-                        position: payload.direction === 'BUY' ? 'belowBar' : 'aboveBar',
-                        color: payload.direction === 'BUY' ? '#2ebd85' : '#f6465d',
-                        shape: payload.direction === 'BUY' ? 'arrowUp' : 'arrowDown',
-                        size: 1.2,
-                        text: `${payload.direction} @ ${fmtPrice(payload.entry_price, symbol)} [🏦 Banks]`,
-                    });
-                } else {
-                    const altPos = (i % 2 === 0) ? 'belowBar' : 'aboveBar';
-                    btmMarkers.push({
-                        time: c.time,
-                        position: altPos,
-                        color: liq.isBank ? (isUp ? '#2ebd85' : '#f6465d') : 'rgba(148, 163, 184, 0.75)',
-                        shape: 'circle',
-                        size: liq.isBank ? 0.15 : 0.08,
-                        text: liq.label,
-                    });
-                }
+            const lastCandle = btmCandles[btmCandles.length - 1];
+            if (payload && (payload.direction === 'BUY' || payload.direction === 'SELL') && payload.entry_price) {
+                btmMarkers.push({
+                    time: lastCandle.time,
+                    position: payload.direction === 'BUY' ? 'belowBar' : 'aboveBar',
+                    color: payload.direction === 'BUY' ? '#2ebd85' : '#f6465d',
+                    shape: payload.direction === 'BUY' ? 'arrowUp' : 'arrowDown',
+                    size: 1.2,
+                    text: `${payload.direction} @ ${fmtPrice(payload.entry_price, symbol)}`,
+                });
             }
-            btmMarkers.sort((a, b) => a.time - b.time);
             btmCurrentMarkers = btmMarkers;
             candleSeries.setMarkers(btmMarkers);
 
@@ -727,6 +796,12 @@
                 from: Math.max(0, btmCandles.length - visibleCount),
                 to: btmCandles.length + 6,
             });
+
+            // Hook up visible range listeners for real-time vertical overlay rendering
+            chart.timeScale().subscribeVisibleLogicalRangeChange(() => renderBtmVerticalLiquidityOverlay());
+            chart.timeScale().subscribeVisibleTimeRangeChange(() => renderBtmVerticalLiquidityOverlay());
+            setTimeout(renderBtmVerticalLiquidityOverlay, 60);
+            setTimeout(renderBtmVerticalLiquidityOverlay, 250);
 
             btmChart = chart;
             btmSeries = { candleSeries, volumeSeries, ema20Series, ema50Series };
