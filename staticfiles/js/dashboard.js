@@ -1581,8 +1581,7 @@ function renderSignalCandleChart(s) {
                 title: `● LIVE: ${formatChartPrice(lastBar.close, s.symbol)}`,
             });
 
-            // ── Real Traded Capital & Price Markers on ALL Past Candles (100% Real Exchange Data) ──
-            const allMarkers = [];
+            // ── Signal Entry Marker Reference ──
             const signalTs = s.generated_ts || candleData[candleData.length - 1].time;
             let markerCandle = candleData[candleData.length - 1];
             for (let i = candleData.length - 1; i >= 0; i--) {
