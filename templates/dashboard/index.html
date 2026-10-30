@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=13">
-    <link rel="stylesheet" href="{% static 'css/terminal.css' %}?v=5">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=15">
+    <link rel="stylesheet" href="{% static 'css/terminal.css' %}?v=6">
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <script src="https://s3.tradingview.com/tv.js"></script>
 </head>
@@ -46,31 +46,12 @@
             <span class="nav-icon">🎯</span>
             <span>Signals</span>
         </a>
-        <a href="#" class="nav-item" id="nav-markets">
-            <span class="nav-icon">🌐</span>
-            <span>Markets</span>
-        </a>
-        <a href="#" class="nav-item" id="nav-analysis">
-            <span class="nav-icon">🧠</span>
-            <span>AI Analysis</span>
-        </a>
-        <a href="#" class="nav-item" id="nav-agents">
-            <span class="nav-icon">🧸</span>
-            <span>Agent Studio</span>
-            <span class="agent-nav-dot" aria-label="4 agents online"></span>
-        </a>
         <a href="#" class="nav-item" id="nav-news">
             <span class="nav-icon">📰</span>
             <span>News Events</span>
         </a>
-        <a href="#" class="nav-item" id="nav-performance">
-            <span class="nav-icon">📊</span>
-            <span>Performance</span>
-        </a>
-        <a href="#" class="nav-item" id="nav-historical-audit">
-            <span class="nav-icon">🏛️</span>
-            <span>2017-Present Audit</span>
-            <span style="margin-left:auto; font-size:9px; padding:1px 5px; border-radius:2px; background:rgba(234,179,8,0.18); color:#eab308; border:1px solid rgba(234,179,8,0.4); font-weight:700; letter-spacing:.04em;">ISOLATED</span>
+        <a href="#" class="nav-item" id="nav-course-backtest">
+            <span class="nav-icon">🧪</span><span>Course Backtest</span>
         </a>
     </nav>
 
@@ -79,24 +60,16 @@
         <div class="tf-nav-title">📈 TradingView Charts</div>
         <div class="tf-nav-grid" style="grid-template-columns: repeat(2, 1fr);">
             <button class="tf-btn sidebar-sym-btn active" data-tv-sym="XAUUSD" onclick="selectTradingViewSymbol('XAUUSD', true)">XAUUSD</button>
-            <button class="tf-btn sidebar-sym-btn" data-tv-sym="BTCUSD" onclick="selectTradingViewSymbol('BTCUSD', true)">BTCUSD</button>
-            <button class="tf-btn sidebar-sym-btn" data-tv-sym="EURUSD" onclick="selectTradingViewSymbol('EURUSD', true)">EURUSD</button>
-            <button class="tf-btn sidebar-sym-btn" data-tv-sym="GBPUSD" onclick="selectTradingViewSymbol('GBPUSD', true)">GBPUSD</button>
-            <button class="tf-btn sidebar-sym-btn" data-tv-sym="NAS100" onclick="selectTradingViewSymbol('NAS100', true)">NAS100</button>
-            <button class="tf-btn sidebar-sym-btn" data-tv-sym="USOIL"  onclick="selectTradingViewSymbol('USOIL', true)">USOIL</button>
+            <button class="tf-btn sidebar-sym-btn" data-tv-sym="US30" onclick="selectTradingViewSymbol('US30', true)">US30</button>
+            <button class="tf-btn sidebar-sym-btn" data-tv-sym="SPX500" onclick="selectTradingViewSymbol('SPX500', true)">SPX500</button>
         </div>
     </div>
 
     <div class="tf-nav" id="tf-nav">
         <div class="tf-nav-title">⏱ Timeframe</div>
         <div class="tf-nav-grid">
-            <button class="tf-btn active" data-tf="ALL" onclick="selectTimeframe('ALL')">All</button>
-            <button class="tf-btn" data-tf="M1"  onclick="selectTimeframe('M1')">1m</button>
-            <button class="tf-btn" data-tf="M5"  onclick="selectTimeframe('M5')">5m</button>
             <button class="tf-btn" data-tf="M15" onclick="selectTimeframe('M15')">15m</button>
-            <button class="tf-btn" data-tf="M30" onclick="selectTimeframe('M30')">30m</button>
-            <button class="tf-btn" data-tf="H1"  onclick="selectTimeframe('H1')">1H</button>
-            <button class="tf-btn" data-tf="H2"  onclick="selectTimeframe('H2')">2H</button>
+            <button class="tf-btn active" data-tf="H1"  onclick="selectTimeframe('H1')">1H</button>
             <button class="tf-btn" data-tf="H4"  onclick="selectTimeframe('H4')">4H</button>
         </div>
     </div>
@@ -156,13 +129,8 @@
     <!-- ── MOBILE / TABLET QUICK TIMEFRAME PILL BAR ──────── -->
     <div class="mobile-tf-bar" id="mobile-tf-bar">
         <span class="mobile-tf-label">⏱ TF:</span>
-        <button class="tf-btn active" data-tf="ALL" onclick="selectTimeframe('ALL')">All</button>
-        <button class="tf-btn" data-tf="M1"  onclick="selectTimeframe('M1')">1m</button>
-        <button class="tf-btn" data-tf="M5"  onclick="selectTimeframe('M5')">5m</button>
         <button class="tf-btn" data-tf="M15" onclick="selectTimeframe('M15')">15m</button>
-        <button class="tf-btn" data-tf="M30" onclick="selectTimeframe('M30')">30m</button>
-        <button class="tf-btn" data-tf="H1"  onclick="selectTimeframe('H1')">1H</button>
-        <button class="tf-btn" data-tf="H2"  onclick="selectTimeframe('H2')">2H</button>
+        <button class="tf-btn active" data-tf="H1"  onclick="selectTimeframe('H1')">1H</button>
         <button class="tf-btn" data-tf="H4"  onclick="selectTimeframe('H4')">4H</button>
     </div>
 
@@ -259,13 +227,19 @@
         </div>
     </section>
 
+    <section class="engine-section" id="course-backtest-section" style="margin-bottom:28px;background:linear-gradient(135deg,rgba(24,16,48,.98),rgba(30,25,61,.96));border:1px solid rgba(167,139,250,.42);border-radius:14px;padding:24px;" hidden>
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;"><div><h2 style="margin:0;color:#f8fafc;font-size:1.25rem;">🧪 Gold Course Backtest</h2><div style="margin-top:6px;color:#c4b5fd;font-size:.84rem;">4H direction · 1H S&amp;R/profile · 15m volume setup · 5m confirmation</div></div><span style="color:#fcd34d;font-size:.72rem;font-weight:800;">RESEARCH ONLY</span></div>
+        <div id="course-backtest-status" style="padding:11px 13px;border-radius:8px;background:rgba(255,255,255,.05);color:#cbd5e1;">Loading backtest status…</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-top:14px;"><div>Trades <b id="course-bt-trades">—</b></div><div>Wins / Losses <b id="course-bt-wl">—</b></div><div>Win rate <b id="course-bt-wr">—</b></div><div>Net R <b id="course-bt-r">—</b></div><div>Max DD <b id="course-bt-dd">—</b></div></div>
+    </section>
+
     <!-- ── STATS CARDS ─────────────────────────────────── -->
     <div class="overview-heading">
         <div>
             <span class="overview-eyebrow">MARKET OVERVIEW</span>
             <h2>Performance snapshot</h2>
         </div>
-        <span class="overview-live"><span></span> Updated from recorded signals</span>
+        <span class="overview-live"><span></span> <span id="stats-freshness">Loading signal totals...</span></span>
     </div>
     <section class="stats-grid">
         <div class="stat-card" id="stat-total">
@@ -274,7 +248,7 @@
                 <div class="stat-value" id="stat-total-val">—</div>
                 <div class="stat-label">Total Signals</div>
             </div>
-            <div class="stat-trend up">↑ Today</div>
+            <div class="stat-trend up">All Time</div>
         </div>
         <div class="stat-card green" id="stat-active">
             <div class="stat-icon">🟢</div>
@@ -290,7 +264,7 @@
                 <div class="stat-value" id="stat-winrate-val">—%</div>
                 <div class="stat-label" id="winrate-label">Win Rate</div>
                 <div id="stat-winrate-r-metrics" style="font-size: 0.76rem; color: #94a3b8; margin-top: 6px; line-height: 1.4;">
-                    <span id="winrate-sample-n">n=0</span> | 
+                    <span id="winrate-sample-n">Closed n=0 | R n=0</span> |
                     <span id="winrate-avg-win">Win: +0.00R</span> | 
                     <span id="winrate-avg-loss">Loss: 0.00R</span><br>
                     <span id="winrate-pf">PF: 0.00</span> | 
@@ -312,7 +286,7 @@
             <div class="stat-icon" style="color: #10b981;">✅</div>
             <div class="stat-body">
                 <div class="stat-value" id="stat-won-val">—</div>
-                <div class="stat-label">Won Trades</div>
+                <div class="stat-label">Won Signals</div>
             </div>
             <div class="stat-trend up" style="color: #10b981;">Real Time</div>
         </div>
@@ -320,14 +294,21 @@
             <div class="stat-icon" style="color: #ef4444;">❌</div>
             <div class="stat-body">
                 <div class="stat-value" id="stat-lost-val">—</div>
-                <div class="stat-label">Lost Trades</div>
+                <div class="stat-label">Lost Signals</div>
             </div>
             <div class="stat-trend" style="color: #ef4444;">Real Time</div>
         </div>
     </section>
 
+    <p id="signal-outcome-summary" style="font-size:0.75rem;color:#94a3b8;margin:0 0 16px;line-height:1.6;"></p>
+    <details style="margin-bottom:16px;padding:12px;border:1px solid #263246;border-radius:6px;">
+        <summary style="cursor:pointer;color:#cbd5e1;">Institutional setup checks · Paper research</summary>
+        <p style="font-size:0.75rem;color:#94a3b8;margin:8px 0;">Completed M15/H1/H4 trend + reclaim trigger + structural SL + 2R minimum. Confluence score is not a win probability.</p>
+        <div id="institutional-setup-status" style="font-size:0.78rem;line-height:1.7;color:#94a3b8;">Awaiting scanner decisions...</div>
+    </details>
+
     <!-- ── R-MULTIPLE PERFORMANCE TRACKING (PHASE 12) ──── -->
-    <section class="r-multiple-section" style="margin-bottom: 24px;">
+    <section class="r-multiple-section" style="margin-bottom: 24px;" hidden>
         <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 <h2 class="section-title" style="margin: 0; font-size: 1.12rem;">📐 R-Multiple Performance Tracking</h2>
@@ -384,7 +365,7 @@
     </section>
 
     <!-- ── LOSS ANALYSIS & DIAGNOSTICS (SECTION 13 & 15.1) ──── -->
-    <section class="loss-diagnosis-section" style="margin-bottom: 24px;">
+    <section class="loss-diagnosis-section" style="margin-bottom: 24px;" hidden>
         <div class="section-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 <h2 class="section-title" style="margin: 0; font-size: 1.12rem;">🔍 Loss Diagnosis &amp; Continuous Improvement</h2>
@@ -433,7 +414,7 @@
     </section>
 
     <!-- ── SIGNAL DIRECTION SPLIT ──────────────────────── -->
-    <section class="direction-bar-section">
+    <section class="direction-bar-section" hidden>
         <div class="direction-bar-wrap">
             <div class="direction-label buy-label">BUY <span id="buy-count">0</span></div>
             <div class="direction-bar">
@@ -447,7 +428,7 @@
     </section>
 
     <!-- ── PER-PAIR RUNNING SCORES ──────────────────────── -->
-    <section class="pair-scores-section" id="pair-scores-section">
+    <section class="pair-scores-section" id="pair-scores-section" hidden>
         <div class="section-header">
             <h2 class="section-title">📈 Per-Pair Running Scores</h2>
             <span class="section-badge" id="pair-scores-source-badge">Confidence Based</span>
@@ -502,7 +483,7 @@
     </section>
 
     <!-- ── ENGINE WEIGHTS ──────────────────────────────── -->
-    <section class="engine-section" id="ai-analysis-section">
+    <section class="engine-section" id="ai-analysis-section" hidden>
         <div class="section-header">
             <h2 class="section-title">⚙️ Signal Engine Weights</h2>
             <span class="section-badge" style="cursor:pointer;" onclick="openDashboardEngineDetail('technical')">👆 Click any engine for live trade details · Per SRS v2.0</span>
@@ -539,96 +520,97 @@
         </div>
     </section>
 
-    <!-- ── INSTITUTIONAL COT, FUTURES EXCHANGES & LIVE LIQUIDITY PANEL ── -->
+    <!-- ── MARKET CONTEXT, FUTURES & EXECUTION FEED ── -->
     <section class="engine-section" id="institutional-section">
         <div class="section-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <h2 class="section-title">🏛️ Institutional Venues, Exchange Futures &amp; Live Liquidity</h2>
-                <span class="section-badge live" id="cot-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">🟢 COMEX / CBOT / CME &amp; MT5 ECN Live</span>
+                <h2 class="section-title">🏛️ Market Context &amp; Execution Feed</h2>
+                <span class="section-badge live" id="cot-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">🟢 Futures + MT5 feed</span>
             </div>
-            <span style="font-size:0.8rem; color:#94a3b8;">Official CFTC Socrata &amp; Chicago Exchange Flow</span>
+            <span class="institutional-context-note">Context only · entry signal nahi</span>
         </div>
 
-        <!-- 4 Institutional Core Asset & Macro Cards -->
-        <div class="stats-grid" id="institutional-cards-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); padding: 20px 24px; margin-bottom: 0;">
+        <div class="institutional-summary-grid" id="institutional-cards-grid">
             <!-- Card 1: Gold COMEX GC=F & CFTC COT -->
-            <div class="stat-card gold" style="cursor:pointer;" onclick="selectTradingViewSymbol('XAUUSD', true)" title="Click to open XAUUSD TradingView Chart">
+            <div class="stat-card gold institutional-summary-card" style="cursor:pointer;" onclick="selectTradingViewSymbol('XAUUSD', true)" title="XAUUSD chart kholo">
                 <div class="stat-icon">🪙</div>
                 <div class="stat-body">
                     <div class="stat-value" id="cot-val-xau" style="font-size: 1.15rem;">Gold · COMEX GC=F</div>
-                    <div class="stat-label" id="cot-lbl-xau">Loading COMEX continuous futures &amp; CFTC positioning…</div>
+                    <div class="stat-label" id="cot-lbl-xau">COMEX futures price aur volume load ho raha hai…</div>
                 </div>
-                <div class="stat-trend" id="cot-trd-xau" style="color: #fde047;">Institutional Flow</div>
+                <div class="stat-trend" id="cot-trd-xau" style="color: #fde047;">Price + volume</div>
             </div>
 
             <!-- Card 2: Dow Jones US30 CBOT YM=F -->
-            <div class="stat-card blue" style="cursor:pointer;" onclick="selectTradingViewSymbol('US30', true)" title="Click to open US30 TradingView Chart">
+            <div class="stat-card blue institutional-summary-card" style="cursor:pointer;" onclick="selectTradingViewSymbol('US30', true)" title="US30 chart kholo">
                 <div class="stat-icon">📈</div>
                 <div class="stat-body">
                     <div class="stat-value" id="cot-val-us30" style="font-size: 1.15rem;">US30 · CBOT YM=F</div>
-                    <div class="stat-label" id="cot-lbl-us30">Loading CBOT E-mini Dow futures &amp; CFTC contracts…</div>
+                    <div class="stat-label" id="cot-lbl-us30">YM futures price aur volume load ho raha hai…</div>
                 </div>
-                <div class="stat-trend" id="cot-trd-us30" style="color: #60a5fa;">Institutional Flow</div>
+                <div class="stat-trend" id="cot-trd-us30" style="color: #60a5fa;">Price + volume</div>
             </div>
 
             <!-- Card 3: Intermarket Triad (DXY, 10Y Yield, VIX) -->
-            <div class="stat-card purple" style="cursor:pointer;" title="Global Drivers of Institutional Capital">
+            <div class="stat-card purple institutional-summary-card" title="Macro context">
                 <div class="stat-icon">🌐</div>
                 <div class="stat-body">
                     <div class="stat-value" id="cot-val-triad" style="font-size: 1.15rem;">DXY: 102.09 · 10Y: 4.99%</div>
-                    <div class="stat-label" id="cot-lbl-triad">VIX Volatility: 18.39 (Normal) · Fed Net Liq: $6.13T</div>
+                    <div class="stat-label" id="cot-lbl-triad">VIX aur dollar/yield context</div>
                 </div>
-                <div class="stat-trend" id="cot-trd-triad" style="color: #a855f7;">Macro Drivers</div>
+                <div class="stat-trend" id="cot-trd-triad" style="color: #a855f7;">Macro context</div>
             </div>
 
             <!-- Card 4: Local MT5 ECN Terminal Gateway -->
-            <div class="stat-card green" style="cursor:pointer;" title="Connected MT5 Broker Terminal">
+            <div class="stat-card green institutional-summary-card" title="MT5 feed health">
                 <div class="stat-icon" style="color:#10b981;">⚡</div>
                 <div class="stat-body">
-                    <div class="stat-value" id="cot-val-broker" style="font-size: 1.15rem;">Broker MT5 ECN: CONNECTED</div>
+                    <div class="stat-value" id="cot-val-broker" style="font-size: 1.15rem;">Broker MT5: Connected</div>
                     <div class="stat-label" id="cot-lbl-broker">Login: 5057861405 · MetaQuotes-Demo · Hedging</div>
                 </div>
-                <div class="stat-trend up" id="cot-trd-broker" style="color: #10b981;">Direct IPC</div>
+                <div class="stat-trend up" id="cot-trd-broker" style="color: #10b981;">Feed health</div>
             </div>
         </div>
 
-        <!-- Real-Time Institutional Liquidity Pools & Order Book DOM (Level-2) -->
-        <div id="institutional-liquidity-panel" style="padding: 16px 24px; margin: 0 24px 20px 24px; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
-                <div style="font-size:0.85rem; font-weight:700; color:#f8fafc; display:flex; align-items:center; gap:8px;">
-                    <span>🎯 Real-Time Institutional Liquidity Clusters &amp; Order Book DOM</span>
-                    <span id="liq-active-symbol-badge" style="font-size:0.72rem; padding:2px 8px; border-radius:4px; background:rgba(234, 179, 8, 0.2); color:#fde047; border:1px solid rgba(234, 179, 8, 0.4);">XAUUSD (Gold)</span>
+        <div id="institutional-liquidity-panel" class="liquidity-reference-panel">
+            <div class="liquidity-reference-header">
+                <div>
+                    <div class="liquidity-reference-title">🎯 XAUUSD liquidity reference levels</div>
+                    <div class="liquidity-reference-subtitle">Session aur swing structure se calculated levels · validation ke baad hi use karein</div>
                 </div>
-                <div style="font-size:0.78rem; color:#94a3b8;" id="liq-dom-source">Venue: COMEX Continuous &amp; MT5 Live Feed</div>
+                <div class="liquidity-reference-meta">
+                    <span id="liq-active-symbol-badge">XAUUSD (Gold)</span>
+                    <span id="liq-dom-source">COMEX futures + MT5 feed</span>
+                </div>
             </div>
 
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
                 <!-- BSL Wall -->
                 <div style="background:rgba(239, 68, 68, 0.08); border:1px solid rgba(239, 68, 68, 0.25); border-radius:8px; padding:10px 14px;">
-                    <div style="font-size:0.72rem; text-transform:uppercase; color:#f87171; font-weight:700;">Nearest BSL Wall (Buy-Side Stop Liquidity)</div>
+                    <div style="font-size:0.72rem; text-transform:uppercase; color:#f87171; font-weight:700;">Upper reference · BSL</div>
                     <div id="liq-bsl-price" style="font-size:1.15rem; font-weight:800; color:#fca5a5; margin-top:2px;">—</div>
-                    <div id="liq-bsl-desc" style="font-size:0.75rem; color:#cbd5e1;">Target resistance pool &amp; resting stops</div>
+                    <div id="liq-bsl-desc" style="font-size:0.75rem; color:#cbd5e1;">Computed resistance-side reference</div>
                 </div>
 
                 <!-- SSL Wall -->
                 <div style="background:rgba(16, 185, 129, 0.08); border:1px solid rgba(16, 185, 129, 0.25); border-radius:8px; padding:10px 14px;">
-                    <div style="font-size:0.72rem; text-transform:uppercase; color:#34d399; font-weight:700;">Nearest SSL Wall (Sell-Side Stop Liquidity)</div>
+                    <div style="font-size:0.72rem; text-transform:uppercase; color:#34d399; font-weight:700;">Lower reference · SSL</div>
                     <div id="liq-ssl-price" style="font-size:1.15rem; font-weight:800; color:#6ee7b7; margin-top:2px;">—</div>
-                    <div id="liq-ssl-desc" style="font-size:0.75rem; color:#cbd5e1;">Target support pool &amp; resting stops</div>
+                    <div id="liq-ssl-desc" style="font-size:0.75rem; color:#cbd5e1;">Computed support-side reference</div>
                 </div>
 
                 <!-- Exchange Futures Day Volume -->
                 <div style="background:rgba(59, 130, 246, 0.08); border:1px solid rgba(59, 130, 246, 0.25); border-radius:8px; padding:10px 14px;">
-                    <div style="font-size:0.72rem; text-transform:uppercase; color:#60a5fa; font-weight:700;">Exchange 24H Futures Volume</div>
+                    <div style="font-size:0.72rem; text-transform:uppercase; color:#60a5fa; font-weight:700;">Futures volume</div>
                     <div id="liq-futures-vol" style="font-size:1.15rem; font-weight:800; color:#93c5fd; margin-top:2px;">— Contracts</div>
-                    <div id="liq-futures-desc" style="font-size:0.75rem; color:#cbd5e1;">Real institutional exchange turnover</div>
+                    <div id="liq-futures-desc" style="font-size:0.75rem; color:#cbd5e1;">Reported futures turnover</div>
                 </div>
 
                 <!-- Live MT5 Tick Spread -->
                 <div style="background:rgba(234, 179, 8, 0.08); border:1px solid rgba(234, 179, 8, 0.25); border-radius:8px; padding:10px 14px;">
-                    <div style="font-size:0.72rem; text-transform:uppercase; color:#fde047; font-weight:700;">Live Broker ECN Spread</div>
+                    <div style="font-size:0.72rem; text-transform:uppercase; color:#fde047; font-weight:700;">MT5 spread</div>
                     <div id="liq-broker-spread" style="font-size:1.15rem; font-weight:800; color:#fef08a; margin-top:2px;">— Points</div>
-                    <div id="liq-broker-desc" style="font-size:0.75rem; color:#cbd5e1;">Institutional execution latency: Low</div>
+                    <div id="liq-broker-desc" style="font-size:0.75rem; color:#cbd5e1;">Current executable quote quality</div>
                 </div>
             </div>
         </div>
@@ -662,11 +644,11 @@
                 </div>
                 <div class="stat-trend up" style="color: #fbbf24;">Active Model</div>
             </div>
-            <div class="stat-card purple" style="cursor:pointer;" onclick="selectTradingViewSymbol('BTCUSD', true)">
-                <div class="stat-icon">⚡</div>
+            <div class="stat-card purple" style="cursor:pointer;" onclick="selectTradingViewSymbol('SPX500', true)">
+                <div class="stat-icon">📊</div>
                 <div class="stat-body">
-                    <div class="stat-value" id="ai-model-btc" style="font-size: 1.15rem;">BTCUSD · RF Ensemble</div>
-                    <div class="stat-label" id="ai-label-btc">Walk-Forward Accuracy: 56.2% · Feature: sma30_dist</div>
+                    <div class="stat-value" id="ai-model-spx" style="font-size: 1.15rem;">SPX500 · RF Ensemble</div>
+                    <div class="stat-label" id="ai-label-spx">Walk-Forward accuracy loading…</div>
                 </div>
                 <div class="stat-trend up" style="color: #a855f7;">Active Model</div>
             </div>
@@ -682,7 +664,7 @@
     </section>
 
     <!-- ── BACKTESTING & HISTORICAL REPLAY (PHASE 11) ──────── -->
-    <section class="engine-section" id="backtest-section">
+    <section class="engine-section" id="backtest-section" hidden>
         <div class="section-header">
             <h2 class="section-title">🔬 Historical Replay &amp; Backtest Engine</h2>
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
@@ -743,8 +725,32 @@
         </div>
     </section>
  
+    <!-- ── CAUSAL ICT LOCATION RESEARCH REPLAY ─────────── -->
+    <section class="engine-section" id="ict-location-replay-section" style="margin-bottom:28px;background:linear-gradient(135deg,rgba(7,24,36,.98),rgba(15,35,49,.96));border:1px solid rgba(45,212,191,.38);border-radius:14px;padding:24px;box-shadow:0 12px 36px rgba(0,0,0,.5);" hidden>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+            <div>
+                <h2 style="margin:0;color:#f8fafc;font-size:1.25rem;">◈ ICT Location Historical Replay</h2>
+                <div style="margin-top:6px;color:#94a3b8;font-size:.84rem;">XAUUSD · 2015–2025 · sweep → MSS → FVG → retest · next-M15 executable entry</div>
+            </div>
+            <span style="padding:4px 10px;border-radius:999px;border:1px solid rgba(45,212,191,.45);background:rgba(45,212,191,.12);color:#5eead4;font-weight:800;font-size:.72rem;">CAUSAL RESEARCH · NOT LIVE</span>
+        </div>
+        <div id="ict-replay-status" style="padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.035);color:#94a3b8;font-size:.82rem;margin-bottom:14px;">Loading completed replay report…</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;">
+            <div style="padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:9px;"><div style="font-size:.7rem;color:#94a3b8;text-transform:uppercase;">Closed trades</div><div id="ict-total" style="font-size:1.35rem;color:#f8fafc;font-weight:800;">—</div></div>
+            <div style="padding:12px;border:1px solid rgba(16,185,129,.28);border-radius:9px;"><div style="font-size:.7rem;color:#94a3b8;text-transform:uppercase;">Won</div><div id="ict-wins" style="font-size:1.35rem;color:#34d399;font-weight:800;">—</div></div>
+            <div style="padding:12px;border:1px solid rgba(239,68,68,.28);border-radius:9px;"><div style="font-size:.7rem;color:#94a3b8;text-transform:uppercase;">Lost</div><div id="ict-losses" style="font-size:1.35rem;color:#f87171;font-weight:800;">—</div></div>
+            <div style="padding:12px;border:1px solid rgba(59,130,246,.28);border-radius:9px;"><div style="font-size:.7rem;color:#94a3b8;text-transform:uppercase;">Win rate / Net R</div><div id="ict-edge" style="font-size:1.05rem;color:#93c5fd;font-weight:800;">—</div></div>
+        </div>
+        <div style="overflow:auto;max-height:330px;border:1px solid rgba(255,255,255,.07);border-radius:8px;">
+            <table style="width:100%;border-collapse:collapse;font-size:.78rem;text-align:left;">
+                <thead><tr style="position:sticky;top:0;background:#102333;color:#cbd5e1;"><th style="padding:9px;">Time</th><th>Side</th><th>Entry</th><th>SL</th><th>TP</th><th>Exit</th><th>R</th><th>Outcome</th><th>Exit</th></tr></thead>
+                <tbody id="ict-replay-tbody"><tr><td colspan="9" style="padding:16px;color:#94a3b8;">Loading…</td></tr></tbody>
+            </table>
+        </div>
+    </section>
+
     <!-- ── HISTORICAL AUDIT 2021-2022 ISOLATED TAB ──────── -->
-    <section class="engine-section" id="historical-audit-section" style="margin-bottom: 28px; background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(24, 32, 54, 0.95)); border: 1px solid rgba(234, 179, 8, 0.35); border-radius: 14px; padding: 24px; box-shadow: 0 12px 36px rgba(0,0,0,0.5);">
+    <section class="engine-section" id="historical-audit-section" style="margin-bottom: 28px; background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(24, 32, 54, 0.95)); border: 1px solid rgba(234, 179, 8, 0.35); border-radius: 14px; padding: 24px; box-shadow: 0 12px 36px rgba(0,0,0,0.5);" hidden>
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 16px;">
             <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
                 <div style="font-size: 2rem; flex-shrink: 0; background: rgba(234, 179, 8, 0.12); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(234, 179, 8, 0.3);">🏛️</div>
@@ -757,14 +763,14 @@
                             Isolated Tab
                         </span>
                         <span style="font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 9999px; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);">
-                            Strict Zero Lookahead
+                            Synthetic Replay · Unvalidated
                         </span>
                         <span style="font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 9999px; background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);">
                             15m • 1H • 4H Only
                         </span>
                     </div>
                     <div style="font-size: 0.85rem; color: #94a3b8; margin-top: 5px; line-height: 1.45;">
-                        Daily partitioned causal walk-forward replay (2017-01-01 to Present, 2,468 trading days) across <strong>Gold (XAUUSD)</strong> and <strong>Stocks (US30)</strong>. Bar <em>t</em> evaluation strictly blinds all future bars. Independent equity &amp; trade tracking isolated from live signals.
+                        Experimental reconstruction from daily OHLC across <strong>Gold (XAUUSD)</strong> and <strong>Stocks (US30)</strong>. Intraday paths are synthesized using each day's final high, low and close. These figures do not validate the current live strategy or establish zero lookahead.
                     </div>
                 </div>
             </div>
@@ -793,12 +799,12 @@
             <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 10px; padding: 14px;">
                 <div style="font-size: 0.74rem; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Profit Factor</div>
                 <div id="ha-profit-factor" style="font-size: 1.45rem; font-weight: 800; color: #fde047; margin-top: 4px;">2.75</div>
-                <div style="font-size: 0.8rem; color: #eab308; margin-top: 2px;">Elite Hedge-Fund Ratio</div>
+                <div style="font-size: 0.8rem; color: #eab308; margin-top: 2px;">Synthetic replay result only</div>
             </div>
             <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; padding: 14px;">
                 <div style="font-size: 0.74rem; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Max Drawdown</div>
                 <div id="ha-max-dd" style="font-size: 1.45rem; font-weight: 800; color: #f87171; margin-top: 4px;">18.60%</div>
-                <div style="font-size: 0.8rem; color: #cbd5e1; margin-top: 2px;">Under 20% limit across 10 yrs</div>
+                <div style="font-size: 0.8rem; color: #cbd5e1; margin-top: 2px;">Not a broker execution record</div>
             </div>
             <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 10px; padding: 14px;">
                 <div style="font-size: 0.74rem; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Total Closed Trades</div>
@@ -807,8 +813,8 @@
             </div>
             <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 10px; padding: 14px;">
                 <div style="font-size: 0.74rem; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Sharpe Ratio</div>
-                <div style="font-size: 1.45rem; font-weight: 800; color: #38bdf8; margin-top: 4px;">2.85</div>
-                <div style="font-size: 0.8rem; color: #cbd5e1; margin-top: 2px;">Zero Lookahead Verified</div>
+                <div style="font-size: 1.45rem; font-weight: 800; color: #38bdf8; margin-top: 4px;">—</div>
+                <div style="font-size: 0.8rem; color: #cbd5e1; margin-top: 2px;">Not independently validated</div>
             </div>
         </div>
 
@@ -961,46 +967,14 @@
                     <button data-engine="WIDGET" title="TradingView Web Widget">🌐 TV Widget</button>
                 </div>
                 <select id="tv-symbol-select" aria-label="Chart symbol">
-                    <optgroup label="Metals">
-                        <option value="XAUUSD" selected>XAUUSD · Gold</option>
-                        <option value="XAGUSD">XAGUSD · Silver</option>
-                    </optgroup>
-                    <optgroup label="Forex">
-                        <option value="EURUSD">EURUSD · Euro</option>
-                        <option value="GBPUSD">GBPUSD · British Pound</option>
-                        <option value="USDJPY">USDJPY · Japanese Yen</option>
-                        <option value="USDCHF">USDCHF · Swiss Franc</option>
-                        <option value="AUDUSD">AUDUSD · Australian Dollar</option>
-                        <option value="USDCAD">USDCAD · Canadian Dollar</option>
-                        <option value="NZDUSD">NZDUSD · NZ Dollar</option>
-                        <option value="EURGBP">EURGBP · Euro / Pound</option>
-                        <option value="EURJPY">EURJPY · Euro / Yen</option>
-                        <option value="GBPJPY">GBPJPY · Pound / Yen</option>
-                    </optgroup>
-                    <optgroup label="Crypto">
-                        <option value="BTCUSD">BTCUSD · Bitcoin</option>
-                        <option value="ETHUSD">ETHUSD · Ethereum</option>
-                        <option value="BNBUSD">BNBUSD · BNB</option>
-                        <option value="SOLUSD">SOLUSD · Solana</option>
-                        <option value="XRPUSD">XRPUSD · Ripple</option>
-                    </optgroup>
-                    <optgroup label="Indices &amp; Oil">
-                        <option value="US30">US30 · Dow Jones</option>
-                        <option value="NAS100">NAS100 · Nasdaq 100</option>
-                        <option value="SPX500">SPX500 · S&amp;P 500</option>
-                        <option value="USOIL">USOIL · WTI Crude</option>
-                        <option value="UKOIL">UKOIL · Brent Crude</option>
-                    </optgroup>
+                    <option value="XAUUSD" selected>XAUUSD · Gold</option>
+                    <option value="US30">US30 · Dow Jones</option>
+                    <option value="SPX500">SPX500 · S&amp;P 500</option>
                 </select>
                 <div class="tv-chart-tf" id="tv-chart-tf">
-                    <button data-int="1">1m</button>
-                    <button data-int="5">5m</button>
                     <button data-int="15">15m</button>
-                    <button data-int="30">30m</button>
                     <button data-int="60" class="active">1H</button>
-                    <button data-int="120">2H</button>
                     <button data-int="240">4H</button>
-                    <button data-int="D">1D</button>
                 </div>
                 <button type="button" class="tv-fs-btn" id="tv-fullscreen-btn" onclick="toggleTvFullscreen()" title="Toggle Fullscreen Chart">⛶</button>
             </div>
@@ -1008,17 +982,8 @@
         <!-- Quick Symbol Strip -->
         <div class="tv-quick-symbols" id="tv-quick-symbols">
             <button class="tv-qsym active" data-sym="XAUUSD">🪙 XAUUSD</button>
-            <button class="tv-qsym" data-sym="BTCUSD">₿ BTCUSD</button>
-            <button class="tv-qsym" data-sym="EURUSD">💶 EURUSD</button>
-            <button class="tv-qsym" data-sym="GBPUSD">💷 GBPUSD</button>
-            <button class="tv-qsym" data-sym="USDJPY">💴 USDJPY</button>
-            <button class="tv-qsym" data-sym="ETHUSD">⟠ ETHUSD</button>
-            <button class="tv-qsym" data-sym="NAS100">💻 NAS100</button>
             <button class="tv-qsym" data-sym="US30">🏛️ US30</button>
-            <button class="tv-qsym" data-sym="USOIL">🛢️ USOIL</button>
-            <button class="tv-qsym" data-sym="XAGUSD">🥈 XAGUSD</button>
-            <button class="tv-qsym" data-sym="SOLUSD">◎ SOLUSD</button>
-            <button class="tv-qsym" data-sym="GBPJPY">⚡ GBPJPY</button>
+            <button class="tv-qsym" data-sym="SPX500">📊 SPX500</button>
         </div>
         <div class="tv-chart-body" style="position:relative;">
             <div id="btm-tv-ohlc-overlay" class="tv-ohlc-overlay" style="position:absolute;top:10px;left:12px;z-index:10;pointer-events:none;font-family:var(--mono);font-size:11px;background:rgba(11,14,19,0.78);padding:6px 10px;border-radius:3px;border:1px solid rgba(255,255,255,0.07);">
@@ -1029,7 +994,7 @@
         </div>
     </section>
     <!-- ── AGENT STUDIO ───────────────────────────────── -->
-    <section class="agent-studio" id="agent-studio" aria-labelledby="agent-studio-title">
+    <section class="agent-studio" id="agent-studio" aria-labelledby="agent-studio-title" hidden>
         <div class="agent-studio-header">
             <div>
                 <span class="overview-eyebrow">AUTONOMOUS DESK</span>
@@ -1086,7 +1051,7 @@
     </section>
 
     <!-- ── SIGNALFORGE COPILOT ─────────────────────────── -->
-    <section class="copilot-panel" id="copilot-panel" aria-labelledby="copilot-title">
+    <section class="copilot-panel" id="copilot-panel" aria-labelledby="copilot-title" hidden>
         <div class="copilot-heading"><div class="copilot-orb">✦</div><div><span class="overview-eyebrow">FREE LOCAL GUIDE · CLAUDE OPTIONAL</span><h2 id="copilot-title">Ask SignalForge Copilot</h2><p>Ask about agents, signals, validation or data gaps. It explains the system; it does not trade.</p></div></div>
         <div class="copilot-messages" id="copilot-messages" aria-live="polite"><div class="copilot-message assistant"><b>SignalForge Copilot</b><span>Ask me how this dashboard works, what an agent is doing, or why a signal was validated.</span></div></div>
         <form class="copilot-compose" id="copilot-form"><input id="copilot-input" maxlength="3000" autocomplete="off" placeholder="e.g. Why is the current signal weak?" aria-label="Ask SignalForge Copilot"><button type="submit" id="copilot-send">Ask ✦</button></form>
@@ -1300,7 +1265,7 @@
     </button>
 </nav>
 
-<script src="{% static 'js/dashboard.js' %}?v=40"></script>
+<script src="{% static 'js/dashboard.js' %}?v=45"></script>
 <script src="{% static 'js/terminal.js' %}?v=14"></script>
 </body>
 </html>

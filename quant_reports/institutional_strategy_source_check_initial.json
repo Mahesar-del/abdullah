@@ -1,0 +1,40 @@
+{
+  "generated_at_utc": "2026-10-27T19:20:53.003734+00:00",
+  "source": "Direct read-only MT5 broker history",
+  "requested_bars_per_timeframe": 6000,
+  "assets": {
+    "XAUUSD": {
+      "status": "UNAVAILABLE",
+      "broker_symbol": "XAUUSD",
+      "error": "(-6, 'Terminal: Authorization failed')"
+    },
+    "US30": {
+      "status": "UNAVAILABLE",
+      "broker_symbol": "US30",
+      "error": "(-6, 'Terminal: Authorization failed')"
+    },
+    "SPX500": {
+      "status": "UNAVAILABLE",
+      "broker_symbol": "US500",
+      "error": "(-6, 'Terminal: Authorization failed')"
+    }
+  },
+  "cost_policy": {
+    "spread": "Actual historical bar spread points times broker point; intrabar spread variation unavailable",
+    "slippage_points_each_fill": 1.0,
+    "slippage_source": "Explicit research assumption, not measured realized broker slippage",
+    "commission_bps_each_side": null,
+    "commission_known": false,
+    "swap": "Not modeled; max holding horizon is bounded and this is not a live-readiness report",
+    "max_hold_M15_bars": 8
+  },
+  "limitations": [
+    "No synthesized bars, filled gaps, invented executions, or guessed missing history",
+    "Broker-loaded history may be shorter than requested; reported dates are authoritative",
+    "OHLC cannot reveal intrabar path; stop first if ambiguous, BE effective next bar",
+    "Actual latency, order rejection, news blackouts and full unified confluence are not replayed",
+    "No institutional profitability or live authorization conclusion can be drawn from this benchmark"
+  ],
+  "eligible_for_live": false,
+  "status": "SOURCE_UNAVAILABLE"
+}

@@ -1,0 +1,419 @@
+{
+  "metadata": {
+    "strategy_version": "closed-trend-reclaim-v1",
+    "scope": "STRUCTURAL_PRICE_ENTRY_RULES_ONLY_NOT_FULL_UNIFIED",
+    "requested_start": "2006-01-01T00:00:00+00:00",
+    "requested_end": "2006-02-01T00:00:00+00:00",
+    "symbol": "XAUUSD",
+    "history_buffer_bars_per_timeframe": 400,
+    "strategy_timeframes": [
+      "M15",
+      "H1",
+      "H4"
+    ],
+    "decision_timeframe": "M15",
+    "entry_timing": "NEXT_OBSERVED_M15_OPEN",
+    "exit_resolution": "COMPLETED_M15_OHLC_STOP_FIRST; BE_ACTIVE_FROM_NEXT_BAR",
+    "validity_hours": 4.0,
+    "costs_price_units": {
+      "full_spread": 0.0,
+      "slippage_per_side": 0.0,
+      "commission_per_side": 0.0
+    },
+    "spread_priority": "Observed Ask OHLC > per-bar absolute spread > configured constant assumption",
+    "spread_sources": {},
+    "initial_balance": 100000.0,
+    "risk_pct_per_trade": 1.0,
+    "parameter_selection": "FIXED_RULES_NO_OPTIMIZATION",
+    "unknown_historical_filters": [
+      "unified confluence",
+      "point-in-time news",
+      "macro releases",
+      "broker execution constraints"
+    ],
+    "limitations": [
+      "OHLC cannot establish exact intrabar tick order; stop-first is a conservative convention",
+      "No observed broker order fills, swap schedule or liquidity/depth reconstruction",
+      "History availability/gaps must be reported by the source collector; no bars are synthesized"
+    ],
+    "counts": {
+      "observed_opens": 64,
+      "completed_bars": 64
+    },
+    "rejected": {
+      "WARMUP_INSUFFICIENT": 56
+    }
+  },
+  "events": [],
+  "trades": [],
+  "equity": [
+    {
+      "at": "2006-01-01T00:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-03T14:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-03T15:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-03T15:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-03T16:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-04T14:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-04T14:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-04T14:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-04T15:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-04T17:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-05T13:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-05T14:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-05T15:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-05T15:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-05T15:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-06T13:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-06T14:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-06T14:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-06T15:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-06T15:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-09T13:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-09T15:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-09T15:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-09T15:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-10T13:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-10T14:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-10T14:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-10T15:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-10T15:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-10T17:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-12T13:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-12T14:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-12T14:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-12T15:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-12T15:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-12T18:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-13T13:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-17T14:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-17T14:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-18T14:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-18T14:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-19T16:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-19T17:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-20T14:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-20T14:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-20T15:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-20T15:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-20T15:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-20T16:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-20T17:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-20T18:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-23T16:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-23T16:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-23T16:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-23T17:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-24T14:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-25T15:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-26T14:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-27T14:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-27T16:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-31T13:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-31T14:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-31T14:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-31T15:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2006-01-31T18:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    }
+  ],
+  "open_positions": [],
+  "pending_setup": null,
+  "summary": {
+    "closed_trades": 0,
+    "wins": 0,
+    "losses": 0,
+    "breakeven": 0,
+    "win_rate_pct": null,
+    "net_r": 0,
+    "expectancy_r": null,
+    "profit_factor": null,
+    "profit_factor_unbounded": false,
+    "final_balance": 100000.0,
+    "final_marked_equity": 100000.0,
+    "net_return_pct": 0.0,
+    "max_drawdown_pct": 0.0,
+    "open_positions": 0
+  },
+  "source": {
+    "provider": "Forexite public MetaStock archive",
+    "data_kind": "Historical market quotes; not the connected MT5 broker feed",
+    "bar_label_assumption": "Provider minute label treated as open; OHLC available after one minute",
+    "execution_scope": "Gross quote replay unless explicit assumptions are provided",
+    "historical_bid_ask_available": false,
+    "historical_commission_available": false,
+    "coverage": {
+      "M15": {
+        "bars": 64,
+        "first_open_utc": "2006-01-03T13:45:00+00:00",
+        "last_open_utc": "2006-01-31T17:45:00+00:00"
+      },
+      "H1": {
+        "bars": 0,
+        "first_open_utc": null,
+        "last_open_utc": null
+      },
+      "H4": {
+        "bars": 0,
+        "first_open_utc": null,
+        "last_open_utc": null
+      }
+    }
+  }
+}

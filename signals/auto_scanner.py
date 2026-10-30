@@ -9,20 +9,20 @@ import time
 import logging
 from datetime import timedelta
 from django.utils import timezone
-from django.db import close_old_connections
+from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
-# Minimum confidence required to create and display a signal
+# Minimum confidence required to create and display a signal (75.0%+ High-Conviction)
 MIN_CONFIDENCE_THRESHOLD = 75.0
 
-# Supported symbols and timeframes strictly adhering to Institutional Brain (AGENTS.md):
-# - Target Assets: Gold (XAUUSD), Indices (US30, SPX500)
-# - Timeframes: 15m (Timing & Killzones), 1H (Structure & Trend), 4H (Macro Filter)
+# Supported symbols and timeframes strictly adhering to the institutional mandate.
 DEFAULT_SCAN_SYMBOLS = ['XAUUSD', 'US30', 'SPX500']
 DEFAULT_SCAN_TIMEFRAMES = ['M15', 'H1', 'H4']
 
-SCAN_INTERVAL_SEC = 45  # Scan cycle interval
+# Three-second post-close detection.  ``_running`` prevents overlapping passes,
+# so a slow broker response cannot multiply load or duplicate executions.
+SCAN_INTERVAL_SEC = 3
 _lock = threading.Lock()
 _last_run = 0.0
 _running = False
@@ -37,6 +37,22 @@ def _get_validity(timeframe: str) -> timedelta:
     elif tf == 'H4':
         return timedelta(days=2)
     return timedelta(hours=24)
+
+
+def _has_golden_alignment(fetcher, symbol: str, timeframe: str, direction: str, current_df):
+    """Validate the exact EMA chain on all three approved timeframes."""
+    for tf in DEFAULT_SCAN_TIMEFRAMES:
+        df = current_df if tf == timeframe else fetcher.fetch(symbol, tf, limit=200)
+        if df is None or len(df) < 200 or 'close' not in df:
+            return False, f'Insufficient {tf} data for multi-timeframe confirmation'
+        close_series = df['close']
+        close = float(close_series.iloc[-1])
+        ema50 = float(close_series.ewm(span=50, adjust=False).mean().iloc[-1])
+        ema200 = float(close_series.ewm(span=200, adjust=False).mean().iloc[-1])
+        aligned = (close > ema50 > ema200) if direction == 'BUY' else (close < ema50 < ema200)
+        if not aligned:
+            return False, f'{tf}: Close={close:.2f}, EMA50={ema50:.2f}, EMA200={ema200:.2f}'
+    return True, ''
 
 
 def scan_single(symbol: str, timeframe: str):
@@ -55,27 +71,17 @@ def scan_single(symbol: str, timeframe: str):
     from engines.data_fetcher import DataFetcher
     from engines.unified import UnifiedSignalEngine
     from quant.data import validate_price_sanity
+    from .strategy_pipeline import prepare_setup, validate_proposal, record_status, create_signal_once
 
     try:
-        # Golden Rule 2: Institutional Killzone Gate on 15m
-        tf_norm = timeframe.upper()
-        if tf_norm == 'M15':
-            now_utc = timezone.now()
-            is_killzone = (7 <= now_utc.hour <= 11) or (13 <= now_utc.hour <= 17)
-            if not is_killzone:
-                logger.info(
-                    "[AUTO-SCANNER] Blocked %s %s: Outside Institutional Killzones (%s UTC). Blocking Asian/late-session traps.",
-                    symbol, timeframe, now_utc.strftime('%H:%M')
-                )
-                return None
-
         instrument = Instrument.objects.filter(symbol=symbol).first()
         if not instrument:
             return None
 
         fetcher = DataFetcher()
-        df = fetcher.fetch(symbol, timeframe, limit=120)
-        if df is None or len(df) < 40:
+        frames, df, candidate, quote = prepare_setup(fetcher, symbol, timeframe)
+        if not candidate.allowed:
+            logger.info('[AUTO-SCANNER] %s %s WAIT: %s', symbol, timeframe, '; '.join(candidate.reasons))
             return None
 
         # Institutional Price Sanity & Anti-Stale Gate
@@ -84,51 +90,16 @@ def scan_single(symbol: str, timeframe: str):
             logger.warning("[AUTO-SCANNER] Rejected %s %s due to data anomaly: %s", symbol, timeframe, sanity_reason)
             return None
 
-        engine = UnifiedSignalEngine(df, symbol, timeframe)
+        engine = UnifiedSignalEngine(df, symbol, timeframe, execution_quote=quote)
         unified = engine.generate()
-
-        # Strict checks: BUY/SELL only, no WAIT, and confidence >= 75%
-        if unified.direction not in ('BUY', 'SELL'):
+        decision = validate_proposal(frames, symbol, timeframe, unified, quote)
+        if not decision.allowed:
+            logger.info('[AUTO-SCANNER] %s %s WAIT: %s', symbol, timeframe, '; '.join(decision.reasons))
             return None
-
-        if not unified.is_trade_allowed:
-            logger.info(
-                "[AUTO-SCANNER] Rejected %s %s: deterministic risk gate denied the signal.",
-                symbol, timeframe
-            )
+        setup_bar = df.index[-1].to_pydatetime()
+        if Signal.objects.filter(instrument=instrument, timeframe=timeframe, setup_bar_opened_at=setup_bar).exists():
+            record_status(symbol, timeframe, 'DUPLICATE', ['This completed setup candle has already been processed'])
             return None
-
-        if float(unified.confidence) < MIN_CONFIDENCE_THRESHOLD:
-            return None
-
-        # Golden Rule 4: Asymmetric Risk-to-Reward Gate (Strictly >= 2.00)
-        if float(unified.risk_reward) < 2.00:
-            logger.info(
-                "[AUTO-SCANNER] Rejected %s %s: Risk:Reward %.2f below required minimum 2.00R.",
-                symbol, timeframe, float(unified.risk_reward)
-            )
-            return None
-
-        # Golden Rule 1: Multi-Timeframe Golden Alignment Gate (EMA 50 & EMA 200)
-        close_series = df['close']
-        ema50 = float(close_series.ewm(span=50, adjust=False).mean().iloc[-1])
-        ema200 = float(close_series.ewm(span=200, adjust=False).mean().iloc[-1])
-        curr_close = float(close_series.iloc[-1])
-
-        if unified.direction == 'BUY':
-            if not (curr_close > ema50 and curr_close > ema200):
-                logger.info(
-                    "[AUTO-SCANNER] Vetoed BUY on %s %s: Counter-trend trap! Price (%.2f) not above EMA50 (%.2f) and EMA200 (%.2f).",
-                    symbol, timeframe, curr_close, ema50, ema200
-                )
-                return None
-        elif unified.direction == 'SELL':
-            if not (curr_close < ema50 and curr_close < ema200):
-                logger.info(
-                    "[AUTO-SCANNER] Vetoed SELL on %s %s: Counter-trend trap! Price (%.2f) not below EMA50 (%.2f) and EMA200 (%.2f).",
-                    symbol, timeframe, curr_close, ema50, ema200
-                )
-                return None
 
         # Prevent duplicate active signals for the same pair/timeframe/direction
         if Signal.objects.filter(
@@ -140,7 +111,7 @@ def scan_single(symbol: str, timeframe: str):
             return None
 
         # Persist high-conviction signal
-        signal = Signal.objects.create(
+        signal = create_signal_once(
             instrument          = instrument,
             timeframe           = unified.timeframe,
             direction           = unified.direction,
@@ -169,8 +140,15 @@ def scan_single(symbol: str, timeframe: str):
             independent_groups  = getattr(unified, 'independent_groups', {}),
             is_trade_allowed    = getattr(unified, 'is_trade_allowed', True),
             recommended_lots    = getattr(unified, 'recommended_lots', 0.10),
+            data_quality_score  = unified.data_quality_score,
+            risk_rejection_reasons = unified.risk_rejection_reasons,
+            strategy_evidence   = decision.to_dict(),
+            setup_bar_opened_at = setup_bar,
             valid_until         = timezone.now() + _get_validity(timeframe),
         )
+        if signal is None:
+            record_status(symbol, timeframe, 'DUPLICATE', ['Setup already persisted by another request'])
+            return None
 
         logger.info(
             f"[AUTO-SCANNER] Created high-conviction signal #{signal.id}: "
@@ -195,23 +173,38 @@ def scan_single(symbol: str, timeframe: str):
         return signal
 
     except Exception as e:
+        record_status(symbol, timeframe, 'ERROR', [str(e)[:200]])
         logger.error(f"[AUTO-SCANNER] Error scanning {symbol} {timeframe}: {e}")
         return None
 
 
 def run_full_scan_pass():
     """
-    Executes a pass across configured symbols and timeframes.
-    Runs silently and safely in the background.
+    Executes a high-speed parallel pass across configured symbols and timeframes.
+    Uses multi-threading to process all streams simultaneously with sub-second execution.
     """
+    from django.db import close_old_connections
     close_old_connections()
-    for symbol in DEFAULT_SCAN_SYMBOLS:
-        for tf in DEFAULT_SCAN_TIMEFRAMES:
+    tasks = [(sym, tf) for sym in DEFAULT_SCAN_SYMBOLS for tf in DEFAULT_SCAN_TIMEFRAMES]
+
+    def _worker(pair):
+        sym, tf = pair
+        try:
+            from django.db import close_old_connections
+            close_old_connections()
+            return scan_single(sym, tf)
+        except Exception as e:
+            logger.warning(f"[AUTO-SCANNER] Pass failure on {sym} {tf}: {e}")
+            return None
+        finally:
             try:
-                scan_single(symbol, tf)
-                time.sleep(0.3)  # Gentle spacing to avoid rate limiting
-            except Exception as e:
-                logger.warning(f"[AUTO-SCANNER] Pass failure on {symbol} {tf}: {e}")
+                from django.db import close_old_connections
+                close_old_connections()
+            except Exception:
+                pass
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        list(executor.map(_worker, tasks))
     close_old_connections()
 
 

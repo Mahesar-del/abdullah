@@ -2356,7 +2356,7 @@ body { background: var(--bg-base); }
     font-size: 11px;
     white-space: nowrap;
 }
-.overview-live span {
+.overview-live > span:first-child {
     width: 7px; height: 7px; border-radius: 50%;
     background: var(--buy-color); box-shadow: 0 0 10px rgba(40,200,144,.5);
 }
@@ -2426,6 +2426,66 @@ body { background: var(--bg-base); }
     .stats-grid { grid-template-columns: minmax(0, 1fr) !important; }
     .stat-card { min-height: 116px; }
     .overview-live { white-space: normal; }
+}
+
+/* Market context: compact two-by-two layout prevents a stranded fourth card. */
+#institutional-section .institutional-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    padding: 14px 18px 10px;
+}
+#institutional-section .institutional-summary-card {
+    min-height: 92px;
+    padding: 11px;
+    gap: 9px;
+}
+#institutional-section .institutional-summary-card .stat-icon { width: 36px; height: 36px; font-size: 16px; }
+#institutional-section .institutional-summary-card .stat-value { font-size: .9rem !important; line-height: 1.2; }
+#institutional-section .institutional-summary-card .stat-label { font-size: .68rem; line-height: 1.35; }
+#institutional-section .institutional-summary-card .stat-trend { font-size: .64rem; }
+.institutional-context-note {
+    font-size: 11px;
+    color: #94a3b8;
+    padding: 5px 9px;
+    border: 1px solid rgba(148,163,184,.20);
+    border-radius: 999px;
+    background: rgba(148,163,184,.06);
+}
+.liquidity-reference-panel {
+    padding: 16px 18px;
+    margin: 0 22px 22px;
+    background: rgba(15,23,42,.65);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px;
+}
+.liquidity-reference-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+.liquidity-reference-title { font-size: 14px; font-weight: 800; color: #f8fafc; }
+.liquidity-reference-subtitle { margin-top: 5px; font-size: 11px; color: #94a3b8; line-height: 1.45; }
+.liquidity-reference-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; font-size: 11px; color: #94a3b8; text-align: right; }
+#liq-active-symbol-badge {
+    padding: 3px 9px;
+    border-radius: 5px;
+    background: rgba(234,179,8,.14);
+    color: #fde047;
+    border: 1px solid rgba(234,179,8,.32);
+    font-weight: 800;
+}
+@media (max-width: 768px) {
+    #institutional-section .institutional-summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); padding: 14px 16px 10px; }
+    #institutional-section .institutional-summary-card { min-height: 102px; }
+    .liquidity-reference-panel { margin: 0 16px 16px; padding: 14px; }
+    .liquidity-reference-header { flex-direction: column; }
+    .liquidity-reference-meta { align-items: flex-start; text-align: left; }
+}
+@media (max-width: 480px) {
+    #institutional-section .institutional-summary-grid { grid-template-columns: 1fr; }
 }
 
 /* ── Agent Studio: a friendly, at-a-glance autonomous desk ── */

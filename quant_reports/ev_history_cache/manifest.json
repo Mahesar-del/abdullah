@@ -1,0 +1,1319 @@
+{
+  "provider": "EV Trading Labs public historical simulator files",
+  "provider_documentation": "https://evtradelabs.com/data",
+  "underlying_data_lineage": "Provider describes its OHLCV as aggregated from Dukascopy ticks",
+  "requested_at_utc": "2026-10-30T03:10:58.362702+00:00",
+  "public_years_requested_through": 2021,
+  "current_year_not_requested": 2026,
+  "current_year_reason": "Provider documents M1/current-year access as account-gated; no account was created",
+  "license_note": "Provider page states free use with attribution; retain source attribution in reports",
+  "files": {
+    "XAUUSD/M15/2007": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2007.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:00.325709+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2007.json.gz",
+      "bytes": 671992,
+      "sha256": "fd837cba63e69d6dd7c2ad242d2f16c5a8d98d268863d23e8f69210e4cf87758"
+    },
+    "XAUUSD/M15/2006": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2006.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:01.614148+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2006.json.gz",
+      "bytes": 700234,
+      "sha256": "5435d1c0e156c99306fe16de3f8ec97e96de4296083113dddc99dd97a9e40d38"
+    },
+    "XAUUSD/M15/2009": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2009.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:01.755633+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2009.json.gz",
+      "bytes": 728098,
+      "sha256": "7fc6fb71e2f846d0a430e687ac25cf38f9947b77a7107e144e3499f6c4188c02"
+    },
+    "XAUUSD/M15/2008": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2008.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:03.535261+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2008.json.gz",
+      "bytes": 744082,
+      "sha256": "54422f3e6402ff4b31ef27a58ca6b0a616bddd84a0219330b1d301738172aa87"
+    },
+    "XAUUSD/M15/2010": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2010.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:06.986226+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2010.json.gz",
+      "bytes": 743757,
+      "sha256": "9b3d1607bf9d40938f4d00bb7953b59033183f51c1d224f595fac10586aecf66"
+    },
+    "XAUUSD/M15/2013": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2013.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:08.065853+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2013.json.gz",
+      "bytes": 695986,
+      "sha256": "14b88b0741da10d0fb3d5cca5605c59adf4da13dc75580caf82f71e5aa4f7a02"
+    },
+    "XAUUSD/M15/2012": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2012.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:08.562614+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2012.json.gz",
+      "bytes": 691049,
+      "sha256": "6dcba16bb8a71e1400556c56f85dbc0666cba9c1d886a4be6a3813a2a432ca8d"
+    },
+    "XAUUSD/M15/2011": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2011.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:08.876466+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2011.json.gz",
+      "bytes": 765388,
+      "sha256": "fae1186b4fa0a5ecadcc991b149bca67358ab2ac048409f6bc79ca51c4e9a800"
+    },
+    "XAUUSD/M15/2014": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2014.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:10.168832+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2014.json.gz",
+      "bytes": 681356,
+      "sha256": "21a6f295156d8f26629f666ab0baa216915a16f94caabe3b5d39aa90df66dba0"
+    },
+    "XAUUSD/M15/2015": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2015.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:11.093905+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2015.json.gz",
+      "bytes": 694081,
+      "sha256": "ad62d5778ef4d8bbd9d02b1e3bdebecb47939bec7e8d6bfb30742996c99df072"
+    },
+    "XAUUSD/M15/2017": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2017.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:12.109657+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2017.json.gz",
+      "bytes": 688126,
+      "sha256": "959aae9e07d6a8043ccc2a316373ab97cd1a4d2ed9f08cb62d68f8c0d4dd3eb7"
+    },
+    "XAUUSD/M15/2016": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2016.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:12.769629+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2016.json.gz",
+      "bytes": 711545,
+      "sha256": "5d8b3fc5e950b59980b73cb977cb5d49796a084251a4a93ba8433d6a619ac79b"
+    },
+    "XAUUSD/M15/2018": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2018.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:13.052064+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2018.json.gz",
+      "bytes": 681520,
+      "sha256": "7f055460a0ecd41551a705b1be925e94e5e4b4aba05d778b5b3c7cc38537f589"
+    },
+    "XAUUSD/M15/2019": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2019.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:13.929867+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2019.json.gz",
+      "bytes": 691754,
+      "sha256": "28aa16c0e98fbbe08e8bf2b81dbb1a17d7bb751562780bc7c2c1014ff8f89b25"
+    },
+    "XAUUSD/M15/2020": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2020.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:14.105121+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2020.json.gz",
+      "bytes": 745969,
+      "sha256": "51b57a51a072507e3f5c66900eeb18159fae299d3b442ce8cc703031eb72ee3c"
+    },
+    "XAUUSD/M15/2021": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2021.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:14.766810+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2021.json.gz",
+      "bytes": 724649,
+      "sha256": "ac6175a28d63cd6827c7dab02f3fe43a41c1c9e0fee188690db8d81b1a9048b2"
+    },
+    "XAUUSD/M15/2022": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2022.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:16.204785+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2022.json.gz",
+      "bytes": 733372,
+      "sha256": "0c64b4f83c07dd0e3829b7a67b6a56d7f4416d53e21fdf8e843cfeb6347c5627"
+    },
+    "XAUUSD/M15/2023": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2023.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:16.493496+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2023.json.gz",
+      "bytes": 717966,
+      "sha256": "4dc07363f1b178af4f7a5e9b9a5bc8dc58e78906a9ac99730b0086c4a86f5972"
+    },
+    "XAUUSD/H1/2007": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2007.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:17.631622+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2007.json.gz",
+      "bytes": 186276,
+      "sha256": "68abf5059ae3934bd9738ef624d1e3fc13dddeca0d0b22636293596fc0fe3b8a"
+    },
+    "XAUUSD/H1/2006": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2006.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:17.672159+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2006.json.gz",
+      "bytes": 193774,
+      "sha256": "3a70cff64a415e74fde7c18f326523553ba2437157ddba9eb9410c458e9ca42e"
+    },
+    "XAUUSD/M15/2024": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2024.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:17.787220+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2024.json.gz",
+      "bytes": 740595,
+      "sha256": "3ba26e2edc365f2199bdb7d649d85c2ef43e248a37ebd792a3af0b7471529886"
+    },
+    "XAUUSD/M15/2025": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2025.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:18.788583+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M15\\2025.json.gz",
+      "bytes": 765735,
+      "sha256": "46445e5a9eb2d59a5a11a06f70b272e69df76bfd1f1e227f34d459f8d464a865"
+    },
+    "XAUUSD/H1/2009": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2009.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:18.863011+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2009.json.gz",
+      "bytes": 198684,
+      "sha256": "721933cd351a85cc083f0c286bf6aab0e9c8e386eb97170a6b11bdc91657e83a"
+    },
+    "XAUUSD/H1/2010": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2010.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:18.966954+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2010.json.gz",
+      "bytes": 203247,
+      "sha256": "abcab1d7ff2358ee15e230e7ec81fd517cb4aa1ff057e1ff0ae9b854d073f208"
+    },
+    "XAUUSD/H1/2012": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2012.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:19.892119+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2012.json.gz",
+      "bytes": 188937,
+      "sha256": "b3eabfcdf2d9e45da486da923c9f0376c69e16d4e46e4783cf7e33ce628c4949"
+    },
+    "XAUUSD/H1/2013": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2013.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:19.901966+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2013.json.gz",
+      "bytes": 190986,
+      "sha256": "17f06a607c576788b4d0313ac555fb5fdea7d296ca9ee27a3a6f3f8dc822b67f"
+    },
+    "XAUUSD/H1/2011": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2011.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:19.907511+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2011.json.gz",
+      "bytes": 208160,
+      "sha256": "034e04d738bc71e17f619cc1a5952ceb651d1ef996a4412158c94f9781921e39"
+    },
+    "XAUUSD/H1/2016": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2016.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:20.826927+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2016.json.gz",
+      "bytes": 193938,
+      "sha256": "d330a3f044665be6a251b5b38f3a0a151c377804c3fcbc5e7de5265dcb35d08b"
+    },
+    "XAUUSD/H1/2008": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2008.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:21.529180+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2008.json.gz",
+      "bytes": 202359,
+      "sha256": "334e6b7ed4842f76f0e92faa3313318bc9ae350c3c6d1d5f8191e79ef3384794"
+    },
+    "XAUUSD/H1/2015": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2015.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:21.941900+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2015.json.gz",
+      "bytes": 190365,
+      "sha256": "3b36ebe09d4d9f7133b413a660a5582cc43fb7bd2ece89eed80c911c0a7f35f4"
+    },
+    "XAUUSD/H1/2018": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2018.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:22.745787+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2018.json.gz",
+      "bytes": 186192,
+      "sha256": "d34046d66382590c3c1bdb4ed65c28c4e25948fbbb941664428de640d8b0a261"
+    },
+    "XAUUSD/H1/2014": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2014.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:22.773092+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2014.json.gz",
+      "bytes": 187548,
+      "sha256": "d3a83e93fbecd5b62ca0ced403703f0375bc83d6de04f9810d2fe1dd3d6c1ae1"
+    },
+    "XAUUSD/H1/2019": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2019.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:23.099995+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2019.json.gz",
+      "bytes": 188663,
+      "sha256": "6a7cf5a2acf09fa5b47570738945e5ebb12dce3cc90936571354088ac53820ed"
+    },
+    "XAUUSD/H1/2021": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2021.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:23.980920+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2021.json.gz",
+      "bytes": 195821,
+      "sha256": "78880c3bd96a3df6b18f5106a459a8ab1296a9cdf08a2144214bfa3a4ffcce3e"
+    },
+    "XAUUSD/H1/2022": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2022.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:24.205458+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2022.json.gz",
+      "bytes": 198478,
+      "sha256": "086aec7b9b35dfd7be04476c8ab3ca209f2eff3a2bf882a6f0cae75ad2f63a40"
+    },
+    "XAUUSD/H1/2017": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2017.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:24.290853+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2017.json.gz",
+      "bytes": 188836,
+      "sha256": "9ad70f5afb4ed2a3f5689145a6ddd6bbc354ef195f5ba87c1fc19712a10c83cd"
+    },
+    "XAUUSD/H1/2024": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2024.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:26.646518+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2024.json.gz",
+      "bytes": 199598,
+      "sha256": "4c6f0ee8b0a9db5fe5fe724d86ac80142b45aa9bbf1c1b83e70419a62bfce952"
+    },
+    "XAUUSD/H1/2020": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2020.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:26.693745+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2020.json.gz",
+      "bytes": 200395,
+      "sha256": "c36636f48ea19fe6e604a74b05ebcfc27fb4d0eb09d780b75579d239d3e033a5"
+    },
+    "XAUUSD/H1/2023": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2023.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:26.829893+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2023.json.gz",
+      "bytes": 195329,
+      "sha256": "8526d67e84070c87f8ad8f9f6cebd183eb26158d9f9a94c897d08ceb8b797686"
+    },
+    "XAUUSD/H1/2025": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H1/2025.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:27.621603+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H1\\2025.json.gz",
+      "bytes": 206475,
+      "sha256": "45d88aa1d92118a032480594ab66089350ee17752f3a82cfa4a53a768b3a65ce"
+    },
+    "XAUUSD/H4/2008": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2008.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:27.932708+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2008.json.gz",
+      "bytes": 56541,
+      "sha256": "f4b0ed6a8327e53dcf83afd3ad37663d49d1d5bc02d29dba371b23b0934159de"
+    },
+    "XAUUSD/H4/2009": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2009.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:28.532488+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2009.json.gz",
+      "bytes": 55800,
+      "sha256": "0ef8978144595deb00e3ceba0d4f6453de52cb06339582816b7a81733ab11127"
+    },
+    "XAUUSD/H4/2011": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2011.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:29.346728+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2011.json.gz",
+      "bytes": 58176,
+      "sha256": "e5015e0d216e711088c8b19e80c872cf69cc2860806313d13291bae6e12ccf83"
+    },
+    "XAUUSD/H4/2006": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2006.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:29.900890+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2006.json.gz",
+      "bytes": 54543,
+      "sha256": "975dd50544430da4b3d00aac3ded03275913c5e69e7d3ab2e06234d1cfbd557d"
+    },
+    "XAUUSD/H4/2007": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2007.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:30.017522+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2007.json.gz",
+      "bytes": 52905,
+      "sha256": "261e7db8546bf249544673307f023afef3c9a91626f687a062f1d498b1576746"
+    },
+    "XAUUSD/H4/2012": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2012.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:30.185200+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2012.json.gz",
+      "bytes": 55591,
+      "sha256": "54800455c72783c3b0614e67f0f3367a4d8195331631d9dd90ba46dcb696055f"
+    },
+    "XAUUSD/H4/2013": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2013.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:30.781936+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2013.json.gz",
+      "bytes": 56051,
+      "sha256": "14e929071a472dcae85227e9bae30ee9e77aaf68fd8e4dcb9c55a2cdab886db0"
+    },
+    "XAUUSD/H4/2014": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2014.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:30.873964+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2014.json.gz",
+      "bytes": 55323,
+      "sha256": "5dec742885df1714c9993e4e35d3485b65cefd6a8259dd692c1e0dfd09a4970a"
+    },
+    "XAUUSD/H4/2010": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2010.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:31.128613+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2010.json.gz",
+      "bytes": 57023,
+      "sha256": "5ac0a92358d44dc2a64733a3effc66ac1bbb79081bcc5875baf065fe70c3179c"
+    },
+    "XAUUSD/H4/2017": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2017.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:31.682159+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2017.json.gz",
+      "bytes": 54995,
+      "sha256": "9831a857f184001bb968dbe8db3f784f9abe9525d9f4a810e04692a5ed21498f"
+    },
+    "XAUUSD/H4/2016": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2016.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:31.694921+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2016.json.gz",
+      "bytes": 56483,
+      "sha256": "8b09ded56a4086047979d7e69c4016846d1ae48267a4285399e019bef5e69b44"
+    },
+    "XAUUSD/H4/2018": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2018.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:32.837240+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2018.json.gz",
+      "bytes": 54628,
+      "sha256": "f617b798dbca184249e48f7c2eb17629a4ea1364f0fbbf4d2d17dd70a09060ff"
+    },
+    "XAUUSD/H4/2019": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2019.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:33.622281+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2019.json.gz",
+      "bytes": 55083,
+      "sha256": "e862b254bc851a76c23f7d430e5e7406f27e78d8ed26dab3204ec485da4d241e"
+    },
+    "XAUUSD/H4/2015": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2015.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:33.625949+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2015.json.gz",
+      "bytes": 55625,
+      "sha256": "5fbd3584ef6a231568adceeaa4bc7728e0d5f9860b7ab32df55d172ff44dcf85"
+    },
+    "XAUUSD/H4/2020": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2020.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:34.053218+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2020.json.gz",
+      "bytes": 57983,
+      "sha256": "d39e3a6abfec95590dfa98baa72bb21414884579df0ba3243482321299391a41"
+    },
+    "XAUUSD/H4/2021": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2021.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:34.150227+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2021.json.gz",
+      "bytes": 56821,
+      "sha256": "da6531c6124a6ac2f5c0387ad75dfbd494490ac8fb4a4ed67375572173d2c001"
+    },
+    "XAUUSD/H4/2023": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2023.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:34.705428+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2023.json.gz",
+      "bytes": 56844,
+      "sha256": "8f1ec2fcf4e1d6a4658d0a012ec13ca0feced4595c3cc4c9d27080820bad662c"
+    },
+    "XAUUSD/H4/2025": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2025.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:34.922446+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2025.json.gz",
+      "bytes": 59547,
+      "sha256": "d888bb4e14ec8723ddd38b46bdf39bc51f093b01bdfb0c00a17175fbad2b4731"
+    },
+    "XAUUSD/H4/2024": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2024.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:35.199628+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2024.json.gz",
+      "bytes": 57704,
+      "sha256": "c7bcbd1090f1adaa4094e3ba288e8ca9a9b760651c4c89a9572a836ecb01294c"
+    },
+    "US30/M15/2012": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/M15/2012.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:35.665069+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\M15\\2012.json.gz",
+      "bytes": 176124,
+      "sha256": "f1533c39c7756a86a16390e4a69488d02150bb23fc8c81101f74712c8719f231"
+    },
+    "XAUUSD/H4/2022": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/H4/2022.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:36.264011+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\H4\\2022.json.gz",
+      "bytes": 57584,
+      "sha256": "fc577502bec518c228b199467357617c4ed317510f1912f0a85dbc61503522b1"
+    },
+    "US30/M15/2013": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/M15/2013.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:36.595666+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\M15\\2013.json.gz",
+      "bytes": 385160,
+      "sha256": "4dd4f449edede87085de2b7707e9f482b20013a06f6513400a971b83509ecde0"
+    },
+    "US30/M15/2015": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/M15/2015.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:37.590839+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\M15\\2015.json.gz",
+      "bytes": 602430,
+      "sha256": "9d63cc84c57f07bfed1abf40a3a6446813b38674bae094a15ce7c319a8789731"
+    },
+    "US30/M15/2014": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/M15/2014.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:38.209717+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\M15\\2014.json.gz",
+      "bytes": 743669,
+      "sha256": "95383f3acc332700cb6204b763f65c1f425770ef18e01ae07bd96ca39ea3387d"
+    },
+    "US30/M15/2016": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/M15/2016.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:39.647376+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\M15\\2016.json.gz",
+      "bytes": 500512,
+      "sha256": "515702ea5914f028a9499d43ddf96c4e52f8fd406f9e1f0f39dcd20296e9e6f6"
+    },
+    "US30/M15/2018": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/M15/2018.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:40.661778+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\M15\\2018.json.gz",
+      "bytes": 597698,
+      "sha256": "2eb60cc0b5d9f7ac491bc5395f28cbbe30a7d315380d337faf848d22ab4b2b43"
+    },
+    "US30/M15/2017": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/M15/2017.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:40.729510+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\M15\\2017.json.gz",
+      "bytes": 400704,
+      "sha256": "ac059cbc82d685d08b6b701e21c900130c4ef66d370c83a59c4e77ec0fa21c9b"
+    },
+    "US30/M15/2020": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/M15/2020.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:42.613650+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\M15\\2020.json.gz",
+      "bytes": 820271,
+      "sha256": "c285a54badc47a4b63fba4fa92a343576cad8589dc760afd02bcc3a0b009c36f"
+    },
+    "US30/M15/2019": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/M15/2019.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:42.925304+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\M15\\2019.json.gz",
+      "bytes": 651250,
+      "sha256": "6bd10772e66d4467bf9caa1489a52fa32effbfb79dcaaae78b2a631ab7e78807"
+    },
+    "US30/M15/2022": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/M15/2022.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:43.601596+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\M15\\2022.json.gz",
+      "bytes": 824957,
+      "sha256": "ce17932939c6005a6aca1ad5b47073d44a4ad4eda3904a80761922c5eb673b6e"
+    },
+    "US30/M15/2021": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/M15/2021.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:43.681116+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\M15\\2021.json.gz",
+      "bytes": 793867,
+      "sha256": "bffadced3ee408a4418e1de492e003fd7c9ba33409fbf5ddb17b95c60879998b"
+    },
+    "US30/H1/2012": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H1/2012.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:44.819648+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H1\\2012.json.gz",
+      "bytes": 50257,
+      "sha256": "95329570f65d6e787f19b99b062f280fd19a8a0c7032009ac99ea2b150aaf72b"
+    },
+    "US30/M15/2023": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/M15/2023.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:44.892458+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\M15\\2023.json.gz",
+      "bytes": 784778,
+      "sha256": "0661c1a3c16806d738a6443dd4f461a652dc406111bcc7bcd64df464b6b4139d"
+    },
+    "US30/M15/2025": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/M15/2025.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:45.706892+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\M15\\2025.json.gz",
+      "bytes": 807221,
+      "sha256": "fdcb01918824d3c784ec3dc69222258eedb8cc6fca1bf11e2276e2400d57494c"
+    },
+    "US30/H1/2013": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H1/2013.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:46.644628+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H1\\2013.json.gz",
+      "bytes": 114816,
+      "sha256": "58b74033df3f9efc810f6306134845c896f6fe96ff36227fadf7700b781389c1"
+    },
+    "US30/H1/2014": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H1/2014.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:46.919250+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H1\\2014.json.gz",
+      "bytes": 209010,
+      "sha256": "069c58c939e61dc5d5d5521633309840edd7a45049a549740dd30d8ece2b4b43"
+    },
+    "US30/H1/2015": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H1/2015.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:47.939668+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H1\\2015.json.gz",
+      "bytes": 163061,
+      "sha256": "f0a530a3142b109294e9839a6ecd7001f0343bf4b7fd7d30820de6579a6ae5cd"
+    },
+    "US30/M15/2024": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/M15/2024.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:49.782116+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\M15\\2024.json.gz",
+      "bytes": 790932,
+      "sha256": "bbd2cc3e4daccaee512b8a5cee477ce888779cf7b2d2f2b9699385c71732ff97"
+    },
+    "US30/H1/2017": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H1/2017.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:51.039235+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H1\\2017.json.gz",
+      "bytes": 112338,
+      "sha256": "72d957f9680edf729e9e3f9c5bf1a78842e7a1e897266bc34c35a24ce141e031"
+    },
+    "US30/H1/2018": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H1/2018.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:51.453514+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H1\\2018.json.gz",
+      "bytes": 170359,
+      "sha256": "b63225e8a9cc232662b6a0eec04cb3bd7b3a1563110cd9ccd20b074c588cba78"
+    },
+    "US30/H1/2016": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H1/2016.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:51.784991+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H1\\2016.json.gz",
+      "bytes": 134702,
+      "sha256": "ff03621311d27cb7a29f12fb8cdf274f6561408fecc9a79dfcac8d227b1f176a"
+    },
+    "US30/H1/2019": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H1/2019.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:51.816398+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H1\\2019.json.gz",
+      "bytes": 186805,
+      "sha256": "4ad163ee3f61f2642e1df7b5a06ebf4680ac8512d73f1f6e31b35d84ed41906d"
+    },
+    "US30/H1/2023": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H1/2023.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:53.530638+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H1\\2023.json.gz",
+      "bytes": 218804,
+      "sha256": "80a2a4dc89ca8ea5534267e402cec16b229dc2a8b8368ea74073409b94b54029"
+    },
+    "US30/H1/2020": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H1/2020.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:54.700225+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H1\\2020.json.gz",
+      "bytes": 227283,
+      "sha256": "b2bf8fa560c6a92cb5d0fef089579e68a3d464e0a01c8f1b725d8b000bb4c438"
+    },
+    "US30/H1/2024": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H1/2024.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:54.909606+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H1\\2024.json.gz",
+      "bytes": 222652,
+      "sha256": "4fba86488623855723f2d4a6c5f61efbccfd53f5890a67bafaa655b815ad8c43"
+    },
+    "US30/H1/2025": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H1/2025.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:55.777424+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H1\\2025.json.gz",
+      "bytes": 226156,
+      "sha256": "8e10a8f4fb09894661a6b20c25974634c5cb6e8ffc01a80b6a89ff79a07ed852"
+    },
+    "US30/H1/2021": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H1/2021.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:56.044605+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H1\\2021.json.gz",
+      "bytes": 219436,
+      "sha256": "88ef2f3716d09b05bdbe32d9bc01271c1c7f0d725f894706c8fa30b097d85e49"
+    },
+    "US30/H1/2022": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H1/2022.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:56.239098+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H1\\2022.json.gz",
+      "bytes": 227914,
+      "sha256": "a1b0d3ab7c6efa8879de5381f3e338e94922635231d2f4941e0653dceab585ba"
+    },
+    "US30/H4/2014": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H4/2014.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:57.418306+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H4\\2014.json.gz",
+      "bytes": 59529,
+      "sha256": "9d4fbd246ba4cc71b9ecd8e5169f2001149732af27f104e2a7f1135b9c7976a3"
+    },
+    "US30/H4/2015": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H4/2015.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:58.266326+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H4\\2015.json.gz",
+      "bytes": 49974,
+      "sha256": "a4f32ecb8d23a49985eb4323f61c6bc9be25d6ce2026e41dd3abcc2aaf023743"
+    },
+    "US30/H4/2016": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H4/2016.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:58.501690+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H4\\2016.json.gz",
+      "bytes": 44840,
+      "sha256": "9c27f14c2ee119fe60a43a1b54d5557bf0e3f74e3e1f9d95d551d1b0b35c35eb"
+    },
+    "US30/H4/2013": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H4/2013.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:58.626545+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H4\\2013.json.gz",
+      "bytes": 36475,
+      "sha256": "a4b69815142f3520e17157a4512fe2e4f712e221d0feed473de76a54516cea33"
+    },
+    "US30/H4/2012": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H4/2012.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:59.091744+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H4\\2012.json.gz",
+      "bytes": 17233,
+      "sha256": "ebfbd2befe3116815a4edfc3f1131bfdde9aa18533e2f81fdb675613c61da55c"
+    },
+    "US30/H4/2017": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H4/2017.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:59.348436+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H4\\2017.json.gz",
+      "bytes": 38786,
+      "sha256": "938a92589eee2ba9811cb9bb06980b7cd10146ef7837e546348db24817afbc7c"
+    },
+    "US30/H4/2018": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H4/2018.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:59.409256+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H4\\2018.json.gz",
+      "bytes": 52820,
+      "sha256": "3a0b9e7020806fdfd9aee6382b46a1edad9b85efcea6961ccfefeaa48268541f"
+    },
+    "US30/H4/2019": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H4/2019.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:46:59.986853+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H4\\2019.json.gz",
+      "bytes": 55794,
+      "sha256": "8601cf512e9c70f584bcd281eb6fdd48a186ec8c65d2e0ebedd9e69af1788ba6"
+    },
+    "US30/H4/2021": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H4/2021.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:00.728580+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H4\\2021.json.gz",
+      "bytes": 63527,
+      "sha256": "546e36c0a6eec10100cdc1246a1868dff93a4f813e437e3ffa301833cfe4b455"
+    },
+    "US30/H4/2023": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H4/2023.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:01.106014+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H4\\2023.json.gz",
+      "bytes": 63640,
+      "sha256": "e08a087ab6eae88c7eb134a7ec599b6ff0318ccdf9fc440b32e837562b56f62f"
+    },
+    "US30/H4/2024": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H4/2024.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:01.595863+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H4\\2024.json.gz",
+      "bytes": 65257,
+      "sha256": "46cf603086c37a3b15e50d01646a09039f0f9b0a0ba2b96cd28c1416376156a2"
+    },
+    "US30/H4/2022": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H4/2022.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:02.589965+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H4\\2022.json.gz",
+      "bytes": 65898,
+      "sha256": "dfb9b00901bdf5deb2c90874d8b7299d6e134b5bd83b8e4aa8b70d4750e88481"
+    },
+    "SPX500/M15/2015": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/M15/2015.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:02.852694+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\M15\\2015.json.gz",
+      "bytes": 480102,
+      "sha256": "c21a43471f822ca9249132704936e4340b3c07060d1021586e84d0de8ada9f43"
+    },
+    "US30/H4/2025": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H4/2025.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:03.062308+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H4\\2025.json.gz",
+      "bytes": 66457,
+      "sha256": "516cb52076fed3166d53b41cee86e700a63c7815ce8aca1f02cf4d76969a010b"
+    },
+    "US30/H4/2020": {
+      "url": "https://evtradelabs.com/api/simulator/data/DJ/H4/2020.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:03.304245+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\US30\\H4\\2020.json.gz",
+      "bytes": 65726,
+      "sha256": "960975a4689c3857b60a32ad8372b0ca3ccd869fd3f54bc3ea224dc0726d9983"
+    },
+    "SPX500/M15/2017": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/M15/2017.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:04.235787+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\M15\\2017.json.gz",
+      "bytes": 370811,
+      "sha256": "209f19567b6d6ee55eac3099754b34fa44b3946270254a4c54c1ba6305ae85b0"
+    },
+    "SPX500/M15/2016": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/M15/2016.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:04.331628+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\M15\\2016.json.gz",
+      "bytes": 432437,
+      "sha256": "32189f088bee866d019c3a349542cc5f39d2aba1c7eed6d1c60493b6904ef93a"
+    },
+    "SPX500/M15/2018": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/M15/2018.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:04.518656+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\M15\\2018.json.gz",
+      "bytes": 504062,
+      "sha256": "8364affedc5da77760bf891910e24d69e9ea257967b7a16c7fd174f7fa463aa7"
+    },
+    "SPX500/M15/2019": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/M15/2019.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:04.944010+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\M15\\2019.json.gz",
+      "bytes": 545161,
+      "sha256": "f023348e3927f07407e8912aba2d59b4249e746907ec076e4ef9701b476d5946"
+    },
+    "SPX500/M15/2022": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/M15/2022.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:06.521778+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\M15\\2022.json.gz",
+      "bytes": 731768,
+      "sha256": "b51f409acfa6b36676403e5c351139b7f2b5e874aca19899d78a9cc1a5d31120"
+    },
+    "SPX500/M15/2023": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/M15/2023.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:07.296432+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\M15\\2023.json.gz",
+      "bytes": 721231,
+      "sha256": "ccdc427ae7bc56f3e151c6536985f6e7d4158beb5d4b01ae8d552fa7262bb935"
+    },
+    "SPX500/M15/2024": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/M15/2024.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:08.219305+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\M15\\2024.json.gz",
+      "bytes": 732579,
+      "sha256": "728ba0c9ae6186015cb054a66eaa8957a28bdf63a1f1327b3de999288542bf59"
+    },
+    "SPX500/M15/2020": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/M15/2020.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:08.618826+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\M15\\2020.json.gz",
+      "bytes": 699237,
+      "sha256": "08de64791469b66ac89687a2278fb9134e35d3201980b60963571100a0760ed3"
+    },
+    "SPX500/M15/2025": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/M15/2025.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:09.120683+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\M15\\2025.json.gz",
+      "bytes": 722421,
+      "sha256": "b97469f5cc6a196147cf3404100215753488418a3a7416b26226012c8c182688"
+    },
+    "SPX500/H1/2015": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H1/2015.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:09.279782+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H1\\2015.json.gz",
+      "bytes": 133006,
+      "sha256": "8c6cef198b0d96ac98d4529cac7556655c5c62cd8711b3a9c3fd405469096546"
+    },
+    "SPX500/H1/2017": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H1/2017.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:10.371617+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H1\\2017.json.gz",
+      "bytes": 107862,
+      "sha256": "dcfc567452c281a668f54a7be5d58458f1cecc2dbc7f68ebc6986e240827ecca"
+    },
+    "SPX500/M15/2021": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/M15/2021.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:10.403296+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\M15\\2021.json.gz",
+      "bytes": 674772,
+      "sha256": "120b1f312e7c151128313463a3646900b5a81e12d87e921e7ab0b66038fc54cb"
+    },
+    "SPX500/H1/2016": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H1/2016.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:10.702471+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H1\\2016.json.gz",
+      "bytes": 119568,
+      "sha256": "55507c644c633160d888e022b5f646de648d2f946cd5b52be0795472a932af6b"
+    },
+    "SPX500/H1/2018": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H1/2018.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:10.798717+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H1\\2018.json.gz",
+      "bytes": 148819,
+      "sha256": "81b9c75637db89b96252ce19c9764570078471ddd83951721c4b266071dfd95e"
+    },
+    "SPX500/H1/2020": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H1/2020.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:11.949255+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H1\\2020.json.gz",
+      "bytes": 198366,
+      "sha256": "6724c028e40c4158996aa6135a2741ce7590899223ad724a4b4acfb5ea83e586"
+    },
+    "SPX500/H1/2019": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H1/2019.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:11.954281+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H1\\2019.json.gz",
+      "bytes": 163352,
+      "sha256": "b9c5a4c1d841435477965cf954b735587140870a855a5aeb96bcbe0955360824"
+    },
+    "SPX500/H1/2021": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H1/2021.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:12.019138+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H1\\2021.json.gz",
+      "bytes": 192512,
+      "sha256": "105cce8a43d692d78b6cfd59fce7ec8a1b1de99222960fa0dc5a4d4dfd5d42e2"
+    },
+    "SPX500/H1/2022": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H1/2022.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:12.345906+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H1\\2022.json.gz",
+      "bytes": 206053,
+      "sha256": "b560692cbe89ce3fe62d4b42143c055005defd9f4463879aa8c301b917e6f0a7"
+    },
+    "SPX500/H1/2023": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H1/2023.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:13.187106+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H1\\2023.json.gz",
+      "bytes": 204596,
+      "sha256": "68688a8d9533273e217e93970242652f7eb7c59ce572abf53a0376aa2350c07c"
+    },
+    "SPX500/H4/2015": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H4/2015.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:13.458939+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H4\\2015.json.gz",
+      "bytes": 42138,
+      "sha256": "748d6d38757ed71071ca61513adb571c421cf7806ba403d49e6a280546da4865"
+    },
+    "SPX500/H1/2024": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H1/2024.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:13.705170+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H1\\2024.json.gz",
+      "bytes": 208358,
+      "sha256": "0e8783b1cea77e8eea6b6ce3ef55442d29b4bdbcbd107712be1112b3643a595a"
+    },
+    "SPX500/H4/2016": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H4/2016.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:14.185573+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H4\\2016.json.gz",
+      "bytes": 40126,
+      "sha256": "8cf5901c3361105a0c850f56a75373d6a37acb409f240fba8835c66f63f28c49"
+    },
+    "SPX500/H4/2017": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H4/2017.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:14.767349+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H4\\2017.json.gz",
+      "bytes": 37625,
+      "sha256": "0fffded3bb4e54c1a176dcbaa2c6fc6b7a8a191653131939268853ff958c1343"
+    },
+    "SPX500/H4/2018": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H4/2018.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:14.960289+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H4\\2018.json.gz",
+      "bytes": 47232,
+      "sha256": "ae1bf8f11eb829a3410aedd8d6b2ae4f9f17094593f36f46d403dcdfe8afb75a"
+    },
+    "SPX500/H4/2019": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H4/2019.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:15.376218+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H4\\2019.json.gz",
+      "bytes": 49905,
+      "sha256": "661dd2c33961d3211cc0f717f8598645f64052e016e77bdaa661160fb43351cb"
+    },
+    "SPX500/H4/2021": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H4/2021.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:15.916138+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H4\\2021.json.gz",
+      "bytes": 56671,
+      "sha256": "b80df339f1f848c258654f50cc4fd6c844ef9325e3f0154e3068c6860ccce50c"
+    },
+    "SPX500/H4/2020": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H4/2020.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:15.932145+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H4\\2020.json.gz",
+      "bytes": 58147,
+      "sha256": "b46aa1c0baa4080c824fca42dd3d166d149c9eb421d3db3dfb2e19bdee356837"
+    },
+    "SPX500/H4/2022": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H4/2022.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:16.486245+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H4\\2022.json.gz",
+      "bytes": 60227,
+      "sha256": "6d2356f256d4b51785aa93c55e14692dfdcbee62e56974d53018fc058c4b711e"
+    },
+    "SPX500/H1/2025": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H1/2025.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:16.488395+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H1\\2025.json.gz",
+      "bytes": 204499,
+      "sha256": "878ccfdbb932f62910c0ebc0734a343ed6a4bb8497264b9530fb2a3d3dbf6494"
+    },
+    "SPX500/H4/2023": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H4/2023.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:17.057841+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H4\\2023.json.gz",
+      "bytes": 60127,
+      "sha256": "d334f8963192b53ff0a157ea150d76cfa24f36ab7c26b7fe21a84a1e8eeb19a2"
+    },
+    "SPX500/H4/2024": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H4/2024.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:17.306811+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H4\\2024.json.gz",
+      "bytes": 61514,
+      "sha256": "585de560ffcef735aa48c78e281251dffa48f37fad4649a3ea5faf667ce9366b"
+    },
+    "SPX500/H4/2025": {
+      "url": "https://evtradelabs.com/api/simulator/data/SP500/H4/2025.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-28T06:47:17.659677+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\SPX500\\H4\\2025.json.gz",
+      "bytes": 60452,
+      "sha256": "e422e8d972f914822f89b24882a6ac200fd2d6b157dafc8986e53febed0a6db3"
+    },
+    "XAUUSD/M5/2023": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M5/2023.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-29T17:51:23.712376+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M5\\2023.json.gz",
+      "bytes": 1973929,
+      "sha256": "daeb8c165ad07c7c7a4a7e313e75bcbf0efb012cf524dc489fe898e6221d53cd"
+    },
+    "XAUUSD/M5/2024": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M5/2024.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-29T17:51:23.747641+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M5\\2024.json.gz",
+      "bytes": 2046025,
+      "sha256": "a9aabc23de27800730b7be8192d2761f74fc32b928397aef3f7e778f73151d99"
+    },
+    "XAUUSD/M5/2025": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M5/2025.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-29T17:51:24.097300+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M5\\2025.json.gz",
+      "bytes": 2133539,
+      "sha256": "2540ac7f782ca41372854712efbd3a2bee2b455a3d76f90078773211502cb817"
+    },
+    "XAUUSD/M5/2022": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M5/2022.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-29T17:55:31.887512+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M5\\2022.json.gz",
+      "bytes": 2029007,
+      "sha256": "582c11c7d470a8b545ed9185825cd24c3736622e5ae861744680d216d33a301e"
+    },
+    "XAUUSD/M5/2016": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M5/2016.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-30T03:11:06.227444+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M5\\2016.json.gz",
+      "bytes": 1945866,
+      "sha256": "5950c6b90525bcd225b0fef9c6e82aaea556ba6847aeea95ee16115c966982cd"
+    },
+    "XAUUSD/M5/2018": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M5/2018.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-30T03:11:07.062936+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M5\\2018.json.gz",
+      "bytes": 1859014,
+      "sha256": "60472f1090a26473586f2aa735d92fd61f37593d3942c1618673c0671f8fe800"
+    },
+    "XAUUSD/M5/2017": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M5/2017.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-30T03:11:11.311233+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M5\\2017.json.gz",
+      "bytes": 1862959,
+      "sha256": "b31e4ca22cddcdfe4826d32c3bbd92f533a1dc76c83f9f710d54d6536fee3ad3"
+    },
+    "XAUUSD/M5/2021": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M5/2021.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-30T03:11:14.726597+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M5\\2021.json.gz",
+      "bytes": 2005391,
+      "sha256": "c022aeb2d0212242b9fd11320dc61db7cf52fa53569834ac48000cdf384eb967"
+    },
+    "XAUUSD/M5/2019": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M5/2019.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-30T03:11:16.121845+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M5\\2019.json.gz",
+      "bytes": 1889884,
+      "sha256": "20f1d15dbeec7aa1d3a850d833f40156c0049fe00e7f41aa5ca13f8f7d66ad55"
+    },
+    "XAUUSD/M5/2020": {
+      "url": "https://evtradelabs.com/api/simulator/data/XAUUSD/M5/2020.json.gz",
+      "http_status": 200,
+      "retrieved_at_utc": "2026-10-30T03:11:18.182636+00:00",
+      "status": "COMPLETE",
+      "path": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\ev_history_cache\\XAUUSD\\M5\\2020.json.gz",
+      "bytes": 2063513,
+      "sha256": "769050607c77fd97ba909017f0a1d2042b68a50cb09adeee0b406e8c0f6e58b1"
+    }
+  },
+  "complete_files": 145,
+  "unavailable_files": 0
+}

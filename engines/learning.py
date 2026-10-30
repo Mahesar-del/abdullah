@@ -33,7 +33,12 @@ class ContinuousLearningEngine:
     parameter adaptation as new market data and trade outcomes arrive.
     """
 
-    CORE_SYMBOLS = ['XAUUSD', 'US30', 'EURUSD', 'GBPUSD', 'BTCUSD']
+    # Training and automated evaluation are deliberately limited to the three
+    # approved institutional markets.  Keep this list aligned with the live
+    # scanner and the execution gate so a model for an unapproved market can
+    # never be selected by the production signal path.
+    CORE_SYMBOLS = ['XAUUSD', 'US30', 'SPX500']
+    TRAINING_BARS = 2_000
     RETRAIN_INTERVAL_HOURS = 12
 
     @classmethod
@@ -54,16 +59,39 @@ class ContinuousLearningEngine:
         from sklearn.ensemble import RandomForestClassifier
         from sklearn.metrics import accuracy_score, precision_score
 
+        # The background scheduler invokes this method regularly.  Do not
+        # create a new version on every server restart when the active model
+        # is still within its retraining interval.  Manual/API retraining
+        # passes force=True and deliberately bypasses this guard.
+        active_model = ModelVersion.objects.filter(
+            symbol=symbol, timeframe=timeframe, is_active=True
+        ).first()
+        if (
+            not force
+            and active_model is not None
+            and active_model.retrain_due_at is not None
+            and active_model.retrain_due_at > dj_tz.now()
+        ):
+            return {
+                'success': True,
+                'symbol': symbol,
+                'timeframe': timeframe,
+                'skipped': True,
+                'reason': 'Active model is not due for retraining',
+                'version_tag': active_model.version_tag,
+            }
+
         start_time = time.time()
         fetcher = DataFetcher()
 
-        # Fetch up to 300 bars of historical data
-        df = fetcher.fetch(symbol, timeframe=timeframe, limit=300)
-        if df is None or len(df) < 50:
+        # Use a materially larger causal history.  The final feature row is
+        # held out from fitting and walk-forward folds remain strictly ordered.
+        df = fetcher.fetch(symbol, timeframe=timeframe, limit=cls.TRAINING_BARS)
+        if df is None or len(df) < 200:
             return {
                 'success': False,
                 'symbol': symbol,
-                'error': f'Insufficient historical data for {symbol} (<50 bars available)'
+                'error': f'Insufficient historical data for {symbol} (<200 bars available)'
             }
 
         ai_engine = AIEngine(df, symbol=symbol, timeframe=timeframe)
@@ -77,7 +105,7 @@ class ContinuousLearningEngine:
             }
 
         # ── Walk-Forward Validation (No Look-ahead Bias) ─────
-        validation_results = AIEngine.walk_forward_validation(df, n_splits=3)
+        validation_results = AIEngine.walk_forward_validation(df, n_splits=5)
         oos_accuracy = validation_results.get('out_of_sample_accuracy_pct', 52.0)
         base_accuracy = validation_results.get('baseline_accuracy_pct', 50.0)
         alpha = validation_results.get('alpha_over_baseline_pct', 2.0)

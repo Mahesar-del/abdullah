@@ -1,0 +1,1355 @@
+{
+  "metadata": {
+    "strategy_version": "evaluate_course_price_action",
+    "scope": "CAUSAL_PRICE_ENTRY_RULES_ONLY_NOT_FULL_UNIFIED",
+    "requested_start": "2017-01-01T00:00:00+00:00",
+    "requested_end": "2018-01-01T00:00:00+00:00",
+    "symbol": "XAUUSD",
+    "history_buffer_bars_per_timeframe": 400,
+    "strategy_timeframes": [
+      "M15",
+      "H1",
+      "H4"
+    ],
+    "decision_timeframe": "M5",
+    "entry_timing": "NEXT_OBSERVED_M5_OPEN",
+    "exit_resolution": "COMPLETED_M5_OHLC_STOP_FIRST; BE_ACTIVE_FROM_NEXT_BAR",
+    "exit_policy": "gold_h1_trail",
+    "validity_hours": 4.0,
+    "costs_price_units": {
+      "full_spread": 0.0,
+      "slippage_per_side": 0.0,
+      "commission_per_side": 0.0
+    },
+    "spread_priority": "Observed Ask OHLC > per-bar absolute spread > configured constant assumption",
+    "spread_sources": {
+      "OBSERVED_ASK_OHLC": 3
+    },
+    "initial_balance": 100000.0,
+    "risk_pct_per_trade": 0.01,
+    "parameter_selection": "FIXED_RULES_NO_OPTIMIZATION",
+    "unknown_historical_filters": [
+      "unified confluence",
+      "point-in-time news",
+      "macro releases",
+      "broker execution constraints"
+    ],
+    "limitations": [
+      "OHLC cannot establish exact intrabar tick order; stop-first is a conservative convention",
+      "No observed broker order fills, swap schedule or liquidity/depth reconstruction",
+      "History availability/gaps must be reported by the source collector; no bars are synthesized"
+    ],
+    "counts": {
+      "observed_opens": 70569,
+      "completed_bars": 70569,
+      "strategy_decisions": 8206
+    },
+    "rejected": {
+      "DECISION_CLOCK_PREFILTER": 16410,
+      "Latest M15 candle has not returned to the H1 zone": 4002,
+      "H4 direction/structure is not confirmed": 2872,
+      "No completed M15 course reversal candle at the H1 zone": 967,
+      "No causal H1 support/resistance zone with at least three confirmed reactions": 231,
+      "No completed M5 course confirmation candle": 94,
+      "M15 relative volume 0.75x is below the required 1.00x": 1,
+      "M5 confirmation has not closed beyond its local prior candle": 6,
+      "M15 relative volume 0.86x is below the required 1.00x": 2,
+      "M15 relative volume 0.74x is below the required 1.00x": 1,
+      "M15 relative volume 0.64x is below the required 1.00x": 1,
+      "M15 relative volume 0.81x is below the required 1.00x": 2,
+      "M15 relative volume 0.76x is below the required 1.00x": 1,
+      "M15 relative volume 0.55x is below the required 1.00x": 1,
+      "M15 relative volume 0.93x is below the required 1.00x": 2,
+      "M15 relative volume 0.88x is below the required 1.00x": 1,
+      "M15 relative volume 0.73x is below the required 1.00x": 3,
+      "M15 relative volume 0.97x is below the required 1.00x": 2,
+      "M15 relative volume 0.85x is below the required 1.00x": 1,
+      "M15 relative volume 0.67x is below the required 1.00x": 1,
+      "M15 relative volume 0.94x is below the required 1.00x": 1,
+      "M15 relative volume 0.62x is below the required 1.00x": 1,
+      "M15 relative volume 0.78x is below the required 1.00x": 1,
+      "M15 relative volume 0.49x is below the required 1.00x": 1,
+      "M15 relative volume 0.90x is below the required 1.00x": 1,
+      "M15 relative volume 0.82x is below the required 1.00x": 1,
+      "M15 relative volume 0.72x is below the required 1.00x": 1,
+      "M15 relative volume 0.84x is below the required 1.00x": 1,
+      "NEXT_OPEN_LEVELS_OR_RR": 1,
+      "M15 relative volume 0.91x is below the required 1.00x": 1,
+      "M15 relative volume 0.89x is below the required 1.00x": 1,
+      "M15 relative volume 1.00x is below the required 1.00x": 1
+    }
+  },
+  "events": [
+    {
+      "type": "SETUP",
+      "at": "2017-02-22T15:05:00+00:00",
+      "symbol": "XAUUSD",
+      "direction": "SELL",
+      "setup_type": "COURSE_BEARISH_ENGULFING_EVENING_STAR_H1_RESISTANCE",
+      "reference_entry": 1236.49,
+      "stop_loss": 1239.9504666079406,
+      "take_profit": 1228.62,
+      "latest_completed": {
+        "M5": "2017-02-22T15:05:00+00:00",
+        "M15": "2017-02-22T15:00:00+00:00",
+        "H1": "2017-02-22T15:00:00+00:00",
+        "H4": "2017-02-22T12:00:00+00:00"
+      }
+    },
+    {
+      "type": "ENTRY",
+      "at": "2017-02-22T15:05:00+00:00",
+      "symbol": "XAUUSD",
+      "id": 1,
+      "direction": "SELL",
+      "entry_price": 1236.49,
+      "stop_loss": 1239.9504666079406,
+      "take_profit": 1228.62,
+      "risk_reward": 2.2742597723501095,
+      "risk_amount": 10.0,
+      "signal_at": "2017-02-22T15:05:00+00:00"
+    },
+    {
+      "type": "BE_ARMED",
+      "at": "2017-02-22T15:40:00+00:00",
+      "symbol": "XAUUSD",
+      "id": 1,
+      "stop_loss": 1236.22,
+      "effective_from": "NEXT_OBSERVED_BAR",
+      "spread": 0.2699999999999818
+    },
+    {
+      "type": "PARTIAL_1R",
+      "at": "2017-02-22T15:40:00+00:00",
+      "symbol": "XAUUSD",
+      "id": 1,
+      "fraction": 0.5,
+      "realized_r": 0.5,
+      "remainder_fraction": 0.5
+    },
+    {
+      "type": "EXIT",
+      "at": "2017-02-22T19:05:00+00:00",
+      "symbol": "XAUUSD",
+      "trade": {
+        "id": 1,
+        "symbol": "XAUUSD",
+        "direction": "SELL",
+        "signal_at": "2017-02-22T15:05:00+00:00",
+        "entry_at": "2017-02-22T15:05:00+00:00",
+        "exit_at": "2017-02-22T19:05:00+00:00",
+        "entry_price": 1236.49,
+        "exit_price": 1236.22,
+        "initial_stop": 1239.9504666079406,
+        "final_stop": 1236.22,
+        "take_profit": 1228.62,
+        "initial_risk_distance": 3.460466607940589,
+        "risk_amount": 10.0,
+        "entry_spread": 0.2599999999999909,
+        "spread_source": "OBSERVED_ASK_OHLC",
+        "setup_type": "COURSE_BEARISH_ENGULFING_EVENING_STAR_H1_RESISTANCE",
+        "exit_reason": "BE_STOP",
+        "pnl_r": 0.5390120799577178,
+        "pnl_cash": 5.390120799577178,
+        "balance_after": 100005.39012079958,
+        "ambiguous_bar": false,
+        "gap_fill": false,
+        "be_active": true,
+        "partial_taken": true,
+        "partial_realized_r": 0.5
+      }
+    },
+    {
+      "type": "SETUP",
+      "at": "2017-10-13T08:50:00+00:00",
+      "symbol": "XAUUSD",
+      "direction": "BUY",
+      "setup_type": "COURSE_BULLISH_HAMMER_BULLISH_ENGULFING_H1_SUPPORT",
+      "reference_entry": 1295.02,
+      "stop_loss": 1292.5098821530135,
+      "take_profit": 1311.92,
+      "latest_completed": {
+        "M5": "2017-10-13T08:50:00+00:00",
+        "M15": "2017-10-13T08:45:00+00:00",
+        "H1": "2017-10-13T08:00:00+00:00",
+        "H4": "2017-10-13T08:00:00+00:00"
+      }
+    },
+    {
+      "type": "ENTRY",
+      "at": "2017-10-13T08:50:00+00:00",
+      "symbol": "XAUUSD",
+      "id": 2,
+      "direction": "BUY",
+      "entry_price": 1295.2,
+      "stop_loss": 1292.5098821530135,
+      "take_profit": 1311.92,
+      "risk_reward": 6.215341093227334,
+      "risk_amount": 10.000539012079958,
+      "signal_at": "2017-10-13T08:50:00+00:00"
+    },
+    {
+      "type": "EXIT",
+      "at": "2017-10-13T11:30:00+00:00",
+      "symbol": "XAUUSD",
+      "trade": {
+        "id": 2,
+        "symbol": "XAUUSD",
+        "direction": "BUY",
+        "signal_at": "2017-10-13T08:50:00+00:00",
+        "entry_at": "2017-10-13T08:50:00+00:00",
+        "exit_at": "2017-10-13T11:30:00+00:00",
+        "entry_price": 1295.2,
+        "exit_price": 1292.5098821530135,
+        "initial_stop": 1292.5098821530135,
+        "final_stop": 1292.5098821530135,
+        "take_profit": 1311.92,
+        "initial_risk_distance": 2.6901178469865954,
+        "risk_amount": 10.000539012079958,
+        "entry_spread": 0.18000000000006366,
+        "spread_source": "OBSERVED_ASK_OHLC",
+        "setup_type": "COURSE_BULLISH_HAMMER_BULLISH_ENGULFING_H1_SUPPORT",
+        "exit_reason": "SL",
+        "pnl_r": -1.0,
+        "pnl_cash": -10.000539012079958,
+        "balance_after": 99995.3895817875,
+        "ambiguous_bar": false,
+        "gap_fill": false,
+        "be_active": false,
+        "partial_taken": false,
+        "partial_realized_r": 0.0
+      }
+    },
+    {
+      "type": "SETUP",
+      "at": "2017-10-30T07:20:00+00:00",
+      "symbol": "XAUUSD",
+      "direction": "SELL",
+      "setup_type": "COURSE_BEARISH_ENGULFING_BEARISH_ENGULFING_H1_RESISTANCE",
+      "reference_entry": 1269.22,
+      "stop_loss": 1270.5381996815647,
+      "take_profit": 1266.33,
+      "latest_completed": {
+        "M5": "2017-10-30T07:20:00+00:00",
+        "M15": "2017-10-30T07:15:00+00:00",
+        "H1": "2017-10-30T07:00:00+00:00",
+        "H4": "2017-10-30T04:00:00+00:00"
+      }
+    },
+    {
+      "type": "ENTRY",
+      "at": "2017-10-30T07:20:00+00:00",
+      "symbol": "XAUUSD",
+      "id": 3,
+      "direction": "SELL",
+      "entry_price": 1269.22,
+      "stop_loss": 1270.5381996815647,
+      "take_profit": 1266.33,
+      "risk_reward": 2.192384082940828,
+      "risk_amount": 9.99953895817875,
+      "signal_at": "2017-10-30T07:20:00+00:00"
+    },
+    {
+      "type": "EXIT",
+      "at": "2017-10-30T08:10:00+00:00",
+      "symbol": "XAUUSD",
+      "trade": {
+        "id": 3,
+        "symbol": "XAUUSD",
+        "direction": "SELL",
+        "signal_at": "2017-10-30T07:20:00+00:00",
+        "entry_at": "2017-10-30T07:20:00+00:00",
+        "exit_at": "2017-10-30T08:10:00+00:00",
+        "entry_price": 1269.22,
+        "exit_price": 1270.5381996815647,
+        "initial_stop": 1270.5381996815647,
+        "final_stop": 1270.5381996815647,
+        "take_profit": 1266.33,
+        "initial_risk_distance": 1.3181996815646926,
+        "risk_amount": 9.99953895817875,
+        "entry_spread": 0.21000000000003638,
+        "spread_source": "OBSERVED_ASK_OHLC",
+        "setup_type": "COURSE_BEARISH_ENGULFING_BEARISH_ENGULFING_H1_RESISTANCE",
+        "exit_reason": "SL",
+        "pnl_r": -1.0,
+        "pnl_cash": -9.99953895817875,
+        "balance_after": 99985.39004282933,
+        "ambiguous_bar": false,
+        "gap_fill": false,
+        "be_active": false,
+        "partial_taken": false,
+        "partial_realized_r": 0.0
+      }
+    },
+    {
+      "type": "SETUP",
+      "at": "2017-11-13T14:05:00+00:00",
+      "symbol": "XAUUSD",
+      "direction": "BUY",
+      "setup_type": "COURSE_BULLISH_ENGULFING_MORNING_STAR_H1_SUPPORT",
+      "reference_entry": 1277.9,
+      "stop_loss": 1275.1089573045099,
+      "take_profit": 1283.61,
+      "latest_completed": {
+        "M5": "2017-11-13T14:05:00+00:00",
+        "M15": "2017-11-13T14:00:00+00:00",
+        "H1": "2017-11-13T14:00:00+00:00",
+        "H4": "2017-11-13T12:00:00+00:00"
+      }
+    },
+    {
+      "type": "ENTRY_CANCELLED",
+      "at": "2017-11-13T14:05:00+00:00",
+      "symbol": "XAUUSD",
+      "signal_at": "2017-11-13T14:05:00+00:00",
+      "reason": "Next executable open no longer offers valid original levels and 2R",
+      "risk_reward": 1.813943248197144
+    }
+  ],
+  "trades": [
+    {
+      "id": 1,
+      "symbol": "XAUUSD",
+      "direction": "SELL",
+      "signal_at": "2017-02-22T15:05:00+00:00",
+      "entry_at": "2017-02-22T15:05:00+00:00",
+      "exit_at": "2017-02-22T19:05:00+00:00",
+      "entry_price": 1236.49,
+      "exit_price": 1236.22,
+      "initial_stop": 1239.9504666079406,
+      "final_stop": 1236.22,
+      "take_profit": 1228.62,
+      "initial_risk_distance": 3.460466607940589,
+      "risk_amount": 10.0,
+      "entry_spread": 0.2599999999999909,
+      "spread_source": "OBSERVED_ASK_OHLC",
+      "setup_type": "COURSE_BEARISH_ENGULFING_EVENING_STAR_H1_RESISTANCE",
+      "exit_reason": "BE_STOP",
+      "pnl_r": 0.5390120799577178,
+      "pnl_cash": 5.390120799577178,
+      "balance_after": 100005.39012079958,
+      "ambiguous_bar": false,
+      "gap_fill": false,
+      "be_active": true,
+      "partial_taken": true,
+      "partial_realized_r": 0.5
+    },
+    {
+      "id": 2,
+      "symbol": "XAUUSD",
+      "direction": "BUY",
+      "signal_at": "2017-10-13T08:50:00+00:00",
+      "entry_at": "2017-10-13T08:50:00+00:00",
+      "exit_at": "2017-10-13T11:30:00+00:00",
+      "entry_price": 1295.2,
+      "exit_price": 1292.5098821530135,
+      "initial_stop": 1292.5098821530135,
+      "final_stop": 1292.5098821530135,
+      "take_profit": 1311.92,
+      "initial_risk_distance": 2.6901178469865954,
+      "risk_amount": 10.000539012079958,
+      "entry_spread": 0.18000000000006366,
+      "spread_source": "OBSERVED_ASK_OHLC",
+      "setup_type": "COURSE_BULLISH_HAMMER_BULLISH_ENGULFING_H1_SUPPORT",
+      "exit_reason": "SL",
+      "pnl_r": -1.0,
+      "pnl_cash": -10.000539012079958,
+      "balance_after": 99995.3895817875,
+      "ambiguous_bar": false,
+      "gap_fill": false,
+      "be_active": false,
+      "partial_taken": false,
+      "partial_realized_r": 0.0
+    },
+    {
+      "id": 3,
+      "symbol": "XAUUSD",
+      "direction": "SELL",
+      "signal_at": "2017-10-30T07:20:00+00:00",
+      "entry_at": "2017-10-30T07:20:00+00:00",
+      "exit_at": "2017-10-30T08:10:00+00:00",
+      "entry_price": 1269.22,
+      "exit_price": 1270.5381996815647,
+      "initial_stop": 1270.5381996815647,
+      "final_stop": 1270.5381996815647,
+      "take_profit": 1266.33,
+      "initial_risk_distance": 1.3181996815646926,
+      "risk_amount": 9.99953895817875,
+      "entry_spread": 0.21000000000003638,
+      "spread_source": "OBSERVED_ASK_OHLC",
+      "setup_type": "COURSE_BEARISH_ENGULFING_BEARISH_ENGULFING_H1_RESISTANCE",
+      "exit_reason": "SL",
+      "pnl_r": -1.0,
+      "pnl_cash": -9.99953895817875,
+      "balance_after": 99985.39004282933,
+      "ambiguous_bar": false,
+      "gap_fill": false,
+      "be_active": false,
+      "partial_taken": false,
+      "partial_realized_r": 0.0
+    }
+  ],
+  "equity": [
+    {
+      "at": "2017-01-01T00:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.0
+    },
+    {
+      "at": "2017-02-22T15:05:00+00:00",
+      "balance": 100000.0,
+      "equity": 99999.248656
+    },
+    {
+      "at": "2017-02-22T15:10:00+00:00",
+      "balance": 100000.0,
+      "equity": 99999.306452
+    },
+    {
+      "at": "2017-02-22T15:10:00+00:00",
+      "balance": 100000.0,
+      "equity": 99999.306452
+    },
+    {
+      "at": "2017-02-22T15:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.491263
+    },
+    {
+      "at": "2017-02-22T15:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.491263
+    },
+    {
+      "at": "2017-02-22T15:20:00+00:00",
+      "balance": 100000.0,
+      "equity": 99998.728495
+    },
+    {
+      "at": "2017-02-22T15:20:00+00:00",
+      "balance": 100000.0,
+      "equity": 99998.699597
+    },
+    {
+      "at": "2017-02-22T15:25:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.115591
+    },
+    {
+      "at": "2017-02-22T15:25:00+00:00",
+      "balance": 100000.0,
+      "equity": 100000.057796
+    },
+    {
+      "at": "2017-02-22T15:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 99998.699597
+    },
+    {
+      "at": "2017-02-22T15:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 99998.757393
+    },
+    {
+      "at": "2017-02-22T15:35:00+00:00",
+      "balance": 100000.0,
+      "equity": 99998.786291
+    },
+    {
+      "at": "2017-02-22T15:35:00+00:00",
+      "balance": 100000.0,
+      "equity": 99998.786291
+    },
+    {
+      "at": "2017-02-22T15:40:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.016799
+    },
+    {
+      "at": "2017-02-22T15:40:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.00235
+    },
+    {
+      "at": "2017-02-22T15:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100007.860886
+    },
+    {
+      "at": "2017-02-22T15:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100007.875335
+    },
+    {
+      "at": "2017-02-22T15:50:00+00:00",
+      "balance": 100000.0,
+      "equity": 100007.93313
+    },
+    {
+      "at": "2017-02-22T15:50:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.005375
+    },
+    {
+      "at": "2017-02-22T15:55:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.392471
+    },
+    {
+      "at": "2017-02-22T15:55:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.392471
+    },
+    {
+      "at": "2017-02-22T16:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.496638
+    },
+    {
+      "at": "2017-02-22T16:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.511087
+    },
+    {
+      "at": "2017-02-22T16:05:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.120966
+    },
+    {
+      "at": "2017-02-22T16:05:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.120966
+    },
+    {
+      "at": "2017-02-22T16:10:00+00:00",
+      "balance": 100000.0,
+      "equity": 100007.355174
+    },
+    {
+      "at": "2017-02-22T16:10:00+00:00",
+      "balance": 100000.0,
+      "equity": 100007.326276
+    },
+    {
+      "at": "2017-02-22T16:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.089044
+    },
+    {
+      "at": "2017-02-22T16:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.060146
+    },
+    {
+      "at": "2017-02-22T16:20:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.930106
+    },
+    {
+      "at": "2017-02-22T16:20:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.886759
+    },
+    {
+      "at": "2017-02-22T16:25:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.930106
+    },
+    {
+      "at": "2017-02-22T16:25:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.886759
+    },
+    {
+      "at": "2017-02-22T16:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.060146
+    },
+    {
+      "at": "2017-02-22T16:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.959004
+    },
+    {
+      "at": "2017-02-22T16:35:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.172713
+    },
+    {
+      "at": "2017-02-22T16:35:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.172713
+    },
+    {
+      "at": "2017-02-22T16:40:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.638103
+    },
+    {
+      "at": "2017-02-22T16:40:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.638103
+    },
+    {
+      "at": "2017-02-22T16:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.187162
+    },
+    {
+      "at": "2017-02-22T16:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.259406
+    },
+    {
+      "at": "2017-02-22T16:50:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.851812
+    },
+    {
+      "at": "2017-02-22T16:50:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.938506
+    },
+    {
+      "at": "2017-02-22T16:55:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.996301
+    },
+    {
+      "at": "2017-02-22T16:55:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.996301
+    },
+    {
+      "at": "2017-02-22T17:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.519487
+    },
+    {
+      "at": "2017-02-22T17:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.447242
+    },
+    {
+      "at": "2017-02-22T17:05:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.970428
+    },
+    {
+      "at": "2017-02-22T17:05:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.100468
+    },
+    {
+      "at": "2017-02-22T17:10:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.548385
+    },
+    {
+      "at": "2017-02-22T17:10:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.533936
+    },
+    {
+      "at": "2017-02-22T17:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.548385
+    },
+    {
+      "at": "2017-02-22T17:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.505038
+    },
+    {
+      "at": "2017-02-22T17:20:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.244957
+    },
+    {
+      "at": "2017-02-22T17:20:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.114917
+    },
+    {
+      "at": "2017-02-22T17:25:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.840388
+    },
+    {
+      "at": "2017-02-22T17:25:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.854837
+    },
+    {
+      "at": "2017-02-22T17:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.132391
+    },
+    {
+      "at": "2017-02-22T17:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.14684
+    },
+    {
+      "at": "2017-02-22T17:35:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.120966
+    },
+    {
+      "at": "2017-02-22T17:35:00+00:00",
+      "balance": 100000.0,
+      "equity": 100007.976477
+    },
+    {
+      "at": "2017-02-22T17:40:00+00:00",
+      "balance": 100000.0,
+      "equity": 100007.990926
+    },
+    {
+      "at": "2017-02-22T17:40:00+00:00",
+      "balance": 100000.0,
+      "equity": 100007.990926
+    },
+    {
+      "at": "2017-02-22T17:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.684474
+    },
+    {
+      "at": "2017-02-22T17:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.655576
+    },
+    {
+      "at": "2017-02-22T17:50:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.294353
+    },
+    {
+      "at": "2017-02-22T17:50:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.381047
+    },
+    {
+      "at": "2017-02-22T17:55:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.135415
+    },
+    {
+      "at": "2017-02-22T17:55:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.251007
+    },
+    {
+      "at": "2017-02-22T18:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.597781
+    },
+    {
+      "at": "2017-02-22T18:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100008.698923
+    },
+    {
+      "at": "2017-02-22T18:05:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.522511
+    },
+    {
+      "at": "2017-02-22T18:05:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.493614
+    },
+    {
+      "at": "2017-02-22T18:10:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.782592
+    },
+    {
+      "at": "2017-02-22T18:10:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.782592
+    },
+    {
+      "at": "2017-02-22T18:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.143815
+    },
+    {
+      "at": "2017-02-22T18:15:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.143815
+    },
+    {
+      "at": "2017-02-22T18:20:00+00:00",
+      "balance": 100000.0,
+      "equity": 100011.01075
+    },
+    {
+      "at": "2017-02-22T18:20:00+00:00",
+      "balance": 100000.0,
+      "equity": 100011.01075
+    },
+    {
+      "at": "2017-02-22T18:25:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.013775
+    },
+    {
+      "at": "2017-02-22T18:25:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.013775
+    },
+    {
+      "at": "2017-02-22T18:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.782592
+    },
+    {
+      "at": "2017-02-22T18:30:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.81149
+    },
+    {
+      "at": "2017-02-22T18:35:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.201611
+    },
+    {
+      "at": "2017-02-22T18:35:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.230508
+    },
+    {
+      "at": "2017-02-22T18:40:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.100468
+    },
+    {
+      "at": "2017-02-22T18:40:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.100468
+    },
+    {
+      "at": "2017-02-22T18:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.114917
+    },
+    {
+      "at": "2017-02-22T18:45:00+00:00",
+      "balance": 100000.0,
+      "equity": 100010.114917
+    },
+    {
+      "at": "2017-02-22T18:50:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.927081
+    },
+    {
+      "at": "2017-02-22T18:50:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.912632
+    },
+    {
+      "at": "2017-02-22T18:55:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.392471
+    },
+    {
+      "at": "2017-02-22T18:55:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.334676
+    },
+    {
+      "at": "2017-02-22T19:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.103493
+    },
+    {
+      "at": "2017-02-22T19:00:00+00:00",
+      "balance": 100000.0,
+      "equity": 100009.175737
+    },
+    {
+      "at": "2017-02-22T19:05:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100005.390121
+    },
+    {
+      "at": "2017-10-13T08:50:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100004.720969
+    },
+    {
+      "at": "2017-10-13T08:55:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100004.200518
+    },
+    {
+      "at": "2017-10-13T08:55:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100004.200518
+    },
+    {
+      "at": "2017-10-13T09:00:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100002.713514
+    },
+    {
+      "at": "2017-10-13T09:00:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100002.713514
+    },
+    {
+      "at": "2017-10-13T09:05:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99999.18188
+    },
+    {
+      "at": "2017-10-13T09:05:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99999.18188
+    },
+    {
+      "at": "2017-10-13T09:10:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99997.620526
+    },
+    {
+      "at": "2017-10-13T09:10:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99997.546175
+    },
+    {
+      "at": "2017-10-13T09:15:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99999.144705
+    },
+    {
+      "at": "2017-10-13T09:15:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99999.144705
+    },
+    {
+      "at": "2017-10-13T09:20:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99999.851031
+    },
+    {
+      "at": "2017-10-13T09:20:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99999.813856
+    },
+    {
+      "at": "2017-10-13T09:25:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100000.929109
+    },
+    {
+      "at": "2017-10-13T09:25:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100000.929109
+    },
+    {
+      "at": "2017-10-13T09:30:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99999.999732
+    },
+    {
+      "at": "2017-10-13T09:30:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100000.111257
+    },
+    {
+      "at": "2017-10-13T09:35:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100001.189335
+    },
+    {
+      "at": "2017-10-13T09:35:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100001.449561
+    },
+    {
+      "at": "2017-10-13T09:40:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100000.334308
+    },
+    {
+      "at": "2017-10-13T09:40:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100000.334308
+    },
+    {
+      "at": "2017-10-13T09:45:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100001.22651
+    },
+    {
+      "at": "2017-10-13T09:45:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100001.189335
+    },
+    {
+      "at": "2017-10-13T09:50:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100001.784136
+    },
+    {
+      "at": "2017-10-13T09:50:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100001.821312
+    },
+    {
+      "at": "2017-10-13T09:55:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100000.111257
+    },
+    {
+      "at": "2017-10-13T09:55:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100000.111257
+    },
+    {
+      "at": "2017-10-13T10:00:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100000.074082
+    },
+    {
+      "at": "2017-10-13T10:00:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100000.148432
+    },
+    {
+      "at": "2017-10-13T10:05:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100001.114985
+    },
+    {
+      "at": "2017-10-13T10:05:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100001.114985
+    },
+    {
+      "at": "2017-10-13T10:10:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100002.416113
+    },
+    {
+      "at": "2017-10-13T10:10:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100002.341763
+    },
+    {
+      "at": "2017-10-13T10:15:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100001.598261
+    },
+    {
+      "at": "2017-10-13T10:15:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100001.635436
+    },
+    {
+      "at": "2017-10-13T10:20:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100002.341763
+    },
+    {
+      "at": "2017-10-13T10:20:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100002.341763
+    },
+    {
+      "at": "2017-10-13T10:25:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100002.676339
+    },
+    {
+      "at": "2017-10-13T10:25:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100002.676339
+    },
+    {
+      "at": "2017-10-13T10:30:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100002.193063
+    },
+    {
+      "at": "2017-10-13T10:30:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100002.193063
+    },
+    {
+      "at": "2017-10-13T10:35:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100001.003459
+    },
+    {
+      "at": "2017-10-13T10:35:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100001.003459
+    },
+    {
+      "at": "2017-10-13T10:40:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100000.259958
+    },
+    {
+      "at": "2017-10-13T10:40:00+00:00",
+      "balance": 100005.390121,
+      "equity": 100000.259958
+    },
+    {
+      "at": "2017-10-13T10:45:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99998.587078
+    },
+    {
+      "at": "2017-10-13T10:45:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99998.624253
+    },
+    {
+      "at": "2017-10-13T10:50:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99997.509
+    },
+    {
+      "at": "2017-10-13T10:50:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99997.546175
+    },
+    {
+      "at": "2017-10-13T10:55:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99998.475553
+    },
+    {
+      "at": "2017-10-13T10:55:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99998.475553
+    },
+    {
+      "at": "2017-10-13T11:00:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99998.698603
+    },
+    {
+      "at": "2017-10-13T11:00:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99998.884479
+    },
+    {
+      "at": "2017-10-13T11:05:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99998.178152
+    },
+    {
+      "at": "2017-10-13T11:05:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99998.178152
+    },
+    {
+      "at": "2017-10-13T11:10:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99998.215327
+    },
+    {
+      "at": "2017-10-13T11:10:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99998.215327
+    },
+    {
+      "at": "2017-10-13T11:15:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99997.471825
+    },
+    {
+      "at": "2017-10-13T11:15:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99997.471825
+    },
+    {
+      "at": "2017-10-13T11:20:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99998.066627
+    },
+    {
+      "at": "2017-10-13T11:20:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99998.066627
+    },
+    {
+      "at": "2017-10-13T11:25:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99997.062899
+    },
+    {
+      "at": "2017-10-13T11:25:00+00:00",
+      "balance": 100005.390121,
+      "equity": 99997.062899
+    },
+    {
+      "at": "2017-10-13T11:30:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99995.389582
+    },
+    {
+      "at": "2017-10-30T07:20:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99993.796573
+    },
+    {
+      "at": "2017-10-30T07:25:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99993.037998
+    },
+    {
+      "at": "2017-10-30T07:25:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99993.037998
+    },
+    {
+      "at": "2017-10-30T07:30:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99993.189713
+    },
+    {
+      "at": "2017-10-30T07:30:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99993.189713
+    },
+    {
+      "at": "2017-10-30T07:35:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99989.851981
+    },
+    {
+      "at": "2017-10-30T07:35:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99990.003696
+    },
+    {
+      "at": "2017-10-30T07:40:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99993.493143
+    },
+    {
+      "at": "2017-10-30T07:40:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99993.493143
+    },
+    {
+      "at": "2017-10-30T07:45:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99991.975992
+    },
+    {
+      "at": "2017-10-30T07:45:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99991.975992
+    },
+    {
+      "at": "2017-10-30T07:50:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99994.100004
+    },
+    {
+      "at": "2017-10-30T07:50:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99994.024146
+    },
+    {
+      "at": "2017-10-30T07:55:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99994.403434
+    },
+    {
+      "at": "2017-10-30T07:55:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99994.403434
+    },
+    {
+      "at": "2017-10-30T08:00:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99989.548551
+    },
+    {
+      "at": "2017-10-30T08:00:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99989.851981
+    },
+    {
+      "at": "2017-10-30T08:05:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99986.438392
+    },
+    {
+      "at": "2017-10-30T08:05:00+00:00",
+      "balance": 99995.389582,
+      "equity": 99986.362534
+    },
+    {
+      "at": "2017-10-30T08:10:00+00:00",
+      "balance": 99985.390043,
+      "equity": 99985.390043
+    }
+  ],
+  "open_positions": [],
+  "pending_setup": null,
+  "summary": {
+    "closed_trades": 3,
+    "wins": 1,
+    "losses": 2,
+    "breakeven": 0,
+    "win_rate_pct": 33.333333333333336,
+    "net_r": -1.4609879200422822,
+    "expectancy_r": -0.4869959733474274,
+    "profit_factor": 0.2695060399788589,
+    "profit_factor_unbounded": false,
+    "final_balance": 99985.39004282933,
+    "final_marked_equity": 99985.39004282933,
+    "net_return_pct": -0.014609957170674814,
+    "max_drawdown_pct": 0.02561788654639843,
+    "open_positions": 0
+  },
+  "source": {
+    "provider": "EV Trading Labs public historical simulator files",
+    "attribution": "EV Trading Labs; provider describes OHLCV as aggregated from Dukascopy ticks",
+    "data_kind": "UTC historical bid/ask OHLC, not the connected MT5 broker feed",
+    "bar_timestamp": "UTC open timestamp supplied by source",
+    "execution_scope": "Historical quoted entry/exit path; exact tick order, fills, swap and account commission are not known",
+    "strategy": "course_price_action",
+    "warmup_start": "2016-01-01",
+    "exit_policy": "gold_h1_trail",
+    "missing_year_files": {
+      "M5": [],
+      "M15": [],
+      "H1": [],
+      "H4": []
+    },
+    "timeframes": {
+      "M5": {
+        "bars": 141428,
+        "first_open_utc": "2016-01-03T23:00:00+00:00",
+        "last_open_utc": "2017-12-29T21:55:00+00:00"
+      },
+      "M15": {
+        "bars": 47145,
+        "first_open_utc": "2016-01-03T23:00:00+00:00",
+        "last_open_utc": "2017-12-29T21:45:00+00:00"
+      },
+      "H1": {
+        "bars": 11788,
+        "first_open_utc": "2016-01-03T23:00:00+00:00",
+        "last_open_utc": "2017-12-29T21:00:00+00:00"
+      },
+      "H4": {
+        "bars": 3192,
+        "first_open_utc": "2016-01-03T20:00:00+00:00",
+        "last_open_utc": "2017-12-29T20:00:00+00:00"
+      }
+    }
+  }
+}

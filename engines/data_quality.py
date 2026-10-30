@@ -96,6 +96,14 @@ class DataQualityValidator:
 
         # Work on a copy
         cleaned = df.copy()
+        try:
+            values = cleaned[list(required_cols)].to_numpy(dtype=float)
+            finite_prices = np.isfinite(values).all()
+        except (TypeError, ValueError):
+            finite_prices = False
+        if not finite_prices:
+            return DataQualityReport(is_valid=False, quality_score=0, force_wait=True,
+                                     errors=['OHLC prices contain non-finite or non-numeric values'])
 
         # 2. Duplicate timestamp check
         if cleaned.index.has_duplicates:
@@ -172,6 +180,9 @@ class DataQualityValidator:
             last_ts = cleaned['timestamp'].iloc[-1]
             last_dt = pd.to_datetime(last_ts).to_pydatetime() if hasattr(pd.to_datetime(last_ts), 'to_pydatetime') else None
 
+        if last_dt is None or pd.isna(last_dt):
+            return DataQualityReport(is_valid=False, quality_score=0, force_wait=True,
+                                     errors=['Candle timestamps are missing or invalid'])
         if last_dt.tzinfo is None:
             now = datetime.now()
         else:

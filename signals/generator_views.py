@@ -21,6 +21,34 @@ from engines.data_fetcher import DataFetcher
 from market_data.models import Instrument
 from .models import Signal
 from .serializers import SignalDetailSerializer
+from .strategy_pipeline import prepare_setup, validate_proposal, record_status, create_signal_once
+from engines.institutional_setup import normalize_symbol, normalize_timeframe
+
+ALLOWED_SYMBOLS = {'XAUUSD', 'US30', 'SPX500'}
+ALLOWED_TIMEFRAMES = {'M15', 'H1', 'H4'}
+
+
+def _is_in_killzone(now):
+    """London [07:00, 11:00) or New York [13:00, 17:00), all in UTC."""
+    return (7 <= now.hour < 11) or (13 <= now.hour < 17)
+
+
+def _golden_alignment(fetcher, symbol, timeframe, direction, current_df=None):
+    """Require Close > EMA50 > EMA200 (or inverse) on every approved timeframe."""
+    for tf in sorted(ALLOWED_TIMEFRAMES):
+        df = current_df if tf == timeframe else fetcher.fetch(symbol, tf, limit=200)
+        if df is None or len(df) < 200 or 'close' not in df:
+            return False, f'Insufficient {tf} data for multi-timeframe trend confirmation.'
+        close_series = df['close']
+        close = float(close_series.iloc[-1])
+        ema50 = float(close_series.ewm(span=50, adjust=False).mean().iloc[-1])
+        ema200 = float(close_series.ewm(span=200, adjust=False).mean().iloc[-1])
+        aligned = (close > ema50 > ema200) if direction == 'BUY' else (close < ema50 < ema200)
+        if not aligned:
+            return False, (
+                f'{tf} not aligned: Close {close:.2f}, EMA50 {ema50:.2f}, EMA200 {ema200:.2f}.'
+            )
+    return True, ''
 
 
 class GenerateSignalView(APIView):
@@ -32,8 +60,13 @@ class GenerateSignalView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        symbol    = request.data.get('symbol', 'XAUUSD').upper()
-        timeframe = request.data.get('timeframe', 'H1').upper()
+        symbol    = normalize_symbol(request.data.get('symbol', 'XAUUSD'))
+        timeframe = normalize_timeframe(request.data.get('timeframe', 'H1'))
+
+        if symbol not in ALLOWED_SYMBOLS:
+            return Response({'error': 'Only XAUUSD, US30, and SPX500 are permitted.'}, status=status.HTTP_400_BAD_REQUEST)
+        if timeframe not in ALLOWED_TIMEFRAMES:
+            return Response({'error': 'Only M15, H1, and H4 timeframes are permitted.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Validate instrument
         try:
@@ -46,16 +79,13 @@ class GenerateSignalView(APIView):
 
         # Fetch market data
         fetcher = DataFetcher()
-        df      = fetcher.fetch(symbol, timeframe, limit=200)
-
-        if df is None or len(df) < 50:
-            return Response(
-                {'error': 'Insufficient market data to generate signal'},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE
-            )
+        frames, df, candidate, quote = prepare_setup(fetcher, symbol, timeframe)
+        if not candidate.allowed:
+            return Response({'direction': 'WAIT', 'symbol': symbol, 'timeframe': timeframe,
+                             'message': '; '.join(candidate.reasons), 'setup': candidate.to_dict()})
 
         # Run Unified Signal Engine
-        engine = UnifiedSignalEngine(df, symbol, timeframe)
+        engine = UnifiedSignalEngine(df, symbol, timeframe, execution_quote=quote)
         try:
             unified = engine.generate()
         except Exception as e:
@@ -64,26 +94,32 @@ class GenerateSignalView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-        # WAIT is not a trade — report it but don't store it
-        if unified.direction not in ('BUY', 'SELL'):
-            return Response({
-                'direction': 'WAIT', 'confidence': unified.confidence,
-                'symbol': symbol, 'timeframe': timeframe,
-                'message': 'No clear BUY/SELL setup right now. Nothing saved.',
-            })
+        decision = validate_proposal(frames, symbol, timeframe, unified, quote)
+        if not decision.allowed:
+            return Response({'direction': 'WAIT', 'confidence': unified.confidence,
+                             'symbol': symbol, 'timeframe': timeframe,
+                             'message': '; '.join(decision.reasons), 'setup': decision.to_dict()})
+        setup_bar = df.index[-1].to_pydatetime()
+        if Signal.objects.filter(instrument=instrument, timeframe=timeframe, setup_bar_opened_at=setup_bar).exists():
+            return Response({'direction': 'WAIT', 'message': 'This completed setup candle was already processed.'})
 
-        # Strict constraint: Only emit/store signals with confidence >= 75.0%
-        if float(unified.confidence) < 75.0:
+        # Prevent duplicate active signals for the same pair/timeframe/direction
+        if Signal.objects.filter(
+            instrument=instrument,
+            timeframe=unified.timeframe,
+            direction=unified.direction,
+            status='ACTIVE'
+        ).exists():
             return Response({
-                'direction': 'WAIT',
+                'direction': unified.direction,
                 'confidence': unified.confidence,
                 'symbol': symbol,
                 'timeframe': timeframe,
-                'message': f'Signal confidence ({unified.confidence:.1f}%) is below 75% threshold. Only high-conviction setups (>=75%) are saved.',
+                'message': 'An active signal already exists for this pair, timeframe, and direction.',
             })
 
         # Save signal to DB
-        signal = Signal.objects.create(
+        signal = create_signal_once(
             instrument          = instrument,
             timeframe           = unified.timeframe,
             direction           = unified.direction,
@@ -112,8 +148,14 @@ class GenerateSignalView(APIView):
             independent_groups  = getattr(unified, 'independent_groups', {}),
             is_trade_allowed    = getattr(unified, 'is_trade_allowed', True),
             recommended_lots    = getattr(unified, 'recommended_lots', 0.10),
+            data_quality_score  = unified.data_quality_score,
+            risk_rejection_reasons = unified.risk_rejection_reasons,
+            strategy_evidence   = decision.to_dict(),
+            setup_bar_opened_at = setup_bar,
             valid_until         = timezone.now() + self._get_validity(timeframe),
         )
+        if signal is None:
+            return Response({'direction': 'WAIT', 'message': 'Setup already persisted by another request.'})
         
         # Auto-Trader Hook: Automatically execute trade if account has auto-trading enabled
         from accounts.auto_trader import AutoTraderEngine
@@ -166,29 +208,36 @@ class BulkGenerateView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        symbols   = request.data.get('symbols', ['XAUUSD', 'EURUSD', 'BTCUSD'])
-        timeframe = request.data.get('timeframe', 'H1').upper()
+        symbols   = request.data.get('symbols', ['XAUUSD', 'US30', 'SPX500'])
+        timeframe = normalize_timeframe(request.data.get('timeframe', 'H1'))
+
+        if timeframe not in ALLOWED_TIMEFRAMES:
+            return Response({'error': 'Only M15, H1, and H4 timeframes are permitted.'}, status=status.HTTP_400_BAD_REQUEST)
 
         results = []
         fetcher = DataFetcher()
 
         for symbol in symbols[:10]:  # max 10 at once
-            symbol = symbol.upper()
+            symbol = normalize_symbol(symbol)
             try:
+                if symbol not in ALLOWED_SYMBOLS:
+                    results.append({'symbol': symbol, 'status': 'error', 'message': 'Symbol is outside the allowed institutional universe'})
+                    continue
                 instrument = Instrument.objects.get(symbol=symbol)
-                df = fetcher.fetch(symbol, timeframe, limit=200)
-
-                if df is None or len(df) < 50:
-                    results.append({'symbol': symbol, 'status': 'error', 'message': 'Insufficient data'})
+                frames, df, candidate, quote = prepare_setup(fetcher, symbol, timeframe)
+                if not candidate.allowed:
+                    results.append({'symbol': symbol, 'status': 'skipped', 'reason': '; '.join(candidate.reasons)})
                     continue
 
-                engine  = UnifiedSignalEngine(df, symbol, timeframe)
+                engine  = UnifiedSignalEngine(df, symbol, timeframe, execution_quote=quote)
                 unified = engine.generate()
-
-                # Only BUY/SELL with confidence >= 75% are tradeable — never store WAIT or low-conviction signals
-                if unified.direction not in ('BUY', 'SELL') or float(unified.confidence) < 75.0:
-                    results.append({'symbol': symbol, 'status': 'success', 'direction': unified.direction,
-                                    'confidence': unified.confidence, 'skipped': True, 'reason': 'Below 75% threshold'})
+                decision = validate_proposal(frames, symbol, timeframe, unified, quote)
+                if not decision.allowed:
+                    results.append({'symbol': symbol, 'status': 'skipped', 'reason': '; '.join(decision.reasons)})
+                    continue
+                setup_bar = df.index[-1].to_pydatetime()
+                if Signal.objects.filter(instrument=instrument, timeframe=timeframe, setup_bar_opened_at=setup_bar).exists():
+                    results.append({'symbol': symbol, 'status': 'skipped', 'reason': 'Setup candle already processed'})
                     continue
 
                 # Don't stack identical trades: skip if the same pair/timeframe/direction is still running
@@ -198,7 +247,7 @@ class BulkGenerateView(APIView):
                                     'confidence': unified.confidence, 'duplicate': True})
                     continue
 
-                signal = Signal.objects.create(
+                signal = create_signal_once(
                     instrument          = instrument,
                     timeframe           = unified.timeframe,
                     direction           = unified.direction,
@@ -225,8 +274,16 @@ class BulkGenerateView(APIView):
                     independent_groups  = getattr(unified, 'independent_groups', {}),
                     is_trade_allowed    = getattr(unified, 'is_trade_allowed', True),
                     recommended_lots    = getattr(unified, 'recommended_lots', 0.10),
+                    data_quality_score  = unified.data_quality_score,
+                    risk_rejection_reasons = unified.risk_rejection_reasons,
+                    engine_detail       = unified.engine_results,
+                    strategy_evidence   = decision.to_dict(),
+                    setup_bar_opened_at = setup_bar,
                     valid_until         = timezone.now() + self._get_validity(timeframe),
                 )
+                if signal is None:
+                    results.append({'symbol': symbol, 'status': 'skipped', 'reason': 'Setup already persisted by another request'})
+                    continue
                 
                 # Auto-Trader Hook: Automatically execute trade if account has auto-trading enabled
                 from accounts.auto_trader import AutoTraderEngine

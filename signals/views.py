@@ -6,7 +6,7 @@ from typing import Optional
 from rest_framework import generics, views
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
-from django.db.models import Count, Avg, Sum
+from django.db.models import Count, Avg, Sum, Q
 from django.utils import timezone
 from .models import Signal, SignalPerformance, NewsEvent
 from .serializers import SignalSerializer, SignalDetailSerializer, NewsEventSerializer
@@ -689,6 +689,20 @@ class ActiveSignalsView(generics.ListAPIView):
                 .select_related('instrument').order_by('-confidence_score'))
 
 
+class InstitutionalStrategyStatusView(views.APIView):
+    """Read-only latest scanner decisions, including explicit WAIT reasons."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from .strategy_pipeline import current_status
+        from engines.institutional_setup import STRATEGY_VERSION
+        return Response({'strategy_version': STRATEGY_VERSION,
+                         'validation_status': 'PAPER_RESEARCH_NOT_LIVE_VALIDATED',
+                         'score_is_win_probability': False,
+                         'checked_at': timezone.now().isoformat(), 'setups': current_status()},
+                        headers={'Cache-Control': 'no-store'})
+
+
 class SignalStatsView(views.APIView):
     """GET /api/signals/stats/ — Win rate, total signals, avg confidence, per-instrument scores, and R-multiple performance metrics"""
     permission_classes = [AllowAny]
@@ -697,30 +711,49 @@ class SignalStatsView(views.APIView):
         from .auto_evaluator import maybe_evaluate
         maybe_evaluate()
         trades  = Signal.objects.filter(direction__in=['BUY', 'SELL'])
-        total   = trades.count()
-        active  = trades.filter(status='ACTIVE').count()
-        hits_tp = trades.filter(status='HIT_TP').count()
-        hits_sl = trades.filter(status='HIT_SL').count()
+        # Include legacy status spellings without rewriting historical records.
+        won_statuses = ['HIT_TP', 'TAKE_PROFIT_HIT']
+        lost_statuses = ['HIT_SL', 'STOP_LOSS_HIT']
+        counts = trades.aggregate(
+            total=Count('pk'), active=Count('pk', filter=Q(status='ACTIVE')),
+            won=Count('pk', filter=Q(status__in=won_statuses)),
+            lost=Count('pk', filter=Q(status__in=lost_statuses)),
+            breakeven=Count('pk', filter=Q(status='BREAKEVEN')),
+            expired=Count('pk', filter=Q(status='EXPIRED')),
+            avg_conf=Avg('confidence_score'),
+            buy=Count('pk', filter=Q(direction='BUY')),
+            sell=Count('pk', filter=Q(direction='SELL')),
+        )
+        total, active = counts['total'], counts['active']
+        hits_tp, hits_sl = counts['won'], counts['lost']
         closed  = hits_tp + hits_sl
 
-        # Real win rate if closed trades exist; else running avg confidence as proxy score
-        avg_conf_val = trades.aggregate(avg=Avg('confidence_score'))['avg'] or 0
-        if closed > 0:
-            win_rate = round((hits_tp / closed * 100), 2)
-        else:
-            win_rate = round(float(avg_conf_val), 2)
+        # Headline W/L counts and rate use ALL resolved signal statuses. R metrics
+        # have separate coverage because historical records may lack realized R.
+        avg_conf_val = counts['avg_conf'] or 0
+        win_rate = round(hits_tp / closed * 100, 1) if closed else None
 
         # ── R-Multiple Performance Tracking (Phase 12 / Institutional Expectancy) ────
-        perfs = SignalPerformance.objects.filter(outcome__in=['WIN', 'LOSS'])
-        all_r = [float(x) for x in perfs.exclude(pnl_r__isnull=True).values_list('pnl_r', flat=True)]
+        # Use the same recorded, directional win/loss sample for all R metrics.
+        # Legacy closed signals may have no
+        # performance record; do not invent R values for them.
+        perfs = SignalPerformance.objects.filter(
+            Q(outcome='WIN', pnl_r__gt=0) | Q(outcome='LOSS', pnl_r__lt=0),
+            signal__direction__in=['BUY', 'SELL'],
+        ).order_by('signal__generated_at', 'pk')
+        import math
+        performance_rows = [
+            row for row in perfs.values('signal_id', 'outcome', 'pnl_r', 'loss_category')
+            if math.isfinite(float(row['pnl_r']))
+        ]
+        all_r = [float(row['pnl_r']) for row in performance_rows]
         
         from quant.metrics_r import compute_metrics_r
         m_r = compute_metrics_r(all_r)
 
-        wins = perfs.filter(outcome='WIN')
-        losses = perfs.filter(outcome='LOSS')
-        win_count = wins.count()
-        loss_count = losses.count()
+        wins = [row for row in performance_rows if row['outcome'] == 'WIN']
+        losses = [row for row in performance_rows if row['outcome'] == 'LOSS']
+        win_count, loss_count = len(wins), len(losses)
 
         avg_win_val = m_r["avg_win_R"]
         avg_loss_val = m_r["avg_loss_R"]
@@ -753,8 +786,8 @@ class SignalStatsView(views.APIView):
         cum_r = 0.0
         peak_r = 0.0
         max_dd_r = 0.0
-        for p in perfs.order_by('signal__generated_at'):
-            val = float(p.pnl_r) if p.pnl_r is not None else (avg_win_val if p.outcome == 'WIN' else -1.0)
+        for p in performance_rows:
+            val = float(p['pnl_r'])
             cum_r += val
             if cum_r > peak_r:
                 peak_r = cum_r
@@ -777,8 +810,8 @@ class SignalStatsView(views.APIView):
                 continue
             seen_instruments.add(sym)
 
-            pair_tp     = Signal.objects.filter(instrument=sig.instrument, status='HIT_TP').count()
-            pair_sl     = Signal.objects.filter(instrument=sig.instrument, status='HIT_SL').count()
+            pair_tp     = trades.filter(instrument=sig.instrument, status__in=won_statuses).count()
+            pair_sl     = trades.filter(instrument=sig.instrument, status__in=lost_statuses).count()
             pair_closed = pair_tp + pair_sl
 
             if pair_closed > 0:
@@ -801,9 +834,9 @@ class SignalStatsView(views.APIView):
 
         # ── Loss Category Breakdown (Section 15.1) ──────────────────────────
         loss_breakdown = {}
-        for loss_row in losses.values('loss_category').annotate(count=Count('id')):
-            cat = loss_row['loss_category'] or 'WRONG_REGIME'
-            loss_breakdown[cat] = loss_row['count']
+        for loss_row in losses:
+            cat = loss_row['loss_category'] or 'UNKNOWN'
+            loss_breakdown[cat] = loss_breakdown.get(cat, 0) + 1
 
         return Response({
             'total_signals':     total,
@@ -811,8 +844,18 @@ class SignalStatsView(views.APIView):
             'take_profit_hits':  hits_tp,
             'stop_loss_hits':    hits_sl,
             'closed_signals':    closed,
-            'win_rate_percent':  round(m_r["win_rate"] * 100, 1) if n_closed > 0 else win_rate,
-            'win_rate_source':   'actual' if n_closed > 0 else 'confidence_avg',
+            'breakeven_signals': counts['breakeven'],
+            'expired_signals':   counts['expired'],
+            'other_signals':     total - active - closed - counts['breakeven'] - counts['expired'],
+            'missing_performance_signals': trades.filter(
+                status__in=won_statuses + lost_statuses + ['BREAKEVEN', 'EXPIRED'],
+            ).filter(Q(performance__isnull=True) | Q(performance__pnl_r__isnull=True)).count(),
+            'performance_wins':  win_count,
+            'performance_losses': loss_count,
+            'win_rate_percent':  win_rate,
+            'win_rate_source':   'actual' if closed > 0 else 'no_closed_signals',
+            'performance_win_rate_percent': round(m_r['win_rate'] * 100, 1) if n_closed else None,
+            'stats_updated_at':  timezone.now().isoformat(),
             'avg_confidence':    round(float(avg_conf_val), 2),
             'avg_win_r':         avg_win_val,
             'avg_loss_r':        avg_loss_val,
@@ -834,12 +877,12 @@ class SignalStatsView(views.APIView):
             'bootstrap_p5':      m_r["expectancy_p5"],
             'bootstrap_p95':     m_r["expectancy_ci_95"][1],
             'by_direction': {
-                'BUY':  Signal.objects.filter(direction='BUY').count(),
-                'SELL': Signal.objects.filter(direction='SELL').count(),
+                'BUY':  counts['buy'],
+                'SELL': counts['sell'],
                 'WAIT': 0,
             },
             'instrument_scores': instrument_scores,
-        })
+        }, headers={'Cache-Control': 'no-store'})
 
 
 class NewsEventListView(generics.ListAPIView):
@@ -882,12 +925,12 @@ class TriggerRetrainView(views.APIView):
         if symbol:
             res = ContinuousLearningEngine.retrain_symbol(symbol, timeframe=timeframe, force=True)
             return Response(res)
-            res = ContinuousLearningEngine.retrain_all_core_symbols()
-            return Response({
-                'success': True,
-                'message': f"Retrained models for {len(res)} core instruments",
-                'results': res
-            })
+        res = ContinuousLearningEngine.retrain_all_core_symbols()
+        return Response({
+            'success': all(item.get('success', False) for item in res.values()),
+            'message': f"Retrained models for {len(res)} approved core instruments",
+            'results': res
+        })
 
 
 class WorldOrderMacroView(views.APIView):

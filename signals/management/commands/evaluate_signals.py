@@ -5,17 +5,18 @@ Phase 5: Performance Tracking
 """
 from django.core.management.base import BaseCommand
 from django.utils import timezone
+from django.db import transaction
 from signals.models import Signal, SignalPerformance
-from market_data.models import Instrument
+from signals.exit_rules import evaluate_signal_exit
 from engines.data_fetcher import DataFetcher
-import sys
+from datetime import timedelta
+import math
 
 class Command(BaseCommand):
     help = 'Evaluates active signals and updates win/loss status'
 
     def handle(self, *args, **kwargs):
-        Signal.objects.exclude(take_profit_2=None).update(take_profit_2=None, take_profit_3=None)
-        active_signals = Signal.objects.filter(status='ACTIVE').select_related('instrument')
+        active_signals = Signal.objects.filter(status='ACTIVE', direction__in=['BUY', 'SELL']).select_related('instrument')
         fetcher = DataFetcher()
         processed = 0
 
@@ -34,6 +35,10 @@ class Command(BaseCommand):
                     df = fetcher.fetch(symbol, timeframe='M1', limit=240)
                     if df is None or len(df) == 0:
                         continue
+                    if (getattr(df.index, 'tz', None) is not None and
+                            df.index[-1] > timezone.now() + timedelta(seconds=30)):
+                        self.stdout.write(self.style.WARNING(f'Skipped {symbol}: broker candle clock is future dated.'))
+                        continue
 
                     from quant.config import ASSETS
                     from market_data.models import MarketQuoteSpread
@@ -42,9 +47,14 @@ class Command(BaseCommand):
                     cost_bps = asset_cfg.cost_bps if asset_cfg else 3.0
 
                     live_price = float(df['close'].iloc[-1])
+                    if not math.isfinite(live_price) or live_price <= 0:
+                        continue
 
                     # Realistic fill cost components (half-spread, slippage, round-trip commission)
-                    live_quote = MarketQuoteSpread.objects.filter(instrument__symbol=symbol).first()
+                    live_quote = MarketQuoteSpread.objects.filter(
+                        instrument__symbol=symbol, is_live=True,
+                        timestamp__gte=timezone.now() - timedelta(minutes=2),
+                    ).first()
                     if live_quote and live_quote.spread:
                         half_spread = float(live_quote.spread) / 2.0
                     else:
@@ -54,112 +64,34 @@ class Command(BaseCommand):
                     commission = live_price * (cost_bps * 0.10) / 10000.0
 
                     for sig in signals:
-                        tp1_val = float(sig.take_profit_1)
-                        sl_val = float(sig.stop_loss)
-                        entry_val = float(sig.entry_price)
-
-                        # Cost-adjusted entry fills at Ask for BUY, Bid for SELL
-                        if sig.direction == 'BUY':
-                            fill_entry = entry_val + half_spread + slippage
-                        else:
-                            fill_entry = entry_val - half_spread - slippage
-
-                        initial_risk = abs(fill_entry - sl_val)
-                        if initial_risk <= 0:
-                            initial_risk = fill_entry * 0.005
-
-                        outcome = None
-                        exit_price = None
-                        current_sl = sl_val
-                        be_active = False
-
-                        # Walk candles strictly chronologically (oldest to newest)
-                        post_signal_df = df[df.index > sig.generated_at].sort_index()
-
-                        for ts, candle in post_signal_df.iterrows():
-                            c_high = float(candle['high'])
-                            c_low = float(candle['low'])
-
-                            if sig.direction == 'BUY':
-                                bid_high = c_high - half_spread
-                                bid_low = c_low - half_spread
-
-                                # Golden Rule: Breakeven Shield at +1.0R (Kills 60% of potential losses)
-                                if not be_active and (bid_high - fill_entry) >= (1.0 * initial_risk):
-                                    current_sl = fill_entry + half_spread
-                                    be_active = True
-
-                                hit_tp = (bid_high >= tp1_val)
-                                hit_sl = (bid_low <= current_sl)
-
-                                if hit_tp:
-                                    outcome = 'HIT_TP'
-                                    exit_price = tp1_val - slippage
-                                    break
-                                elif hit_sl:
-                                    outcome = 'BREAKEVEN' if be_active else 'HIT_SL'
-                                    exit_price = fill_entry if be_active else (current_sl - slippage)
-                                    break
-
-                            elif sig.direction == 'SELL':
-                                ask_high = c_high + half_spread
-                                ask_low = c_low + half_spread
-
-                                # Golden Rule: Breakeven Shield at +1.0R (Kills 60% of potential losses)
-                                if not be_active and (fill_entry - ask_low) >= (1.0 * initial_risk):
-                                    current_sl = fill_entry - half_spread
-                                    be_active = True
-
-                                hit_tp = (ask_low <= tp1_val)
-                                hit_sl = (ask_high >= current_sl)
-
-                                if hit_tp:
-                                    outcome = 'HIT_TP'
-                                    exit_price = tp1_val + slippage
-                                    break
-                                elif hit_sl:
-                                    outcome = 'BREAKEVEN' if be_active else 'HIT_SL'
-                                    exit_price = fill_entry if be_active else (current_sl + slippage)
-                                    break
-
-                        # If no historical bar resolved it, check current real-time tick
-                        if outcome is None:
-                            if sig.direction == 'BUY':
-                                cur_bid = live_price - half_spread
-                                if not be_active and (cur_bid - fill_entry) >= (1.0 * initial_risk):
-                                    current_sl = fill_entry + half_spread
-                                    be_active = True
-                                if cur_bid >= tp1_val:
-                                    outcome = 'HIT_TP'
-                                    exit_price = tp1_val - slippage
-                                elif cur_bid <= current_sl:
-                                    outcome = 'BREAKEVEN' if be_active else 'HIT_SL'
-                                    exit_price = fill_entry if be_active else (current_sl - slippage)
-                            elif sig.direction == 'SELL':
-                                cur_ask = live_price + half_spread
-                                if not be_active and (fill_entry - cur_ask) >= (1.0 * initial_risk):
-                                    current_sl = fill_entry - half_spread
-                                    be_active = True
-                                if cur_ask <= tp1_val:
-                                    outcome = 'HIT_TP'
-                                    exit_price = tp1_val + slippage
-                                elif cur_ask >= current_sl:
-                                    outcome = 'BREAKEVEN' if be_active else 'HIT_SL'
-                                    exit_price = fill_entry if be_active else (current_sl + slippage)
-
-                        # Check signal validity expiration
-                        if outcome is None and sig.valid_until is not None and timezone.now() > sig.valid_until:
-                            outcome = 'EXPIRED'
-                            exit_price = (live_price - half_spread - slippage) if sig.direction == 'BUY' else (live_price + half_spread + slippage)
+                        execution_quote = (sig.strategy_evidence or {}).get('evidence', {}).get('execution_quote') or {}
+                        if execution_quote and df.attrs.get('provider') != 'mt5':
+                            # A futures/proxy price must not settle a broker-quoted
+                            # setup merely because its nominal symbol looks similar.
+                            continue
+                        entry_half_spread = float(execution_quote['spread']) / 2.0 if execution_quote else half_spread
+                        evaluation = evaluate_signal_exit(
+                            df, direction=sig.direction, entry=float(sig.entry_price),
+                            stop_loss=float(sig.stop_loss), take_profit=float(sig.take_profit_1),
+                            generated_at=sig.generated_at, now=timezone.now(),
+                            half_spread=entry_half_spread, slippage=slippage, commission=commission,
+                            prior_state=sig.exit_state, valid_until=sig.valid_until,
+                            price_basis=df.attrs.get('price_basis', 'mid'),
+                            entry_is_executable=bool(execution_quote),
+                        )
+                        outcome, exit_price = evaluation.outcome, evaluation.exit_price
+                        if not outcome:
+                            if evaluation.state and evaluation.state != sig.exit_state:
+                                Signal.objects.filter(
+                                    pk=sig.pk, status='ACTIVE', exit_state=sig.exit_state,
+                                ).update(exit_state=evaluation.state)
+                            continue
+                        fill_entry = float(evaluation.state['fill_entry'])
+                        initial_risk = float(evaluation.state['initial_risk'])
 
                         if outcome:
-                            sig.status = outcome
-                            sig.take_profit_2 = None
-                            sig.take_profit_3 = None
-                            sig.save(update_fields=['status', 'take_profit_2', 'take_profit_3'])
-
                             # Calculate true realized net PnL and R-multiple after costs
-                            total_commission = 2.0 * commission
+                            total_commission = 2.0 * float(evaluation.state['commission'])
                             if sig.direction == 'BUY':
                                 net_price_change = (exit_price - fill_entry) - total_commission
                             else:
@@ -192,17 +124,36 @@ class Command(BaseCommand):
                             pnl_pips = round(float(net_price_change / pip_val), 1)
                             pnl_percent = round(realized_r * 1.0, 2)  # 1% baseline risk unit
 
-                            SignalPerformance.objects.update_or_create(
-                                signal=sig,
-                                defaults={
-                                    'outcome': perf_outcome,
-                                    'actual_exit': Decimal(str(round(float(exit_price), 5))),
-                                    'pnl_percent': pnl_percent,
-                                    'pnl_r': realized_r,
-                                    'pnl_pips': pnl_pips,
-                                    'loss_category': loss_category,
-                                }
-                            )
+                            # Publish the lifecycle result and its performance row
+                            # together. A failed save must leave the signal active
+                            # so the next evaluation can retry it.
+                            with transaction.atomic():
+                                updated = Signal.objects.filter(
+                                    pk=sig.pk, status='ACTIVE', exit_state=sig.exit_state,
+                                ).update(
+                                    status=outcome, closed_at=evaluation.exit_at or timezone.now(),
+                                    exit_state=evaluation.state,
+                                    take_profit_2=None, take_profit_3=None,
+                                )
+                                if not updated:
+                                    continue  # Another evaluator already resolved it.
+                                SignalPerformance.objects.update_or_create(
+                                    signal=sig,
+                                    defaults={
+                                        'outcome': perf_outcome,
+                                        'actual_exit': Decimal(str(round(float(exit_price), 5))),
+                                        'pnl_percent': pnl_percent,
+                                        'pnl_r': realized_r,
+                                        'pnl_pips': pnl_pips,
+                                        'loss_category': loss_category,
+                                        'notes': (
+                                            f"Exit model: conservative M1 replay; history coverage: {evaluation.state.get('history_coverage')}. "
+                                            f"Costs: {evaluation.state.get('cost_basis')}. {evaluation.note}"
+                                        ),
+                                    }
+                                )
+                            sig.status = outcome
+                            sig.exit_state = evaluation.state
 
                             # Immediately close any linked Auto-Trader positions at TP1 / SL
                             try:

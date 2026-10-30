@@ -1,0 +1,219 @@
+{
+  "generated_at_utc": "2026-10-27T19:33:25.429448+00:00",
+  "source": "Direct read-only MT5 broker history",
+  "requested_bars_per_timeframe": 1200,
+  "assets": {
+    "US30": {
+      "status": "OK",
+      "broker_symbol": "US30",
+      "specifications": {
+        "point": 0.01,
+        "digits": 2,
+        "spread": 70,
+        "spread_float": true,
+        "chart_mode": 0,
+        "trade_contract_size": 1.0,
+        "trade_tick_size": 0.01,
+        "trade_tick_value": 0.01
+      },
+      "coverage": {
+        "M15": {
+          "returned_bars": 1200,
+          "completed_bars": 1191,
+          "first_bar_open_utc": "2026-10-08T18:45:00+00:00",
+          "last_bar_open_utc": "2026-10-27T19:15:00+00:00",
+          "last_bar_close_utc": "2026-10-27T19:30:00+00:00",
+          "gaps_larger_than_one_bar": 13,
+          "gap_note": "Counts include legitimate market closures; no candles filled or synthesized",
+          "sha256_csv": "73b749d6a3b9858e19d6f20f358384ea745e9bff5b97d73165436121defe284e",
+          "cache_file": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\institutional_strategy_cache_20261027T193325Z\\US30_M15.csv"
+        },
+        "H1": {
+          "returned_bars": 1200,
+          "completed_bars": 1197,
+          "first_bar_open_utc": "2026-08-14T04:00:00+00:00",
+          "last_bar_open_utc": "2026-10-27T18:00:00+00:00",
+          "last_bar_close_utc": "2026-10-27T19:00:00+00:00",
+          "gaps_larger_than_one_bar": 52,
+          "gap_note": "Counts include legitimate market closures; no candles filled or synthesized",
+          "sha256_csv": "8f5aeb786adada410f5434a9e7bdd8e094ce9156293b525919d12957b6b8ebb4",
+          "cache_file": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\institutional_strategy_cache_20261027T193325Z\\US30_H1.csv"
+        },
+        "H4": {
+          "returned_bars": 1200,
+          "completed_bars": 1198,
+          "first_bar_open_utc": "2026-01-19T16:00:00+00:00",
+          "last_bar_open_utc": "2026-10-27T12:00:00+00:00",
+          "last_bar_close_utc": "2026-10-27T16:00:00+00:00",
+          "gaps_larger_than_one_bar": 45,
+          "gap_note": "Counts include legitimate market closures; no candles filled or synthesized",
+          "sha256_csv": "f92df91496d14792712488887fe4c8e2b8a40fc4e3f8c405f195248680bef754",
+          "cache_file": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\institutional_strategy_cache_20261027T193325Z\\US30_H4.csv"
+        }
+      },
+      "benchmark": {
+        "status": "COMPLETED",
+        "strategy_version": "closed-trend-reclaim-v1",
+        "scope": "Structural candidate benchmark ONLY; not full unified/news/risk/live pipeline",
+        "holdout_fraction": 0.2,
+        "formation_bars": 952,
+        "holdout_first_bar_utc": "2026-10-23T05:45:00+00:00",
+        "holdout_last_bar_utc": "2026-10-27T19:15:00+00:00",
+        "parameter_fitting": "None; fixed rules and costs, no optimization on either partition",
+        "eligible_candidates": 0,
+        "rejections": {
+          "M15/H1/H4 do not share the strict Close/EMA50/EMA200 chain": 93,
+          "No completed liquidity-sweep reclaim or EMA20 pullback reclaim": 3
+        },
+        "metrics": {
+          "n_trades": 0,
+          "win_rate": 0.0,
+          "loss_rate": 0.0,
+          "avg_win_R": 0.0,
+          "avg_loss_R": 0.0,
+          "payoff_ratio": 0.0,
+          "profit_factor": 0.0,
+          "expectancy_R": 0.0,
+          "break_even_win_rate": 0.0,
+          "expectancy_ci_95": [
+            0.0,
+            0.0
+          ],
+          "expectancy_p5": 0.0,
+          "win_rate_ci_95": [
+            0.0,
+            0.0
+          ],
+          "is_win_rate_trap": false,
+          "edge_verdict": "Insufficient data (n=0)"
+        },
+        "trades": [],
+        "sufficient_sample_100_trades": false,
+        "eligible_for_live": false
+      }
+    },
+    "SPX500": {
+      "status": "OK",
+      "broker_symbol": "US500",
+      "specifications": {
+        "point": 0.01,
+        "digits": 2,
+        "spread": 30,
+        "spread_float": true,
+        "chart_mode": 0,
+        "trade_contract_size": 1.0,
+        "trade_tick_size": 0.01,
+        "trade_tick_value": 0.01
+      },
+      "coverage": {
+        "M15": {
+          "returned_bars": 1200,
+          "completed_bars": 1191,
+          "first_bar_open_utc": "2026-10-08T18:45:00+00:00",
+          "last_bar_open_utc": "2026-10-27T19:15:00+00:00",
+          "last_bar_close_utc": "2026-10-27T19:30:00+00:00",
+          "gaps_larger_than_one_bar": 13,
+          "gap_note": "Counts include legitimate market closures; no candles filled or synthesized",
+          "sha256_csv": "05ce88a753e416c4bd9a77079c0d5b11311890987693d5afd27b8e97f30b1d9e",
+          "cache_file": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\institutional_strategy_cache_20261027T193325Z\\SPX500_M15.csv"
+        },
+        "H1": {
+          "returned_bars": 1200,
+          "completed_bars": 1197,
+          "first_bar_open_utc": "2026-08-14T04:00:00+00:00",
+          "last_bar_open_utc": "2026-10-27T18:00:00+00:00",
+          "last_bar_close_utc": "2026-10-27T19:00:00+00:00",
+          "gaps_larger_than_one_bar": 52,
+          "gap_note": "Counts include legitimate market closures; no candles filled or synthesized",
+          "sha256_csv": "980ada3d48392834556c229b2f9bf5d9dfd1e76dbc85487447838eee9428a8ee",
+          "cache_file": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\institutional_strategy_cache_20261027T193325Z\\SPX500_H1.csv"
+        },
+        "H4": {
+          "returned_bars": 1200,
+          "completed_bars": 1198,
+          "first_bar_open_utc": "2026-01-19T16:00:00+00:00",
+          "last_bar_open_utc": "2026-10-27T12:00:00+00:00",
+          "last_bar_close_utc": "2026-10-27T16:00:00+00:00",
+          "gaps_larger_than_one_bar": 45,
+          "gap_note": "Counts include legitimate market closures; no candles filled or synthesized",
+          "sha256_csv": "271cb132e60aecb212ef07bf426ad7b92d326fc58040527ef467fbef7c588dc5",
+          "cache_file": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\institutional_strategy_cache_20261027T193325Z\\SPX500_H4.csv"
+        }
+      },
+      "benchmark": {
+        "status": "COMPLETED",
+        "strategy_version": "closed-trend-reclaim-v1",
+        "scope": "Structural candidate benchmark ONLY; not full unified/news/risk/live pipeline",
+        "holdout_fraction": 0.2,
+        "formation_bars": 952,
+        "holdout_first_bar_utc": "2026-10-23T05:45:00+00:00",
+        "holdout_last_bar_utc": "2026-10-27T19:15:00+00:00",
+        "parameter_fitting": "None; fixed rules and costs, no optimization on either partition",
+        "eligible_candidates": 1,
+        "rejections": {
+          "M15/H1/H4 do not share the strict Close/EMA50/EMA200 chain": 84,
+          "No completed liquidity-sweep reclaim or EMA20 pullback reclaim": 4
+        },
+        "metrics": {
+          "n_trades": 1,
+          "win_rate": 0.0,
+          "loss_rate": 1.0,
+          "avg_win_R": 0.0,
+          "avg_loss_R": 0.3121,
+          "payoff_ratio": 0.0,
+          "profit_factor": 0.0,
+          "expectancy_R": -0.3121,
+          "break_even_win_rate": 1.0,
+          "expectancy_ci_95": [
+            -0.3121,
+            -0.3121
+          ],
+          "expectancy_p5": -0.3121,
+          "win_rate_ci_95": [
+            0.0,
+            0.0
+          ],
+          "is_win_rate_trap": false,
+          "edge_verdict": "Insufficient data (n=1/100)"
+        },
+        "trades": [
+          {
+            "opened_at_utc": "2026-10-26T08:30:00+00:00",
+            "exit_bar_open_utc": "2026-10-26T10:15:00+00:00",
+            "direction": "SELL",
+            "entry": 7628.79,
+            "initial_stop": 7648.077379449561,
+            "target": 7590.215241100878,
+            "exit": 7634.81,
+            "reason": "TIME_EXIT",
+            "realized_r": -0.3121211990329516,
+            "commission_price_units": 0.0,
+            "be_earned_bar_open_utc": null,
+            "setup_type": "TREND_PULLBACK_RECLAIM",
+            "signal_bar_open_utc": "2026-10-26T08:15:00+00:00"
+          }
+        ],
+        "sufficient_sample_100_trades": false,
+        "eligible_for_live": false
+      }
+    }
+  },
+  "cost_policy": {
+    "spread": "Actual historical bar spread points times broker point; intrabar spread variation unavailable",
+    "slippage_points_each_fill": 1.0,
+    "slippage_source": "Explicit research assumption, not measured realized broker slippage",
+    "commission_bps_each_side": null,
+    "commission_known": false,
+    "swap": "Not modeled; max holding horizon is bounded and this is not a live-readiness report",
+    "max_hold_M15_bars": 8
+  },
+  "limitations": [
+    "No synthesized bars, filled gaps, invented executions, or guessed missing history",
+    "Broker-loaded history may be shorter than requested; reported dates are authoritative",
+    "OHLC cannot reveal intrabar path; stop first if ambiguous, BE effective next bar",
+    "Actual latency, order rejection, news blackouts and full unified confluence are not replayed",
+    "No institutional profitability or live authorization conclusion can be drawn from this benchmark"
+  ],
+  "eligible_for_live": false,
+  "status": "RESEARCH_BENCHMARK"
+}

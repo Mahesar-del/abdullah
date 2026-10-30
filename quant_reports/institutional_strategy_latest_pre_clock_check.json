@@ -1,0 +1,230 @@
+{
+  "generated_at_utc": "2026-10-27T19:31:24.161302+00:00",
+  "source": "Direct read-only MT5 broker history",
+  "requested_bars_per_timeframe": 1200,
+  "assets": {
+    "XAUUSD": {
+      "status": "OK",
+      "broker_symbol": "XAUUSD",
+      "specifications": {
+        "point": 0.01,
+        "digits": 2,
+        "spread": 23,
+        "spread_float": true,
+        "chart_mode": 0,
+        "trade_contract_size": 100.0,
+        "trade_tick_size": 0.01,
+        "trade_tick_value": 0.1
+      },
+      "coverage": {
+        "M15": {
+          "returned_bars": 1200,
+          "completed_bars": 1191,
+          "first_bar_open_utc": "2026-10-08T09:45:00+00:00",
+          "last_bar_open_utc": "2026-10-27T19:15:00+00:00",
+          "last_bar_close_utc": "2026-10-27T19:30:00+00:00",
+          "gaps_larger_than_one_bar": 13,
+          "gap_note": "Counts include legitimate market closures; no candles filled or synthesized",
+          "sha256_csv": "2bf17a37f5e693c00eb8d17f7a4241008db0e641319e0e224d3fa5c469165310",
+          "cache_file": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\institutional_strategy_cache_20261027T193124Z\\XAUUSD_M15.csv"
+        },
+        "H1": {
+          "returned_bars": 1200,
+          "completed_bars": 1197,
+          "first_bar_open_utc": "2026-08-12T11:00:00+00:00",
+          "last_bar_open_utc": "2026-10-27T18:00:00+00:00",
+          "last_bar_close_utc": "2026-10-27T19:00:00+00:00",
+          "gaps_larger_than_one_bar": 54,
+          "gap_note": "Counts include legitimate market closures; no candles filled or synthesized",
+          "sha256_csv": "3cb4d755041090d4f58473c29aadd48bb59e8449d4c5f8abb1695e8158d670e9",
+          "cache_file": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\institutional_strategy_cache_20261027T193124Z\\XAUUSD_H1.csv"
+        },
+        "H4": {
+          "returned_bars": 1200,
+          "completed_bars": 1198,
+          "first_bar_open_utc": "2026-01-20T00:00:00+00:00",
+          "last_bar_open_utc": "2026-10-27T12:00:00+00:00",
+          "last_bar_close_utc": "2026-10-27T16:00:00+00:00",
+          "gaps_larger_than_one_bar": 40,
+          "gap_note": "Counts include legitimate market closures; no candles filled or synthesized",
+          "sha256_csv": "14139f46ef325cc508d11a60e75a27a98478ec2c2d21a3babbfb0ac2749bc2db",
+          "cache_file": "C:\\Users\\DELL\\Desktop\\abdullah\\quant_reports\\institutional_strategy_cache_20261027T193124Z\\XAUUSD_H4.csv"
+        }
+      },
+      "benchmark": {
+        "status": "COMPLETED",
+        "strategy_version": "closed-trend-reclaim-v1",
+        "scope": "Structural candidate benchmark ONLY; not full unified/news/risk/live pipeline",
+        "holdout_fraction": 0.2,
+        "formation_bars": 952,
+        "holdout_first_bar_utc": "2026-10-23T05:45:00+00:00",
+        "holdout_last_bar_utc": "2026-10-27T19:15:00+00:00",
+        "parameter_fitting": "None; fixed rules and costs, no optimization on either partition",
+        "eligible_candidates": 7,
+        "rejections": {
+          "No completed liquidity-sweep reclaim or EMA20 pullback reclaim": 20,
+          "M15/H1/H4 do not share the strict Close/EMA50/EMA200 chain": 44
+        },
+        "metrics": {
+          "n_trades": 7,
+          "win_rate": 0.5714,
+          "loss_rate": 0.4286,
+          "avg_win_R": 0.6613,
+          "avg_loss_R": 0.8772,
+          "payoff_ratio": 0.754,
+          "profit_factor": 1.005,
+          "expectancy_R": 0.0019,
+          "break_even_win_rate": 0.5702,
+          "expectancy_ci_95": [
+            -0.6564,
+            0.6272
+          ],
+          "expectancy_p5": -0.4267,
+          "win_rate_ci_95": [
+            0.2857,
+            0.7143
+          ],
+          "is_win_rate_trap": true,
+          "edge_verdict": "Insufficient data (n=7/100)"
+        },
+        "trades": [
+          {
+            "opened_at_utc": "2026-10-23T08:30:00+00:00",
+            "exit_bar_open_utc": "2026-10-23T08:30:00+00:00",
+            "direction": "SELL",
+            "entry": 4010.85,
+            "initial_stop": 4017.916699738407,
+            "target": 3996.716600523186,
+            "exit": 4017.926699738407,
+            "reason": "STOP_LOSS",
+            "realized_r": -1.001415087717095,
+            "commission_price_units": 0.0,
+            "be_earned_bar_open_utc": null,
+            "setup_type": "LIQUIDITY_SWEEP_RECLAIM",
+            "signal_bar_open_utc": "2026-10-23T08:15:00+00:00"
+          },
+          {
+            "opened_at_utc": "2026-10-23T09:30:00+00:00",
+            "exit_bar_open_utc": "2026-10-23T11:15:00+00:00",
+            "direction": "SELL",
+            "entry": 4015.49,
+            "initial_stop": 4029.3402726267345,
+            "target": 3987.7894547465303,
+            "exit": 4015.2200000000003,
+            "reason": "TIME_EXIT",
+            "realized_r": 0.019494201108962612,
+            "commission_price_units": 0.0,
+            "be_earned_bar_open_utc": null,
+            "setup_type": "TREND_PULLBACK_RECLAIM",
+            "signal_bar_open_utc": "2026-10-23T09:15:00+00:00"
+          },
+          {
+            "opened_at_utc": "2026-10-23T15:15:00+00:00",
+            "exit_bar_open_utc": "2026-10-23T15:45:00+00:00",
+            "direction": "SELL",
+            "entry": 4022.08,
+            "initial_stop": 4031.6046802051765,
+            "target": 4003.030639589647,
+            "exit": 4031.6146802051767,
+            "reason": "STOP_LOSS",
+            "realized_r": -1.001049904016177,
+            "commission_price_units": 0.0,
+            "be_earned_bar_open_utc": null,
+            "setup_type": "TREND_PULLBACK_RECLAIM",
+            "signal_bar_open_utc": "2026-10-23T15:00:00+00:00"
+          },
+          {
+            "opened_at_utc": "2026-10-23T16:45:00+00:00",
+            "exit_bar_open_utc": "2026-10-23T17:15:00+00:00",
+            "direction": "SELL",
+            "entry": 4023.18,
+            "initial_stop": 4034.3909887065374,
+            "target": 4000.7580225869247,
+            "exit": 4000.768022586925,
+            "reason": "TAKE_PROFIT",
+            "realized_r": 1.9991080180114367,
+            "commission_price_units": 0.0,
+            "be_earned_bar_open_utc": "2026-10-23T17:00:00+00:00",
+            "setup_type": "TREND_PULLBACK_RECLAIM",
+            "signal_bar_open_utc": "2026-10-23T16:30:00+00:00"
+          },
+          {
+            "opened_at_utc": "2026-10-26T08:30:00+00:00",
+            "exit_bar_open_utc": "2026-10-26T10:15:00+00:00",
+            "direction": "SELL",
+            "entry": 4004.72,
+            "initial_stop": 4019.993763026655,
+            "target": 3974.1724739466895,
+            "exit": 4014.33,
+            "reason": "TIME_EXIT",
+            "realized_r": -0.6291835209980108,
+            "commission_price_units": 0.0,
+            "be_earned_bar_open_utc": null,
+            "setup_type": "TREND_PULLBACK_RECLAIM",
+            "signal_bar_open_utc": "2026-10-26T08:15:00+00:00"
+          },
+          {
+            "opened_at_utc": "2026-10-26T15:15:00+00:00",
+            "exit_bar_open_utc": "2026-10-26T16:15:00+00:00",
+            "direction": "SELL",
+            "entry": 4011.02,
+            "initial_stop": 4025.970955223989,
+            "target": 3981.1180895520215,
+            "exit": 4010.96,
+            "reason": "BE_STOP",
+            "realized_r": 0.004013121509699507,
+            "commission_price_units": 0.0,
+            "be_earned_bar_open_utc": "2026-10-26T15:45:00+00:00",
+            "setup_type": "TREND_PULLBACK_RECLAIM",
+            "signal_bar_open_utc": "2026-10-26T15:00:00+00:00"
+          },
+          {
+            "opened_at_utc": "2026-10-27T07:00:00+00:00",
+            "exit_bar_open_utc": "2026-10-27T08:45:00+00:00",
+            "direction": "SELL",
+            "entry": 4010.5899999999997,
+            "initial_stop": 4026.1384602802486,
+            "target": 3979.493079439502,
+            "exit": 4000.9100000000003,
+            "reason": "TIME_EXIT",
+            "realized_r": 0.6225696837837885,
+            "commission_price_units": 0.0,
+            "be_earned_bar_open_utc": null,
+            "setup_type": "TREND_PULLBACK_RECLAIM",
+            "signal_bar_open_utc": "2026-10-27T06:45:00+00:00"
+          }
+        ],
+        "sufficient_sample_100_trades": false,
+        "eligible_for_live": false
+      }
+    },
+    "US30": {
+      "status": "UNAVAILABLE",
+      "broker_symbol": "US30",
+      "error": "MT5 IPC exceeded hard 5s timeout; child terminated"
+    },
+    "SPX500": {
+      "status": "UNAVAILABLE",
+      "broker_symbol": "US500",
+      "error": "MT5 IPC exceeded hard 5s timeout; child terminated"
+    }
+  },
+  "cost_policy": {
+    "spread": "Actual historical bar spread points times broker point; intrabar spread variation unavailable",
+    "slippage_points_each_fill": 1.0,
+    "slippage_source": "Explicit research assumption, not measured realized broker slippage",
+    "commission_bps_each_side": null,
+    "commission_known": false,
+    "swap": "Not modeled; max holding horizon is bounded and this is not a live-readiness report",
+    "max_hold_M15_bars": 8
+  },
+  "limitations": [
+    "No synthesized bars, filled gaps, invented executions, or guessed missing history",
+    "Broker-loaded history may be shorter than requested; reported dates are authoritative",
+    "OHLC cannot reveal intrabar path; stop first if ambiguous, BE effective next bar",
+    "Actual latency, order rejection, news blackouts and full unified confluence are not replayed",
+    "No institutional profitability or live authorization conclusion can be drawn from this benchmark"
+  ],
+  "eligible_for_live": false,
+  "status": "RESEARCH_BENCHMARK"
+}

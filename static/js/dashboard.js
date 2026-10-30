@@ -6,9 +6,10 @@
 // ── State ──────────────────────────────────────────────
 let allSignals = [];
 let currentFilter = 'ALL';
-let currentTimeframe = 'ALL';
+let currentTimeframe = 'H1';
+let latestChartedSignalId = null;
 
-const TF_LABELS = { M1: '1m', M5: '5m', M15: '15m', M30: '30m', H1: '1H', H2: '2H', H4: '4H' };
+const TF_LABELS = { M15: '15m', H1: '1H', H4: '4H' };
 
 // ── On Load ────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -18,6 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAutomationStatus();
     loadInstitutionalData();
     loadAILearningStatus();
+    loadCourseBacktest();
+    setInterval(loadCourseBacktest, 15000);
     setInterval(updateMarketSession, 60000);
     setInterval(loadStats, 15000);   // auto-refresh scores every 15s
     setInterval(loadActiveSignals, 10000); // auto-refresh active signals every 10s (high-conviction signals appear automatically)
@@ -25,9 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(loadInstitutionalData, 30000); // auto-refresh institutional COT data every 30s
     setInterval(loadAILearningStatus, 45000); // auto-refresh AI model learning status every 45s
     setupSidebarNav();
-    setupAgentStudio();
-    setupCopilot();
-    loadHistoricalAuditData();
 
 
     // Restore Automated Trading console collapse state (opened if previously toggled open)
@@ -118,6 +118,7 @@ function setupSidebarNav() {
                 target = document.getElementById('historical-audit-section');
                 if (typeof loadHistoricalAuditData === 'function') loadHistoricalAuditData();
             }
+            if (id === 'nav-course-backtest') target = document.getElementById('course-backtest-section');
             
             closeMobileSidebar();
 
@@ -338,18 +339,22 @@ async function loadDashboardData() {
 }
 
 // ── Load Stats ─────────────────────────────────────────
+let statsRequestPending = false;
 async function loadStats() {
+    if (statsRequestPending) return;
+    statsRequestPending = true;
     try {
-        const res  = await fetch('/api/signals/stats/');
+        const res  = await fetch('/api/signals/stats/', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`Stats HTTP ${res.status}`);
         const data = await res.json();
 
         animateValue('stat-total-val',  data.total_signals,  0);
         animateValue('stat-active-val', data.active_signals, 0);
-        document.getElementById('stat-winrate-val').textContent    = data.win_rate_percent + '%';
+        document.getElementById('stat-winrate-val').textContent = data.win_rate_percent == null ? '—' : data.win_rate_percent + '%';
         
         // ── Institutional R-Multiple Context Display Next to Win Rate ─────
         const elSampleN = document.getElementById('winrate-sample-n');
-        if (elSampleN) elSampleN.textContent = `n=${data.sample_size_trades || 0}`;
+        if (elSampleN) elSampleN.textContent = `Closed n=${data.closed_signals || 0} | R n=${data.sample_size_trades || 0}`;
         const elWinR = document.getElementById('winrate-avg-win');
         if (elWinR) elWinR.textContent = `Win: +${Number(data.avg_win_r || 0).toFixed(2)}R`;
         const elLossR = document.getElementById('winrate-avg-loss');
@@ -375,6 +380,15 @@ async function loadStats() {
         
         animateValue('stat-won-val', data.take_profit_hits || 0, 0);
         animateValue('stat-lost-val', data.stop_loss_hits || 0, 0);
+        const outcomeSummary = document.getElementById('signal-outcome-summary');
+        if (outcomeSummary) {
+            outcomeSummary.textContent = `All time: ${data.total_signals} = ${data.active_signals} active + ${data.take_profit_hits} won + ${data.stop_loss_hits} lost + ${data.breakeven_signals} breakeven + ${data.expired_signals} expired + ${data.other_signals} other. R sample: ${data.sample_size_trades} (${data.performance_wins}W / ${data.performance_losses}L); missing R records: ${data.missing_performance_signals}.`;
+        }
+        const statsFreshness = document.getElementById('stats-freshness');
+        if (statsFreshness) {
+            const checkedAt = new Date(data.stats_updated_at);
+            statsFreshness.textContent = `Checked ${checkedAt.toLocaleTimeString('en-GB', { timeZone: 'Asia/Karachi' })} PKT · Refresh 15s`;
+        }
 
         // ── R-Multiple Performance Tracking (Phase 12) ─────
         const avgWinEl = document.getElementById('stat-avg-win-val');
@@ -462,8 +476,8 @@ async function loadStats() {
 
         // Adaptive win rate label
         const isActual = data.win_rate_source === 'actual';
-        document.getElementById('winrate-label').textContent = isActual ? 'Win Rate'      : 'Running Score';
-        const ratioText = isActual ? `Actual Trades (${data.take_profit_hits}W / ${data.stop_loss_hits}L)` : 'Avg Confidence';
+        document.getElementById('winrate-label').textContent = 'Win Rate';
+        const ratioText = isActual ? `Closed Signals (${data.take_profit_hits}W / ${data.stop_loss_hits}L)` : 'No closed win/loss signals';
         document.getElementById('winrate-trend').textContent = ratioText;
 
         // Direction bar
@@ -482,15 +496,34 @@ async function loadStats() {
 
         // Per-pair running score cards
         renderPairScores(data.instrument_scores || [], data.win_rate_source);
+        await loadInstitutionalSetupStatus();
 
     } catch (err) {
         console.log('Stats not available:', err.message);
-        document.getElementById('stat-total-val').textContent      = '0';
-        document.getElementById('stat-active-val').textContent     = '0';
-        document.getElementById('stat-won-val').textContent        = '0';
-        document.getElementById('stat-lost-val').textContent       = '0';
-        document.getElementById('stat-winrate-val').textContent    = '0%';
-        document.getElementById('stat-confidence-val').textContent = '0';
+        const statsFreshness = document.getElementById('stats-freshness');
+        if (statsFreshness) statsFreshness.textContent = 'Refresh failed · Showing last snapshot';
+    } finally {
+        statsRequestPending = false;
+    }
+}
+
+async function loadInstitutionalSetupStatus() {
+    const panel = document.getElementById('institutional-setup-status');
+    if (!panel) return;
+    try {
+        const response = await fetch('/api/signals/strategy-status/', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        panel.replaceChildren();
+        for (const setup of data.setups || []) {
+            const line = document.createElement('div');
+            const age = setup.checked_at ? Math.max(0, Math.floor((Date.now() - Date.parse(setup.checked_at)) / 1000)) : null;
+            line.textContent = `${setup.symbol} ${setup.timeframe}: ${setup.state}${age === null ? '' : ` (${age}s ago)`} — ${(setup.reasons || []).join('; ') || setup.evidence?.candidate_direction || 'All setup gates passed'}`;
+            line.style.color = setup.state === 'QUALIFIED' ? '#10b981' : '#94a3b8';
+            panel.appendChild(line);
+        }
+    } catch (err) {
+        panel.textContent = 'Setup status unavailable; waiting for the next refresh.';
     }
 }
 
@@ -557,6 +590,19 @@ async function loadActiveSignals() {
         const data = await res.json();
         allSignals = data.results || data || [];
         renderSignals(allSignals);
+        const newest = [...allSignals]
+            .filter(s => s && s.id && (s.direction === 'BUY' || s.direction === 'SELL'))
+            .sort((a, b) => new Date(b.generated_at || 0) - new Date(a.generated_at || 0))[0];
+        if (!newest) return;
+        if (latestChartedSignalId === null) {
+            // Do not interrupt the dashboard for an already-existing signal.
+            latestChartedSignalId = newest.id;
+        } else if (newest.id !== latestChartedSignalId) {
+            latestChartedSignalId = newest.id;
+            // New confirmed signal: open the integrated TradingView-style
+            // placement chart with its entry marker plus SL/TP price lines.
+            openSignalModal(newest.id);
+        }
     } catch (err) {
         console.log('Signals not available:', err.message);
         renderEmptySignals('No signals yet. Database setup pending.');
@@ -1119,7 +1165,7 @@ function renderSignalModalLayout(s) {
         </div>
     `;
 
-    const tfButtonsHtml = ['M1', 'M5', 'M15', 'M30', 'H1', 'H2', 'H4', 'D1'].map(tf => {
+    const tfButtonsHtml = ['M15', 'H1', 'H4'].map(tf => {
         const label = TF_LABELS[tf] || (tf === 'D1' ? '1D' : tf);
         const activeCls = tf === currentChartTf ? 'active' : '';
         return `<button class="tv-tf-btn ${activeCls}" data-chart-tf="${tf}" onclick="switchLiveChartTimeframe('${tf}')">${label}</button>`;
@@ -2771,7 +2817,7 @@ async function scanMarkets(silent = true) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                symbols: ['EURUSD', 'GBPUSD', 'XAUUSD', 'BTCUSD', 'US30'],
+                symbols: ['XAUUSD', 'US30', 'SPX500'],
                 timeframe: scanTf
             })
         });
@@ -3488,11 +3534,11 @@ async function loadAILearningStatus() {
             if (lblEl) lblEl.textContent = `Walk-Forward Acc: ${m.oos_accuracy_pct}% · Feature: ${m.top_feature}`;
         }
 
-        if (modelMap['BTCUSD']) {
-            const m = modelMap['BTCUSD'];
-            const valEl = document.getElementById('ai-model-btc');
-            const lblEl = document.getElementById('ai-label-btc');
-            if (valEl) valEl.textContent = `BTCUSD · ${m.version_tag.split('-')[0]}`;
+        if (modelMap['SPX500']) {
+            const m = modelMap['SPX500'];
+            const valEl = document.getElementById('ai-model-spx');
+            const lblEl = document.getElementById('ai-label-spx');
+            if (valEl) valEl.textContent = `SPX500 · ${m.version_tag.split('-')[0]}`;
             if (lblEl) lblEl.textContent = `Walk-Forward Acc: ${m.oos_accuracy_pct}% · Feature: ${m.top_feature}`;
         }
 
@@ -3536,6 +3582,60 @@ async function triggerAIRetrain() {
 }
 
 // ── HISTORICAL AUDIT (2021-2022) ENGINE JS ───────────────────────────
+async function loadCourseBacktest() {
+    const section = document.getElementById('course-backtest-section');
+    const status = document.getElementById('course-backtest-status');
+    if (!section || !status) return;
+    section.hidden = false;
+    try {
+        const response = await fetch('/api/course-price-action-backtest/results/', { cache: 'no-store' });
+        const data = await response.json();
+        if (data.status !== 'SUCCESS') { status.textContent = data.message || 'Backtest status unavailable.'; return; }
+        const s = data.summary || {};
+        const n = value => Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '—';
+        document.getElementById('course-bt-trades').textContent = s.closed_trades ?? 0;
+        document.getElementById('course-bt-wl').textContent = `${s.wins ?? 0} / ${s.losses ?? 0}`;
+        document.getElementById('course-bt-wr').textContent = `${n(s.win_rate_pct)}%`;
+        document.getElementById('course-bt-r').textContent = `${n(s.net_r)}R`;
+        document.getElementById('course-bt-dd').textContent = `${n(s.max_drawdown_pct)}%`;
+        status.textContent = 'Completed causal research replay. Historical results are not live-profit evidence.';
+    } catch (error) { status.textContent = `Backtest status error: ${error.message}`; }
+}
+
+async function loadICTLocationReplay() {
+    const status = document.getElementById('ict-replay-status');
+    const body = document.getElementById('ict-replay-tbody');
+    try {
+        const response = await fetch('/api/ict-location-historical/results/', { cache: 'no-store' });
+        const data = await response.json();
+        if (data.status !== 'SUCCESS') {
+            if (status) status.textContent = `Research replay: ${data.message || data.status}. ${data.source_limit || ''}`;
+            if (body) body.innerHTML = '<tr><td colspan="9" style="padding:16px;color:#94a3b8;">No completed causal result yet.</td></tr>';
+            return;
+        }
+        const summary = data.summary || {};
+        const num = (value, fallback = '—') => Number.isFinite(Number(value)) ? Number(value).toFixed(2) : fallback;
+        document.getElementById('ict-total').textContent = summary.total_trades ?? 0;
+        document.getElementById('ict-wins').textContent = summary.winning_trades ?? 0;
+        document.getElementById('ict-losses').textContent = summary.losing_trades ?? 0;
+        document.getElementById('ict-edge').textContent = `${num(summary.win_rate_pct)}% / ${num(summary.net_r)}R`;
+        if (status) status.textContent = `${data.requested_window}. ${data.source_limit} Uses completed candles only; no demo/live ledger records.`;
+        const trades = data.trades || [];
+        if (!trades.length) {
+            if (body) body.innerHTML = '<tr><td colspan="9" style="padding:16px;color:#94a3b8;">Replay completed: no eligible ICT location trades in this window.</td></tr>';
+            return;
+        }
+        const escape = (value) => String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
+        if (body) body.innerHTML = trades.slice(0, 250).map(trade => {
+            const win = trade.outcome === 'WIN';
+            const tone = win ? '#34d399' : trade.outcome === 'LOSS' ? '#f87171' : '#cbd5e1';
+            return `<tr style="border-top:1px solid rgba(255,255,255,.05);"><td style="padding:8px;white-space:nowrap;">${escape(trade.date)}</td><td>${escape(trade.direction)}</td><td>${num(trade.entry)}</td><td>${num(trade.sl)}</td><td>${num(trade.tp1)}</td><td>${num(trade.exit_price)}</td><td style="font-weight:800;color:${tone};">${num(trade.r_multiple)}R</td><td style="font-weight:800;color:${tone};">${escape(trade.outcome)}</td><td>${escape(trade.exit_reason)}</td></tr>`;
+        }).join('');
+    } catch (error) {
+        if (status) status.textContent = `Unable to load ICT research replay: ${error.message}`;
+    }
+}
+
 window._historicalTrades = [];
 window._historicalAuditData = null;
 

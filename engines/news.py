@@ -264,34 +264,39 @@ class NewsEngine(BaseEngine):
         articles = []
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
 
-        # 1. Yahoo Finance Feeds
-        yf_urls = [
+        from concurrent.futures import ThreadPoolExecutor
+
+        all_feeds = [
             ('https://feeds.finance.yahoo.com/rss/2.0/headline?s=^DJI&region=US&lang=en-US', 'Yahoo Finance'),
             ('https://feeds.finance.yahoo.com/rss/2.0/headline?s=EURUSD=X&region=US&lang=en-US', 'Yahoo Finance'),
             ('https://feeds.finance.yahoo.com/rss/2.0/headline?s=GC=F&region=US&lang=en-US', 'Yahoo Finance'),
+            ('https://feeds.marketwatch.com/marketwatch/topstories/', 'MarketWatch'),
         ]
-        for url, source in yf_urls:
-            try:
-                resp = requests.get(url, headers=headers, timeout=4)
-                if resp.status_code == 200:
-                    titles = re.findall(r'<title><!\[CDATA\[(.*?)\]\]></title>', resp.text)
-                    links  = re.findall(r'<link>(.*?)</link>', resp.text)
-                    for idx, t in enumerate(titles[:10]):
-                        link = links[idx] if idx < len(links) else ''
-                        articles.append({'title': t, 'source': source, 'url': link})
-            except Exception:
-                continue
 
-        # 2. MarketWatch Top Stories
-        try:
-            mw_url = 'https://feeds.marketwatch.com/marketwatch/topstories/'
-            resp = requests.get(mw_url, headers=headers, timeout=4)
-            if resp.status_code == 200:
-                titles = re.findall(r'<title>(.*?)</title>', resp.text)
-                for t in titles[2:12]:
-                    articles.append({'title': t, 'source': 'MarketWatch', 'url': ''})
-        except Exception:
-            pass
+        def _fetch_feed(item):
+            url, source = item
+            feed_articles = []
+            try:
+                resp = requests.get(url, headers=headers, timeout=2.5)
+                if resp.status_code == 200:
+                    if 'marketwatch' in url:
+                        titles = re.findall(r'<title>(.*?)</title>', resp.text)
+                        for t in titles[2:12]:
+                            feed_articles.append({'title': t, 'source': source, 'url': ''})
+                    else:
+                        titles = re.findall(r'<title><!\[CDATA\[(.*?)\]\]></title>', resp.text)
+                        links  = re.findall(r'<link>(.*?)</link>', resp.text)
+                        for idx, t in enumerate(titles[:10]):
+                            link = links[idx] if idx < len(links) else ''
+                            feed_articles.append({'title': t, 'source': source, 'url': link})
+            except Exception:
+                pass
+            return feed_articles
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            for res in executor.map(_fetch_feed, all_feeds):
+                if res:
+                    articles.extend(res)
 
         if articles:
             NewsEngine._cached_headlines = articles

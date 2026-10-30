@@ -8,6 +8,8 @@ Phase 8 & 9 Upgrades:
 """
 import pandas as pd
 import numpy as np
+import inspect
+import math
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 
@@ -162,16 +164,17 @@ class UnifiedSignalEngine:
 
     # Risk Management Per Version 2.0 Specification (Section 7 & 23)
     MAX_RISK_REWARD    = 5.0
-    MIN_RISK_REWARD    = 1.5
+    MIN_RISK_REWARD    = 2.0
     ATR_SL_MULTIPLIER  = 1.5   # 1.5x ATR structural invalidation distance
-    ATR_TP1_MULTIPLIER = 2.25  # 2.25 / 1.5 = 1.50R (Fixes TP1 inconsistency; strictly >= 1.5R)
+    ATR_TP1_MULTIPLIER = 3.0   # 3.0 / 1.5 = 2.0R minimum under the execution mandate
     ATR_TP2_MULTIPLIER = 3.75  # 3.75 / 1.5 = 2.50R (Target 2 per Section 7)
     ATR_TP3_MULTIPLIER = 5.25  # 5.25 / 1.5 = 3.50R (Target 3 per Section 7)
 
-    def __init__(self, df: pd.DataFrame, symbol: str, timeframe: str = 'H1'):
+    def __init__(self, df: pd.DataFrame, symbol: str, timeframe: str = 'H1', execution_quote=None):
         self.df        = df
         self.symbol    = symbol
         self.timeframe = timeframe
+        self.execution_quote = execution_quote
         self.warnings  = []
         self.asset_class = self._get_asset_class()
         self.weights   = self.ASSET_WEIGHTS.get(self.asset_class, self.ASSET_WEIGHTS['FOREX'])
@@ -203,6 +206,26 @@ class UnifiedSignalEngine:
         self.warnings.extend(quality_report.warnings)
         if quality_report.errors:
             self.warnings.extend([f"DATA ERROR: {e}" for e in quality_report.errors])
+
+        # Invalid input must not reach sub-engines (some train/persist models)
+        # or price-level arithmetic. Return a coherent, non-executable result.
+        if quality_report.force_wait or quality_report.quality_score < 70.0:
+            price = 0.0
+            if self.df is not None and not self.df.empty and 'close' in self.df:
+                candidate = float(self.df['close'].iloc[-1])
+                if math.isfinite(candidate):
+                    price = candidate
+            return UnifiedSignal(
+                symbol=self.symbol, timeframe=self.timeframe, direction='WAIT',
+                strength='WEAK', confidence=0.0, entry=price, stop_loss=price,
+                take_profit_1=price, take_profit_2=None, take_profit_3=None,
+                risk_reward=0.0, analysis='Market data failed validation.',
+                warnings=self.warnings, engine_results={},
+                data_quality_score=quality_report.quality_score,
+                recommended_lots=0.0, is_trade_allowed=False,
+                risk_rejection_reasons=quality_report.errors or ['Market data quality below threshold'],
+                decision_class='DATA_ERROR',
+            )
 
         # ── Run Active Engines ────────────────────────────
         engine_results = {}
@@ -246,6 +269,13 @@ class UnifiedSignalEngine:
         # 10. Master Traders Institutional Engine (PTJ, Wyckoff, Soros/Druckenmiller, Livermore, Simons, Sarao, Burry)
         master_result = self._run_engine(MasterTradersEngine, 'master_traders')
         if master_result: engine_results['master_traders'] = master_result
+
+        missing_required = [
+            name for name, weight in self.weights.items()
+            if weight > 0 and name not in engine_results
+        ]
+        if news_result is None:
+            missing_required.append('news')
 
         # ── Calculate Weighted Score using Dynamic Asset Weights ──
         weighted_buy  = 0.0
@@ -303,15 +333,17 @@ class UnifiedSignalEngine:
         is_blackout = any('BLACKOUT' in w for w in self.warnings)
         if macro_result and any('BLACKOUT' in r for r in macro_result.reasoning):
             is_blackout = True
+        if news_result and any('BLACKOUT' in str(r).upper() for r in news_result.reasoning):
+            is_blackout = True
 
         direction = 'WAIT'
         decision_class = 'WAIT'
 
         # Gate 1: Data Quality Gate (Section 5.1 & 8.1)
-        if quality_report.force_wait or quality_report.quality_score < 70.0:
+        if missing_required:
             direction = 'WAIT'
             decision_class = 'DATA_ERROR'
-            self.warnings.append("GATE REJECTION: Low quality / corrupted market data.")
+            self.warnings.append(f"GATE REJECTION: Required engine evidence unavailable: {', '.join(missing_required)}.")
 
         # Gate 2: High-Impact News Blackout Gate (Section 5.1 & 9)
         elif is_blackout:
@@ -331,6 +363,10 @@ class UnifiedSignalEngine:
                 direction = 'WAIT'
                 decision_class = 'WEAK'
                 self.warnings.append("CONFLUENCE FILTER: Less than 3 independent evidence groups agree.")
+            elif (cand_direction == 'BUY' and net_score <= 0) or (cand_direction == 'SELL' and net_score >= 0):
+                direction = 'WAIT'
+                decision_class = 'CONFLICT'
+                self.warnings.append("CONFLUENCE FILTER: Voting direction conflicts with weighted directional evidence.")
             else:
                 # Rule: "At least one of Structure or Master Traders must normally support the trade."
                 struct_supports = (independent_groups['Structure'] == cand_direction)
@@ -406,11 +442,21 @@ class UnifiedSignalEngine:
 
         # ── Price Levels ──────────────────────────────────
         cur_close = float(self.df['close'].iloc[-1])
+        if self.execution_quote and direction in ('BUY', 'SELL'):
+            quote_price = self.execution_quote.get('ask' if direction == 'BUY' else 'bid')
+            if quote_price is not None and math.isfinite(float(quote_price)) and float(quote_price) > 0:
+                cur_close = float(quote_price)
         atr       = self._get_atr()
 
         entry, sl, tp1, tp2, tp3, rr = self._calculate_levels(
             direction, cur_close, atr, engine_results
         )
+
+        # A known structural liquidity target with inadequate reward is a veto;
+        # do not replace it with an invented farther target to make the ratio pass.
+        level_rejections = []
+        if direction in ('BUY', 'SELL') and (not math.isfinite(rr) or rr < self.MIN_RISK_REWARD):
+            level_rejections.append(f"Structural reward:risk {rr:.2f} is below required {self.MIN_RISK_REWARD:.2f}R")
 
         # ── Deterministic Risk Management Gating ──────────
         # Extract Godzilla volatility metadata for leverage-aware sizing
@@ -436,8 +482,8 @@ class UnifiedSignalEngine:
             godzilla_max_lev=godzilla_max_lev,
         )
 
-        if not risk_eval.is_allowed and direction != 'WAIT':
-            for reason in risk_eval.rejection_reasons:
+        if (not risk_eval.is_allowed or level_rejections) and direction != 'WAIT':
+            for reason in risk_eval.rejection_reasons + level_rejections:
                 self.warnings.append(f"RISK FILTER: {reason}")
             # A rejected risk decision must not remain a directional, executable signal.
             direction = 'WAIT'
@@ -478,9 +524,9 @@ class UnifiedSignalEngine:
             godzilla_max_lev       = godzilla_max_lev,
             godzilla_phi           = godzilla_phi,
             data_quality_score     = round(quality_report.quality_score, 2),
-            recommended_lots       = risk_eval.recommended_lots,
+            recommended_lots       = risk_eval.recommended_lots if direction in ('BUY', 'SELL') else 0.0,
             is_trade_allowed       = risk_eval.is_allowed and direction in ('BUY', 'SELL'),
-            risk_rejection_reasons = risk_eval.rejection_reasons,
+            risk_rejection_reasons = risk_eval.rejection_reasons + level_rejections,
             decision_class         = decision_class,
             market_regime          = market_regime,
             independent_groups     = independent_groups,
@@ -493,7 +539,15 @@ class UnifiedSignalEngine:
 
     def _run_engine(self, engine_class, name: str) -> Optional[EngineResult]:
         try:
-            result = engine_class(self.df, self.symbol).analyze()
+            # Some context-only engines explicitly accept only df/symbol; every
+            # timeframe-aware engine must receive the requested timeframe.
+            parameters = inspect.signature(engine_class).parameters
+            kwargs = {'timeframe': self.timeframe} if 'timeframe' in parameters else {}
+            result = engine_class(self.df, self.symbol, **kwargs).analyze()
+            if result is None or result.direction not in ('BUY', 'SELL', 'NEUTRAL'):
+                raise ValueError('Invalid engine direction/result')
+            if not math.isfinite(float(result.score)) or not 0.0 <= float(result.score) <= 100.0:
+                raise ValueError('Engine score must be finite and between 0 and 100')
             return result
         except Exception as e:
             self.warnings.append(f"{name} engine error: {str(e)[:80]}")
@@ -550,12 +604,12 @@ class UnifiedSignalEngine:
         if smc_res and smc_res.direction == direction:
             if direction == 'BUY' and smc_res.tp_zone and smc_res.tp_zone > entry and smc_res.sl_zone and smc_res.sl_zone < entry:
                 cand_rr = (smc_res.tp_zone - entry) / (entry - smc_res.sl_zone)
-                if cand_rr >= 1.2:
+                if math.isfinite(cand_rr) and cand_rr > 0:
                     tp1 = smc_res.tp_zone
                     sl = smc_res.sl_zone
             elif direction == 'SELL' and smc_res.tp_zone and smc_res.tp_zone < entry and smc_res.sl_zone and smc_res.sl_zone > entry:
                 cand_rr = (entry - smc_res.tp_zone) / (smc_res.sl_zone - entry)
-                if cand_rr >= 1.2:
+                if math.isfinite(cand_rr) and cand_rr > 0:
                     tp1 = smc_res.tp_zone
                     sl = smc_res.sl_zone
 
@@ -564,7 +618,11 @@ class UnifiedSignalEngine:
         tp3 = None
 
         rr = abs(tp1 - entry) / abs(sl - entry) if abs(sl - entry) > 0 else 0
-        rr = min(rr, self.MAX_RISK_REWARD)
+        if rr > self.MAX_RISK_REWARD:
+            # Keep displayed RR consistent with the actual submitted levels.
+            distance = abs(sl - entry) * self.MAX_RISK_REWARD
+            tp1 = entry - distance if direction == 'SELL' else entry + distance
+            rr = self.MAX_RISK_REWARD
 
         return entry, sl, tp1, tp2, tp3, rr
 

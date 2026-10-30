@@ -38,6 +38,7 @@ class SignalDetailSerializer(SignalSerializer):
             'technical_score', 'smc_score', 'price_action_score',
             'macro_score', 'news_score', 'institutional_score', 'ai_ml_score',
             'analysis_summary', 'closed_at', 'performance',
+            'strategy_evidence', 'setup_bar_opened_at',
         ]
 
 

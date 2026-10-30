@@ -17,6 +17,7 @@ import math
 from datetime import timedelta
 from decimal import Decimal
 from django.utils import timezone
+from django.db import transaction
 from .models import LinkedBrokerAccount, AutoTradeExecution, SystemTradingConfig
 from engines.data_fetcher import DataFetcher
 
@@ -38,6 +39,7 @@ class AutoTraderEngine:
         'BTCUSD': 1.0,
         'ETHUSD': 1.0,
         'US30': 1.0,
+        'SPX500': 1.0,
     }
 
     @classmethod
@@ -308,6 +310,12 @@ class AutoTraderEngine:
             logger.info("[AutoTrader Gate 0 FAIL] Signal is_trade_allowed is false.")
             return []
 
+        from engines.institutional_setup import STRATEGY_VERSION
+        evidence = getattr(signal, 'strategy_evidence', {}) or {}
+        if not evidence.get('allowed') or evidence.get('evidence', {}).get('strategy_version') != STRATEGY_VERSION:
+            logger.info('[AutoTrader Gate 0 FAIL] Signal has no approved closed-candle strategy evidence.')
+            return []
+
         # Gate 0a: Strictly Allowed Institutional Assets (AGENTS.md Section 3B)
         ALLOWED_INSTITUTIONAL_SYMBOLS = {'XAUUSD', 'GC=F', 'US30', '^DJI', 'SPX500'}
         symbol = signal.instrument.symbol if signal.instrument else ''
@@ -315,11 +323,11 @@ class AutoTraderEngine:
             logger.info(f"[AutoTrader Gate 0a FAIL] Symbol {symbol} not in strictly allowed institutional assets {ALLOWED_INSTITUTIONAL_SYMBOLS}.")
             return []
 
-        # Gate 0b: Strictly Allowed Timeframes (AGENTS.md Section 3A: 15m, 1H, 4H only)
-        ALLOWED_TIMEFRAMES = {'M15', '15M', 'H1', '1H', 'H4', '4H'}
+        # Gate 0b: Course hierarchy permits M5 confirmation after the M15 setup.
+        ALLOWED_TIMEFRAMES = {'M5', '5M', 'M15', '15M', 'H1', '1H', 'H4', '4H'}
         tf_clean = str(signal.timeframe or '').upper()
         if tf_clean not in ALLOWED_TIMEFRAMES:
-            logger.info(f"[AutoTrader Gate 0b FAIL] Timeframe {tf_clean} not in allowed timeframes (15m, 1H, 4H).")
+            logger.info(f"[AutoTrader Gate 0b FAIL] Timeframe {tf_clean} not in allowed timeframes (5m, 15m, 1H, 4H).")
             return []
 
         # Gate 1: Global Master Switch & Emergency Stop
@@ -334,13 +342,13 @@ class AutoTraderEngine:
             logger.info(f"[AutoTrader Gate 2 FAIL] Signal confidence {conf}% below required 75.0% threshold.")
             return []
 
-        # Gate 2b: Institutional Killzone Gate on 15m (London 07-11 UTC & NY 13-17 UTC Only)
-        if tf_clean in ('M15', '15M'):
+        # Gate 2b: Institutional Killzone Gate on the M15 setup and M5 confirmation.
+        if tf_clean in ('M5', '5M', 'M15', '15M'):
             now_utc = timezone.now()
-            is_killzone = (7 <= now_utc.hour <= 11) or (13 <= now_utc.hour <= 17)
+            is_killzone = (7 <= now_utc.hour < 11) or (13 <= now_utc.hour < 17)
             if not is_killzone:
                 logger.info(
-                    f"[AutoTrader Gate 2b FAIL] Blocked 15m trade on {symbol}: Outside Institutional Killzones ({now_utc.strftime('%H:%M')} UTC). Asian/late-session chop blocked."
+                    f"[AutoTrader Gate 2b FAIL] Blocked {tf_clean} trade on {symbol}: Outside Institutional Killzones ({now_utc.strftime('%H:%M')} UTC). Asian/late-session chop blocked."
                 )
                 return []
 
@@ -423,7 +431,7 @@ class AutoTraderEngine:
                 logger.warning("[AutoTrader Gate 8 FAIL] Account risk must be positive.")
                 continue
 
-            current_open_risk = sum(effective_risk_pct for _ in range(open_count))
+            current_open_risk = sum(float(t.risk_amount_currency or 0) for t in open_executions) / max(balance, 1e-9) * 100.0
             new_total_open_risk = current_open_risk + effective_risk_pct
             if open_risk_limit <= 0 or new_total_open_risk > open_risk_limit:
                 logger.warning(
@@ -434,6 +442,9 @@ class AutoTraderEngine:
 
 
             # Gate 9: Duplicate Protection Check (Section 16)
+            if AutoTradeExecution.objects.filter(account=account, signal=signal).exists():
+                logger.info('[AutoTrader Gate 9 FAIL] Signal already has an execution for this account.')
+                continue
             existing_trade = AutoTradeExecution.objects.filter(
                 account=account,
                 symbol=symbol,
@@ -541,7 +552,7 @@ class AutoTraderEngine:
                 take_profit_1=tp1_f,
                 take_profit_2=tp2_f,
                 take_profit_3=tp3_f,
-                risk_amount_currency=round(risk_amount, 2),
+                risk_amount_currency=round(lots * sl_distance * contract_size, 2),
                 current_price=executed_price,
                 status='OPEN',
                 broker_order_id=broker_order_id,
@@ -573,56 +584,17 @@ class AutoTraderEngine:
         Attempts to acquire a real-time live quote from MT5 terminal or DataFetcher,
         persisting it into MarketQuoteSpread so Gate 10 and execution succeed seamlessly.
         """
-        from market_data.models import Instrument, MarketQuoteSpread
-        inst = Instrument.objects.filter(symbol=symbol).first()
-        if not inst:
-            return None
-
-        # 1. Try MetaTrader 5 live tick
+        from market_data.models import MarketQuoteSpread
         try:
             import MetaTrader5 as mt5
-            if mt5.initialize():
-                mt5.symbol_select(symbol, True)
-                t = mt5.symbol_info_tick(symbol)
-                mt5.shutdown()
-                if t and getattr(t, 'bid', 0) > 0 and getattr(t, 'ask', 0) > 0:
-                    bid = float(t.bid)
-                    ask = float(t.ask)
-                    spread = max(ask - bid, 0.0001)
-                    return MarketQuoteSpread.objects.create(
-                        instrument=inst,
-                        timestamp=timezone.now(),
-                        bid=bid,
-                        ask=ask,
-                        spread=spread,
-                        provider='mt5_terminal',
-                        is_live=True
-                    )
+            if not mt5.initialize(timeout=2000):
+                return None
+            broker_symbol = {'SPX500': 'US500', 'GC=F': 'XAUUSD', '^DJI': 'US30'}.get(symbol, symbol)
+            from signals.strategy_pipeline import _fresh_broker_quote
+            _fresh_broker_quote(symbol, broker_symbol, timezone.now())
+            return MarketQuoteSpread.objects.filter(instrument__symbol=symbol, provider='mt5_terminal', is_live=True).first()
         except Exception:
-            pass
-
-        # 2. Fallback to DataFetcher live tick
-        try:
-            from engines.data_fetcher import DataFetcher
-            fetcher = DataFetcher()
-            tick = fetcher.get_live_tick(symbol, 'H1')
-            if tick and tick.get('live_price'):
-                p = float(tick['live_price'])
-                pip = float(inst.pip_value) if inst.pip_value else 0.0001
-                spread = pip * 2.0
-                return MarketQuoteSpread.objects.create(
-                    instrument=inst,
-                    timestamp=timezone.now(),
-                    bid=p,
-                    ask=p + spread,
-                    spread=spread,
-                    provider='data_fetcher_live',
-                    is_live=True
-                )
-        except Exception:
-            pass
-
-        return None
+            return None
 
     @classmethod
     def _send_mt5_order(cls, account, symbol: str, direction: str, lots: float, sl: float, tp1: float, comment: str = '') -> dict:
@@ -654,7 +626,9 @@ class AutoTraderEngine:
             import MetaTrader5 as mt5
             raw_login = str(account.account_number or '').strip()
             login_id = int(raw_login) if raw_login.isdigit() else 0
-            password = str(account.api_secret or '').strip()
+            # Credentials are stored as signed values; MT5 must receive the
+            # verified plaintext, never the stored signed token.
+            password = account.get_secret().strip()
             server = str(account.server or '').strip()
 
             init_ok = False
@@ -785,15 +759,19 @@ class AutoTraderEngine:
             return False
 
     @classmethod
+    @transaction.atomic
     def _finalize_trade_closure(cls, trade, outcome: str, exit_price: float, sync_signal: bool = True):
         """
         Closes 100% of an open AutoTradeExecution at TP1 or SL, updates account balance/equity,
         synchronizes the linked Signal status, and dispatches closure alerts.
         """
+        # Serialize competing background evaluators before changing cash or state.
+        AutoTradeExecution.objects.select_for_update().get(pk=trade.pk)
+        trade.refresh_from_db()
         if trade.status != 'OPEN':
             return trade
 
-        account = trade.account
+        account = LinkedBrokerAccount.objects.select_for_update().get(pk=trade.account_id)
         entry_val = float(trade.entry_price)
         sl_val = float(trade.stop_loss)
         tp1_val = float(trade.take_profit_1)
@@ -801,7 +779,19 @@ class AutoTraderEngine:
             float(account.balance) * (float(account.max_risk_pct) / 100.0)
         ))
 
-        if outcome == 'TP_HIT':
+        if account.is_paper and trade.signal and trade.signal.strategy_evidence:
+            sync_signal = False  # Canonical evaluator already owns signal/performance truth.
+            # The canonical signal exit model owns path ordering, fixed risk,
+            # spread and gaps for the new strategy. Never recompute TP R using
+            # a stop that may already have moved to breakeven.
+            from signals.models import SignalPerformance
+            performance = SignalPerformance.objects.filter(signal=trade.signal).first()
+            if performance is None or performance.pnl_r is None or not math.isfinite(float(performance.pnl_r)):
+                return trade
+            pnl_r = float(performance.pnl_r)
+            pnl_amount = round(risk_amt * pnl_r, 2)
+            exit_price = float(performance.actual_exit if performance.actual_exit is not None else exit_price)
+        elif outcome == 'TP_HIT':
             sl_dist = abs(entry_val - sl_val)
             tp_dist = abs(tp1_val - entry_val)
             r_mult = round(tp_dist / max(1e-5, sl_dist), 2)
@@ -855,18 +845,20 @@ class AutoTraderEngine:
                     sig.status = 'HIT_SL'
                     perf_outcome = 'LOSS'
                     perf_r = -1.0
-                sig.save(update_fields=['status'])
-
-                SignalPerformance.objects.update_or_create(
-                    signal=sig,
-                    defaults={
-                        'outcome': perf_outcome,
-                        'actual_exit': Decimal(str(round(float(exit_price), 5))),
-                        'pnl_percent': perf_r,
-                        'pnl_r': perf_r,
-                        'pnl_pips': round(perf_r * 20.0, 1),
-                    }
-                )
+                from django.db import transaction
+                with transaction.atomic():
+                    sig.closed_at = trade.closed_at
+                    sig.save(update_fields=['status', 'closed_at'])
+                    SignalPerformance.objects.update_or_create(
+                        signal=sig,
+                        defaults={
+                            'outcome': perf_outcome,
+                            'actual_exit': Decimal(str(round(float(exit_price), 5))),
+                            'pnl_percent': perf_r,
+                            'pnl_r': perf_r,
+                            'pnl_pips': round(perf_r * 20.0, 1),
+                        }
+                    )
             except Exception as e:
                 logger.debug(f"[AutoTrader] Signal sync note: {e}")
 
@@ -879,19 +871,22 @@ class AutoTraderEngine:
         Called by evaluate_signals when a Signal hits TP1 (HIT_TP), SL (HIT_SL) or BREAKEVEN so all
         linked AutoTradeExecutions close 100% immediately without waiting for TP2.
         """
-        if signal_outcome not in ('HIT_TP', 'HIT_SL', 'BREAKEVEN'):
+        if signal_outcome not in ('HIT_TP', 'HIT_SL', 'BREAKEVEN', 'EXPIRED'):
             return []
         if signal_outcome == 'HIT_TP':
             trade_outcome = 'TP_HIT'
         elif signal_outcome == 'BREAKEVEN':
             trade_outcome = 'BREAKEVEN'
+        elif signal_outcome == 'EXPIRED':
+            trade_outcome = 'EXPIRED'
         else:
             trade_outcome = 'SL_HIT'
         open_trades = AutoTradeExecution.objects.filter(signal=signal, status='OPEN').select_related('account', 'signal')
         closed = []
         for trade in open_trades:
-            cls._finalize_trade_closure(trade, trade_outcome, exit_price, sync_signal=False)
-            closed.append(trade)
+            result = cls._finalize_trade_closure(trade, trade_outcome, exit_price, sync_signal=False)
+            if result.status == 'CLOSED':
+                closed.append(result)
         return closed
 
     @classmethod
@@ -916,11 +911,26 @@ class AutoTraderEngine:
             try:
                 df = fetcher.fetch(sym, timeframe='M1', limit=120)
                 if df is not None and len(df) > 0:
+                    if (getattr(df.index, 'tz', None) is not None and
+                            df.index[-1] > timezone.now() + timedelta(seconds=30)):
+                        logger.warning('[AutoTrader] Skipped %s: broker candle clock is future dated.', sym)
+                        continue
                     price_cache[sym] = df
             except Exception as e:
                 logger.error(f"[AutoTrader] Error fetching prices for {sym}: {e}")
 
         for trade in open_trades:
+            if trade.account.is_paper and trade.signal and trade.signal.strategy_evidence:
+                # evaluate_signals performs one causal evaluation for both the
+                # signal and paper execution; a second OHLC extrema pass can
+                # otherwise contradict it or retroactively move a stop.
+                if trade.signal.status in ('HIT_TP', 'HIT_SL', 'BREAKEVEN', 'EXPIRED'):
+                    closed = cls.close_open_trades_for_signal(trade.signal, trade.signal.status, trade.current_price or trade.entry_price)
+                    resolved_trades.extend(t for t in closed if t.status == 'CLOSED')
+                elif trade.signal.exit_state.get('be_active'):
+                    trade.stop_loss = float(trade.signal.exit_state['current_sl'])
+                    trade.save(update_fields=['stop_loss'])
+                continue
             sl_val = float(trade.stop_loss)
             tp1_val = float(trade.take_profit_1)
             entry_f = float(trade.entry_price)
@@ -963,7 +973,10 @@ class AutoTraderEngine:
             # If price reverses, trade closes at Breakeven (0 Loss).
             if risk_dist > 0:
                 pip_value = 0.01 if 'JPY' in trade.symbol or 'US30' in trade.symbol or 'XAU' in trade.symbol else 0.0001
-                spread_buffer = pip_value * 2.0
+                # The entry record captures the fresh broker quote used at execution.
+                # Do not substitute a fixed two-pip assumption, which can under- or
+                # over-protect a position when broker spreads change.
+                spread_buffer = max(0.0, float(trade.spread_pips or 0.0)) * pip_value
                 if trade.direction == 'BUY':
                     if (recent_high - entry_f) >= (1.0 * risk_dist):
                         breakeven_sl = entry_f + spread_buffer

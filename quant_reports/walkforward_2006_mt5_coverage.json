@@ -1,0 +1,279 @@
+{
+  "generated_at_utc": "2026-10-27T19:51:15.695524+00:00",
+  "requested_user_end_date": "2026-10-28",
+  "requested_start_utc": "2006-01-01T00:00:00+00:00",
+  "effective_end_utc": "2026-10-27T19:51:15.695506+00:00",
+  "scope": "Broker historical-data availability only; no strategy trades or performance simulation",
+  "source": "MT5 SDK copy_rates_range plus separate unfiltered current-history clock probe",
+  "utc_policy": "Official MT5 UTC timestamps kept unchanged; no guessed broker offset, login or setting changes",
+  "full_requested_period_verified": false,
+  "eligible_for_live": false,
+  "status": "CLOCK_ANOMALY",
+  "assets": {
+    "XAUUSD": {
+      "M15": {
+        "status": "CLOCK_ANOMALY",
+        "broker_symbol": "XAUUSD",
+        "timeframe": "M15",
+        "requested_start_utc": "2006-01-01T00:00:00+00:00",
+        "requested_end_utc": "2026-10-27T19:51:15.695506+00:00",
+        "hard_timeout_seconds": 8.0,
+        "worker_timed_out": false,
+        "observations": {
+          "connection": {
+            "status": "CONNECTED",
+            "terminal_max_bars": 100000,
+            "symbol_available": true,
+            "chart_price_basis": "bid"
+          },
+          "recent_unfiltered": {
+            "status": "CLOCK_ANOMALY",
+            "returned_bars": 1200,
+            "completed_bars_by_reference_utc": 1191,
+            "earliest_returned_open_utc": "2026-10-08T10:00:00+00:00",
+            "latest_returned_open_utc": "2026-10-27T21:45:00+00:00",
+            "first_returned_year": 2026,
+            "future_bars": 8,
+            "largest_future_ahead_seconds": 6824.304493904114,
+            "duplicate_timestamps": 0,
+            "out_of_order_steps": 0,
+            "largest_timestamp_gap_seconds": 180900,
+            "gaps_larger_than_one_timeframe": 13,
+            "gap_interpretation": "Includes market closures; exchange-calendar completeness has not been verified",
+            "requested_bars": 1200
+          },
+          "date_range": {
+            "status": "NO_BARS",
+            "returned_bars": 0,
+            "error": "(-2, 'Terminal: Invalid params')"
+          }
+        },
+        "earliest_verified_available_open_utc": "2026-10-08T10:00:00+00:00",
+        "latest_verified_available_open_utc": "2026-10-27T21:45:00+00:00",
+        "coverage_evidence": "Recent-window fallback ONLY; maximum history remains unknown",
+        "any_2006_bar_observed": false,
+        "full_requested_period_verified": false,
+        "clock_basis_verified": false
+      },
+      "H1": {
+        "status": "CLOCK_ANOMALY",
+        "broker_symbol": "XAUUSD",
+        "timeframe": "H1",
+        "requested_start_utc": "2006-01-01T00:00:00+00:00",
+        "requested_end_utc": "2026-10-27T19:51:15.695506+00:00",
+        "hard_timeout_seconds": 8.0,
+        "worker_timed_out": false,
+        "observations": {
+          "connection": {
+            "status": "CONNECTED",
+            "terminal_max_bars": 100000,
+            "symbol_available": true,
+            "chart_price_basis": "bid"
+          },
+          "recent_unfiltered": {
+            "status": "CLOCK_ANOMALY",
+            "returned_bars": 1200,
+            "completed_bars_by_reference_utc": 1197,
+            "earliest_returned_open_utc": "2026-08-12T11:00:00+00:00",
+            "latest_returned_open_utc": "2026-10-27T21:00:00+00:00",
+            "first_returned_year": 2026,
+            "future_bars": 2,
+            "largest_future_ahead_seconds": 4124.304493904114,
+            "duplicate_timestamps": 0,
+            "out_of_order_steps": 0,
+            "largest_timestamp_gap_seconds": 183600,
+            "gaps_larger_than_one_timeframe": 54,
+            "gap_interpretation": "Includes market closures; exchange-calendar completeness has not been verified",
+            "requested_bars": 1200
+          },
+          "date_range": {
+            "status": "NO_BARS",
+            "returned_bars": 0,
+            "error": "(-2, 'Terminal: Invalid params')"
+          }
+        },
+        "earliest_verified_available_open_utc": "2026-08-12T11:00:00+00:00",
+        "latest_verified_available_open_utc": "2026-10-27T21:00:00+00:00",
+        "coverage_evidence": "Recent-window fallback ONLY; maximum history remains unknown",
+        "any_2006_bar_observed": false,
+        "full_requested_period_verified": false,
+        "clock_basis_verified": false
+      },
+      "H4": {
+        "status": "CLOCK_ANOMALY",
+        "broker_symbol": "XAUUSD",
+        "timeframe": "H4",
+        "requested_start_utc": "2006-01-01T00:00:00+00:00",
+        "requested_end_utc": "2026-10-27T19:51:15.695506+00:00",
+        "hard_timeout_seconds": 8.0,
+        "worker_timed_out": true,
+        "observations": {
+          "connection": {
+            "status": "CONNECTED",
+            "terminal_max_bars": 100000,
+            "symbol_available": true,
+            "chart_price_basis": "bid"
+          },
+          "recent_unfiltered": {
+            "status": "CLOCK_ANOMALY",
+            "returned_bars": 1200,
+            "completed_bars_by_reference_utc": 1198,
+            "earliest_returned_open_utc": "2026-01-20T00:00:00+00:00",
+            "latest_returned_open_utc": "2026-10-27T20:00:00+00:00",
+            "first_returned_year": 2026,
+            "future_bars": 1,
+            "largest_future_ahead_seconds": 524.3044939041138,
+            "duplicate_timestamps": 0,
+            "out_of_order_steps": 0,
+            "largest_timestamp_gap_seconds": 273600,
+            "gaps_larger_than_one_timeframe": 40,
+            "gap_interpretation": "Includes market closures; exchange-calendar completeness has not been verified",
+            "requested_bars": 1200
+          },
+          "worker_error": {
+            "error": "IPC hard timeout after 8s; child terminated"
+          }
+        },
+        "earliest_verified_available_open_utc": "2026-01-20T00:00:00+00:00",
+        "latest_verified_available_open_utc": "2026-10-27T20:00:00+00:00",
+        "coverage_evidence": "Recent-window fallback ONLY; maximum history remains unknown",
+        "any_2006_bar_observed": false,
+        "full_requested_period_verified": false,
+        "clock_basis_verified": false
+      }
+    },
+    "US30": {
+      "M15": {
+        "status": "RANGE_UNVERIFIED",
+        "broker_symbol": "US30",
+        "timeframe": "M15",
+        "requested_start_utc": "2006-01-01T00:00:00+00:00",
+        "requested_end_utc": "2026-10-27T19:51:15.695506+00:00",
+        "hard_timeout_seconds": 8.0,
+        "worker_timed_out": true,
+        "observations": {
+          "worker_error": {
+            "error": "IPC hard timeout after 8s; child terminated"
+          }
+        },
+        "earliest_verified_available_open_utc": null,
+        "latest_verified_available_open_utc": null,
+        "coverage_evidence": "Recent-window fallback ONLY; maximum history remains unknown",
+        "any_2006_bar_observed": false,
+        "full_requested_period_verified": false,
+        "clock_basis_verified": null
+      },
+      "H1": {
+        "status": "RANGE_UNVERIFIED",
+        "broker_symbol": "US30",
+        "timeframe": "H1",
+        "requested_start_utc": "2006-01-01T00:00:00+00:00",
+        "requested_end_utc": "2026-10-27T19:51:15.695506+00:00",
+        "hard_timeout_seconds": 8.0,
+        "worker_timed_out": true,
+        "observations": {
+          "worker_error": {
+            "error": "IPC hard timeout after 8s; child terminated"
+          }
+        },
+        "earliest_verified_available_open_utc": null,
+        "latest_verified_available_open_utc": null,
+        "coverage_evidence": "Recent-window fallback ONLY; maximum history remains unknown",
+        "any_2006_bar_observed": false,
+        "full_requested_period_verified": false,
+        "clock_basis_verified": null
+      },
+      "H4": {
+        "status": "RANGE_UNVERIFIED",
+        "broker_symbol": "US30",
+        "timeframe": "H4",
+        "requested_start_utc": "2006-01-01T00:00:00+00:00",
+        "requested_end_utc": "2026-10-27T19:51:15.695506+00:00",
+        "hard_timeout_seconds": 8.0,
+        "worker_timed_out": true,
+        "observations": {
+          "worker_error": {
+            "error": "IPC hard timeout after 8s; child terminated"
+          }
+        },
+        "earliest_verified_available_open_utc": null,
+        "latest_verified_available_open_utc": null,
+        "coverage_evidence": "Recent-window fallback ONLY; maximum history remains unknown",
+        "any_2006_bar_observed": false,
+        "full_requested_period_verified": false,
+        "clock_basis_verified": null
+      }
+    },
+    "SPX500": {
+      "M15": {
+        "status": "RANGE_UNVERIFIED",
+        "broker_symbol": "US500",
+        "timeframe": "M15",
+        "requested_start_utc": "2006-01-01T00:00:00+00:00",
+        "requested_end_utc": "2026-10-27T19:51:15.695506+00:00",
+        "hard_timeout_seconds": 8.0,
+        "worker_timed_out": true,
+        "observations": {
+          "worker_error": {
+            "error": "IPC hard timeout after 8s; child terminated"
+          }
+        },
+        "earliest_verified_available_open_utc": null,
+        "latest_verified_available_open_utc": null,
+        "coverage_evidence": "Recent-window fallback ONLY; maximum history remains unknown",
+        "any_2006_bar_observed": false,
+        "full_requested_period_verified": false,
+        "clock_basis_verified": null
+      },
+      "H1": {
+        "status": "RANGE_UNVERIFIED",
+        "broker_symbol": "US500",
+        "timeframe": "H1",
+        "requested_start_utc": "2006-01-01T00:00:00+00:00",
+        "requested_end_utc": "2026-10-27T19:51:15.695506+00:00",
+        "hard_timeout_seconds": 8.0,
+        "worker_timed_out": true,
+        "observations": {
+          "worker_error": {
+            "error": "IPC hard timeout after 8s; child terminated"
+          }
+        },
+        "earliest_verified_available_open_utc": null,
+        "latest_verified_available_open_utc": null,
+        "coverage_evidence": "Recent-window fallback ONLY; maximum history remains unknown",
+        "any_2006_bar_observed": false,
+        "full_requested_period_verified": false,
+        "clock_basis_verified": null
+      },
+      "H4": {
+        "status": "RANGE_UNVERIFIED",
+        "broker_symbol": "US500",
+        "timeframe": "H4",
+        "requested_start_utc": "2006-01-01T00:00:00+00:00",
+        "requested_end_utc": "2026-10-27T19:51:15.695506+00:00",
+        "hard_timeout_seconds": 8.0,
+        "worker_timed_out": true,
+        "observations": {
+          "worker_error": {
+            "error": "IPC hard timeout after 8s; child terminated"
+          }
+        },
+        "earliest_verified_available_open_utc": null,
+        "latest_verified_available_open_utc": null,
+        "coverage_evidence": "Recent-window fallback ONLY; maximum history remains unknown",
+        "any_2006_bar_observed": false,
+        "full_requested_period_verified": false,
+        "clock_basis_verified": null
+      }
+    }
+  },
+  "limitations": [
+    "Requested 2006 date is not evidence that 2006 bars exist or were returned",
+    "Failure/timeout is not proof that no older broker history exists; it is an unverified range",
+    "Recent-window fallback proves only its actual returned dates, not maximum historical depth",
+    "Timestamp gaps include market closures; calendar-level completeness is not assessed",
+    "A future latest bar invalidates session/killzone timing even if a bounded date query hides that future bar"
+  ],
+  "completed_at_utc": "2026-10-27T19:52:13.888344+00:00",
+  "any_2006_bars_observed": false
+}

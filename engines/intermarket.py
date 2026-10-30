@@ -212,13 +212,21 @@ class IntermarketEngine(BaseEngine):
         except Exception:
             pass
 
+    _METRICS_CACHE: Dict = {}
+    _METRICS_TTL: int = 3600
+
     @classmethod
     def get_real_intermarket_metrics(cls, symbol: str, current_df: Optional[pd.DataFrame] = None) -> dict:
         """
         Calculates empirical 30-day Pearson correlations against real market data
-        (DXY DX-Y.NYB, SPX ^GSPC, Oil CL=F, Gold GC=F) and calculates the real US Treasury
-        Yield Curve slope (^TNX 10Y minus ^IRX 13W T-Bill).
+        (with 1-hour memory caching to keep engine execution instant).
         """
+        import time as _time
+        now_ts = _time.time()
+        cached = cls._METRICS_CACHE.get(symbol)
+        if cached and (now_ts - cached[0]) < cls._METRICS_TTL:
+            return dict(cached[1])
+
         from engines.data_fetcher import DataFetcher
         fetcher = DataFetcher()
 
@@ -268,10 +276,12 @@ class IntermarketEngine(BaseEngine):
             pass
 
         base_bench = cls.BENCHMARK_CORRELATIONS.get(symbol, cls.BENCHMARK_CORRELATIONS.get('EURUSD', {}))
-        return {
+        out = {
             'dxy': corrs.get('dxy', base_bench.get('dxy', -0.75)),
             'spx': corrs.get('spx', base_bench.get('spx', 0.45)),
             'oil': corrs.get('oil', base_bench.get('oil', 0.25)),
             'gold': corrs.get('gold', base_bench.get('gold', 0.50)),
             'yield_curve_slope': yield_slope,
         }
+        cls._METRICS_CACHE[symbol] = (now_ts, out)
+        return out

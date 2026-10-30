@@ -254,7 +254,7 @@ class MacroEngine(BaseEngine):
     _CACHE_TTL: int = 300
 
     def _fetch_live_macro_data(self) -> dict:
-        """Fetch live changes for DXY, VIX, TNX, Gold, Oil, Copper, SPX via Yahoo Finance (with 5m caching)"""
+        """Fetch live changes for DXY, VIX, TNX, Gold, Oil, Copper, SPX in parallel (with 5m caching)"""
         now = datetime.now()
         if (
             MacroEngine._cached_macro_data is not None
@@ -270,34 +270,37 @@ class MacroEngine(BaseEngine):
         }
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
 
-        for key, ticker in self.TICKERS.items():
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _fetch_ticker(item):
+            key, ticker = item
             url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
             params = {'interval': '1d', 'range': '5d'}
             try:
-                resp = requests.get(url, params=params, headers=headers, timeout=3)
+                resp = requests.get(url, params=params, headers=headers, timeout=2.5)
                 data = resp.json()
                 chart = data.get('chart', {}).get('result', [])
                 if not chart:
-                    continue
-                closes = chart[0]['indicators']['quote'][0]['close']
-                closes = [c for c in closes if c is not None]
+                    return None
+                closes = [c for c in chart[0]['indicators']['quote'][0]['close'] if c is not None]
                 if len(closes) >= 2:
-                    if key == 'VIX':
-                        result['vix_level'] = round(float(closes[-1]), 2)
-                    elif key == 'TNX':
-                        result['tnx_change'] = round(float(closes[-1] - closes[-2]), 3)
-                    elif key == 'DXY':
-                        result['dxy_change'] = round(((closes[-1] - closes[-2]) / closes[-2]) * 100, 3)
-                    elif key == 'GOLD':
-                        result['gold_change'] = round(((closes[-1] - closes[-2]) / closes[-2]) * 100, 3)
-                    elif key == 'OIL':
-                        result['oil_change'] = round(((closes[-1] - closes[-2]) / closes[-2]) * 100, 3)
-                    elif key == 'COPPER':
-                        result['copper_change'] = round(((closes[-1] - closes[-2]) / closes[-2]) * 100, 3)
-                    elif key == 'SPX':
-                        result['spx_change'] = round(((closes[-1] - closes[-2]) / closes[-2]) * 100, 3)
+                    return key, closes[-1], closes[-2]
             except Exception:
-                continue
+                pass
+            return None
+
+        with ThreadPoolExecutor(max_workers=9) as executor:
+            items = list(self.TICKERS.items())
+            for res in executor.map(_fetch_ticker, items):
+                if not res:
+                    continue
+                key, c_last, c_prev = res
+                if key == 'VIX':
+                    result['vix_level'] = round(float(c_last), 2)
+                elif key == 'TNX':
+                    result['tnx_change'] = round(float(c_last - c_prev), 3)
+                elif key in ('DXY', 'GOLD', 'OIL', 'COPPER', 'SPX'):
+                    result[f"{key.lower()}_change"] = round(((c_last - c_prev) / c_prev) * 100, 3)
 
         MacroEngine._cached_macro_data = result
         MacroEngine._last_macro_fetch = now

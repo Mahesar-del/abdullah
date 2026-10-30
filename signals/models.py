@@ -28,6 +28,7 @@ class Signal(models.Model):
         ('ACTIVE',      'Active'),
         ('HIT_TP',      'Take Profit Hit'),
         ('HIT_SL',      'Stop Loss Hit'),
+        ('BREAKEVEN',   'Breakeven'),
         ('EXPIRED',     'Expired'),
         ('CANCELLED',   'Cancelled'),
         ('INVALIDATED', 'Invalidated'),
@@ -102,6 +103,9 @@ class Signal(models.Model):
     tp2_hit_at             = models.DateTimeField(null=True, blank=True)
     tp3_hit_at             = models.DateTimeField(null=True, blank=True)
     invalidation_reason    = models.CharField(max_length=300, blank=True)
+    exit_state            = models.JSONField(default=dict, blank=True, help_text='Causal exit checkpoint and original risk basis')
+    strategy_evidence     = models.JSONField(default=dict, blank=True)
+    setup_bar_opened_at   = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.direction} {self.instrument.symbol} @ {self.entry_price} [{self.confidence_score}%]"
@@ -114,6 +118,9 @@ class Signal(models.Model):
 
     class Meta:
         ordering = ['-generated_at']
+        constraints = [
+            models.UniqueConstraint(fields=['instrument', 'timeframe', 'setup_bar_opened_at'], name='signals_setup_bar_unique'),
+        ]
         indexes = [
             models.Index(fields=['instrument', 'status', '-generated_at']),
             models.Index(fields=['direction', 'status']),
@@ -145,6 +152,7 @@ class SignalPerformance(models.Model):
     pnl_pips      = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     pnl_percent   = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     pnl_r         = models.FloatField(null=True, blank=True, help_text="Realised result in R multiples (risk units)")
+    actual_exit   = models.DecimalField(max_digits=20, decimal_places=8, null=True, blank=True)
     max_drawdown  = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     max_profit    = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     duration_mins = models.IntegerField(null=True, blank=True, help_text="How long signal was active in minutes")

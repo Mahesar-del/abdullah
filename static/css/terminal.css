@@ -257,7 +257,8 @@ body {
     .loss-diagnosis-section{ grid-column: span 5 !important; }
     .engine-section:not([id]),
     #ai-analysis-section   { grid-column: span 5 !important; }
-    #institutional-section { grid-column: span 7 !important; }
+    /* Market context is a full-width two-row reference panel. */
+    #institutional-section { grid-column: 1 / -1 !important; }
 }
 @media (max-width: 1100px) {
     .main-content > section { margin: 0 0 8px !important; }

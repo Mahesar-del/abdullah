@@ -17,6 +17,7 @@ urlpatterns = [
     path('<int:pk>/chart/',   views.SignalChartView.as_view(),         name='chart'),
     path('active/',           views.ActiveSignalsView.as_view(),       name='active'),
     path('stats/',            views.SignalStatsView.as_view(),         name='stats'),
+    path('strategy-status/',  views.InstitutionalStrategyStatusView.as_view(), name='strategy-status'),
     path('news-events/',      views.NewsEventListView.as_view(),       name='news-events'),
 
     # Signal Generation & Orchestration
